@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Savings Tracker</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>Savings & Expenses Tracker</h1>
+  </header>
+  <main>
+    <section id="input-section">
+      <h2>Add Entry</h2>
+      <form id="entry-form">
+        <label for="type">Type:</label>
+        <select id="type" required>
+          <option value="mutual_fund">Mutual Fund</option>
+          <option value="lic">LIC</option>
+          <option value="bank_deposit">Bank Deposit</option>
+          <option value="sukanya_yojana">Sukanya Yojana</option>
+          <option value="expense">Expense</option>
+        </select>
+        <label for="amount">Amount:</label>
+        <input type="number" id="amount" required min="0">
+        <label for="date">Date:</label>
+        <input type="date" id="date" required>
+        <button type="submit">Add</button>
+      </form>
+    </section>
+    <section id="charts-section">
+      <h2>Overview</h2>
+      <canvas id="savingsChart"></canvas>
+      <canvas id="expensesChart"></canvas>
+    </section>
+    <section id="history-section">
+      <h2>History</h2>
+      <ul id="history-list"></ul>
+    </section>
+  </main>
+  <footer>
+    <p>&copy; 2026 Savings Tracker</p>
+  </footer>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
