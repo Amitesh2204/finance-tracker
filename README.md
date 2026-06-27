@@ -1,2 +1,2 @@
 # finance-tracker
-finance tracker application
+finance tracker application.
