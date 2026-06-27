@@ -1,1 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Personal Finance Tracker</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+</head>
+<body>
+  <header>
+    <h1>Personal Finance Tracker</h1>
+    <div class="summary">
+      <div class="card">
+        <h3>Available Balance</h3>
+        <p id="balance">₹10,297</p>
+      </div>
+      <div class="card">
+        <h3>Total Net Worth</h3>
+        <p id="networth">₹60,197</p>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section class="funds card">
+      <h2>Emergency Fund</h2>
+      <p id="emergency">₹4,373 / ₹5,000 (87%)</p>
+    </section>
+
+    <section class="portfolio card">
+      <h2>Investment Portfolio</h2>
+      <canvas id="portfolioChart"></canvas>
+    </section>
+
+    <section class="goals card">
+      <h2>Goals</h2>
+      <p>Short Term: ₹424 / ₹1,000</p>
+      <p>Long Term: ₹5,500 / ₹15,000</p>
+    </section>
+
+    <section class="expenses card">
+      <h2>Income vs Expense Trend</h2>
+      <canvas id="trendChart"></canvas>
+    </section>
+
+    <section class="input-form card">
+      <h2>Add Daily Entry</h2>
+      <form id="entryForm">
+        <input type="date" id="date" required>
+        <input type="text" id="category" placeholder="Category" required>
+        <input type="number" id="amount" placeholder="Amount (₹)" required>
+        <button type="submit">Add Entry</button>
+      </form>
+      <button id="exportBtn">Download Excel</button>
+    </section>
+  </main>
+
+  <footer>
+    <p>© 2026 Personal Finance Tracker</p>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>
 
