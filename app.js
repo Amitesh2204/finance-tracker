@@ -3,8 +3,17 @@ const db = new PouchDB('finance');
 
 // Backend API base (FastAPI)
 const API_BASE = window.__API_BASE__ || '/';
+const REMOTE_COUCH = window.__REMOTE_COUCH__ || null;
+
+function isOnline() {
+  return typeof navigator !== 'undefined' ? navigator.onLine : true;
+}
 
 async function fetchEntries() {
+  if (!isOnline()) {
+    return db.allDocs({include_docs:true}).then(r => r.rows.map(r=>r.doc));
+  }
+
   try {
     const res = await fetch(`${API_BASE}entries`);
     if (!res.ok) throw new Error('API unavailable');
@@ -16,30 +25,42 @@ async function fetchEntries() {
 }
 
 async function addEntry(entry) {
-  // Try REST API first
+  const id = entry._id || `entry:${entry.type||'txn'}:${entry.date||Date.now()}:${Math.random().toString(36).slice(2,9)}`;
+  const doc = Object.assign({}, entry, {_id: id});
+
+  if (!isOnline()) {
+    return db.put(doc).then(() => doc);
+  }
+
   try {
     const res = await fetch(`${API_BASE}entries`, {
-      method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(entry)
+      method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(doc)
     });
     if (!res.ok) throw new Error('API returned ' + res.status);
     return await res.json();
   } catch (err) {
-    // Fallback to local PouchDB
-    const id = entry._id || `entry:${entry.type||'txn'}:${entry.date||Date.now()}:${Math.random().toString(36).slice(2,9)}`;
-    const doc = Object.assign({}, entry, {_id: id});
-    return db.put(doc).then(()=>doc);
+    console.warn('REST API failed, storing locally instead', err);
+    return db.put(doc).then(() => doc);
   }
 }
 
 function initSyncToCouch(remote) {
-  if (!remote) return;
-  db.sync(remote, { live: true, retry: true })
+  if (!remote) return null;
+
+  if (!isOnline()) {
+    console.log('Offline: remote CouchDB sync will start when online');
+    return null;
+  }
+
+  const sync = db.sync(remote, { live: true, retry: true })
     .on('change', info => console.log('sync change', info))
     .on('paused', err => console.log('sync paused', err))
     .on('active', () => console.log('sync active'))
     .on('denied', err => console.error('sync denied', err))
     .on('complete', info => console.log('sync complete', info))
     .on('error', err => console.error('sync error', err));
+
+  return sync;
 }
 
 // Simple UI bindings and population
@@ -62,5 +83,16 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Optional: initialize sync to a CouchDB remote if configured
   const remoteCouch = window.__REMOTE_COUCH__ || null; // e.g. set via HTML or deployment config
-  initSyncToCouch(remoteCouch);
+  let syncHandler = initSyncToCouch(remoteCouch);
+
+  window.addEventListener('online', () => {
+    console.log('Network online: attempting remote CouchDB sync');
+    if (!syncHandler) {
+      syncHandler = initSyncToCouch(remoteCouch);
+    }
+  });
+
+  window.addEventListener('offline', () => {
+    console.log('Network offline: using local PouchDB only');
+  });
 });
