@@ -1,39 +1,31 @@
-// PouchDB offline-first logic (optional)
+// PouchDB offline-first logic
 const db = new PouchDB('finance');
 
 const currentOrigin = typeof window !== 'undefined' ? window.location.origin : '';
 const urlParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
 const queryApi = urlParams?.get('api') || urlParams?.get('api_base') || urlParams?.get('API_BASE');
-const queryRemote = urlParams?.get('remote') || urlParams?.get('remote_couch') || urlParams?.get('REMOTE_COUCH');
 
 const storedApi = typeof window !== 'undefined' ? window.localStorage.getItem('finance_api_base') : null;
-const storedRemote = typeof window !== 'undefined' ? window.localStorage.getItem('finance_remote_couch') : null;
 
-function saveRemoteConfig(apiBase, remoteCouch) {
+function saveRemoteConfig(apiBase) {
   if (typeof window !== 'undefined') {
     if (apiBase) window.localStorage.setItem('finance_api_base', apiBase);
-    if (remoteCouch) window.localStorage.setItem('finance_remote_couch', remoteCouch);
   }
 }
 
 if (queryApi && typeof window !== 'undefined') {
-  saveRemoteConfig(queryApi, storedRemote);
-}
-if (queryRemote && typeof window !== 'undefined') {
-  saveRemoteConfig(storedApi, queryRemote);
+  saveRemoteConfig(queryApi);
 }
 
 const isGitHubPages = currentOrigin.includes('github.io');
 const defaultApiBase = isGitHubPages ? null : `${currentOrigin.replace(/\/$/, '')}/`;
-const defaultRemoteCouch = isGitHubPages ? null : `${currentOrigin.replace(/\/$/, '')}/finance`;
 
 // Backend API base (FastAPI)
 const API_BASE = window.__API_BASE__ || queryApi || storedApi || defaultApiBase;
 const hasRemoteApi = Boolean(API_BASE);
-const hasRemoteCouch = Boolean(REMOTE_COUCH);
 let refreshInvestmentsCallback = () => {};
 
-console.log('API_BASE=', API_BASE, 'REMOTE_COUCH=', REMOTE_COUCH, 'hasRemoteApi=', hasRemoteApi, 'hasRemoteCouch=', hasRemoteCouch);
+console.log('API_BASE=', API_BASE, 'hasRemoteApi=', hasRemoteApi);
 
 function isOnline() {
   return typeof navigator !== 'undefined' ? navigator.onLine : true;
@@ -152,37 +144,6 @@ async function addEntry(entry) {
   }
 }
 
-function initSyncToCouch(remote, refreshCallback = () => {}) {
-  if (!remote) return null;
-
-  if (!isOnline()) {
-    console.log('Offline: remote CouchDB sync will start when online');
-    return null;
-  }
-
-  const sync = db.sync(remote, { live: true, retry: true })
-    .on('change', info => {
-      console.log('sync change', info);
-      refreshCallback();
-    })
-    .on('paused', err => {
-      if (err) console.warn('sync paused', err);
-      else console.log('sync paused (up-to-date)');
-    })
-    .on('active', () => {
-      console.log('sync active');
-      refreshCallback();
-    })
-    .on('denied', err => console.error('sync denied', err))
-    .on('complete', info => {
-      console.log('sync complete', info);
-      refreshCallback();
-    })
-    .on('error', err => console.error('sync error', err));
-
-  return sync;
-}
-
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js')
@@ -198,7 +159,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   window.fetchEntries = fetchEntries;
   window.addEntry = addEntry;
 
-  // Try to load recent transactions into UI table if present
   const txTable = document.getElementById('recentTx');
   if (txTable) {
     const entries = await fetchEntries().catch(()=>[]);
@@ -208,23 +168,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       txTable.innerHTML = '<tr><td colspan="3">No transactions</td></tr>';
     }
   }
-
-  // Optional: initialize sync to a CouchDB remote if configured
-  const remoteCouch = REMOTE_COUCH;
-  let syncHandler = null;
-
-  window.addEventListener('online', async () => {
-    console.log('Network online: attempting remote CouchDB sync');
-    if (!syncHandler) {
-      syncHandler = initSyncToCouch(remoteCouch, refreshInvestmentsCallback);
-    }
-    await syncPendingEntries();
-    loadInvestments();
-  });
-
-  window.addEventListener('offline', () => {
-    console.log('Network offline: using local PouchDB only');
-  });
 
   const investmentForm = document.getElementById('investmentForm');
   const investmentTableBody = document.querySelector('#investmentsTable tbody');
@@ -257,7 +200,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   if (investmentForm) {
     refreshInvestmentsCallback = loadInvestments;
-    syncHandler = initSyncToCouch(remoteCouch, refreshInvestmentsCallback);
     await syncPendingEntries();
     loadInvestments();
 
