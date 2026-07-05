@@ -1,9 +1,16 @@
 // PouchDB offline-first logic (optional)
 const db = new PouchDB('finance');
 
+const currentOrigin = typeof window !== 'undefined' ? window.location.origin : '';
+const defaultApiBase = currentOrigin ? `${currentOrigin}/` : '/';
+const defaultRemoteCouch = currentOrigin ? `${currentOrigin}/finance` : null;
+
 // Backend API base (FastAPI)
-const API_BASE = window.__API_BASE__ || '/';
-const REMOTE_COUCH = window.__REMOTE_COUCH__ || null;
+const API_BASE = window.__API_BASE__ || defaultApiBase;
+const REMOTE_COUCH = window.__REMOTE_COUCH__ || defaultRemoteCouch;
+let refreshInvestmentsCallback = () => {};
+
+console.log('API_BASE=', API_BASE, 'REMOTE_COUCH=', REMOTE_COUCH);
 
 function isOnline() {
   return typeof navigator !== 'undefined' ? navigator.onLine : true;
@@ -80,7 +87,7 @@ async function addEntry(entry) {
   }
 }
 
-function initSyncToCouch(remote) {
+function initSyncToCouch(remote, refreshCallback = () => {}) {
   if (!remote) return null;
 
   if (!isOnline()) {
@@ -89,11 +96,23 @@ function initSyncToCouch(remote) {
   }
 
   const sync = db.sync(remote, { live: true, retry: true })
-    .on('change', info => console.log('sync change', info))
-    .on('paused', err => console.log('sync paused', err))
-    .on('active', () => console.log('sync active'))
+    .on('change', info => {
+      console.log('sync change', info);
+      refreshCallback();
+    })
+    .on('paused', err => {
+      if (err) console.warn('sync paused', err);
+      else console.log('sync paused (up-to-date)');
+    })
+    .on('active', () => {
+      console.log('sync active');
+      refreshCallback();
+    })
     .on('denied', err => console.error('sync denied', err))
-    .on('complete', info => console.log('sync complete', info))
+    .on('complete', info => {
+      console.log('sync complete', info);
+      refreshCallback();
+    })
     .on('error', err => console.error('sync error', err));
 
   return sync;
@@ -126,14 +145,15 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   // Optional: initialize sync to a CouchDB remote if configured
-  const remoteCouch = window.__REMOTE_COUCH__ || null; // e.g. set via HTML or deployment config
-  let syncHandler = initSyncToCouch(remoteCouch);
+  const remoteCouch = REMOTE_COUCH;
+  let syncHandler = null;
 
   window.addEventListener('online', () => {
     console.log('Network online: attempting remote CouchDB sync');
     if (!syncHandler) {
-      syncHandler = initSyncToCouch(remoteCouch);
+      syncHandler = initSyncToCouch(remoteCouch, refreshInvestmentsCallback);
     }
+    loadInvestments();
   });
 
   window.addEventListener('offline', () => {
@@ -170,6 +190,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   if (investmentForm) {
+    refreshInvestmentsCallback = loadInvestments;
+    syncHandler = initSyncToCouch(remoteCouch, refreshInvestmentsCallback);
     loadInvestments();
 
     investmentForm.addEventListener('submit', async event => {
