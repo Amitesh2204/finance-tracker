@@ -20,8 +20,8 @@ if (queryApi && typeof window !== 'undefined') {
 const isGitHubPages = currentOrigin.includes('github.io');
 const defaultApiBase = isGitHubPages ? null : `${currentOrigin.replace(/\/$/, '')}/`;
 
-// Backend API base (FastAPI)
-const API_BASE = window.__API_BASE__ || queryApi || storedApi || defaultApiBase;
+// Backend API base (FastAPI) — always ensure trailing slash
+const API_BASE = (window.__API_BASE__ || queryApi || storedApi || defaultApiBase || '').replace(/\/?$/, '/');
 const hasRemoteApi = Boolean(API_BASE);
 let refreshInvestmentsCallback = () => {};
 
@@ -144,13 +144,14 @@ async function addEntry(entry) {
   }
 }
 
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js')
-      .then(reg => console.log('Service worker registered', reg.scope))
-      .catch(err => console.warn('Service worker registration failed', err));
-  });
-}
+// Service worker disabled for now to avoid 404 errors
+// if ('serviceWorker' in navigator) {
+//   window.addEventListener('load', () => {
+//     navigator.serviceWorker.register('/sw.js')
+//       .then(reg => console.log('Service worker registered', reg.scope))
+//       .catch(err => console.warn('Service worker registration failed', err));
+//   });
+// }
 
 // Simple UI bindings and population
 document.addEventListener('DOMContentLoaded', async () => {
@@ -158,6 +159,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   window.financeDB = db;
   window.fetchEntries = fetchEntries;
   window.addEntry = addEntry;
+  window.syncPendingEntries = syncPendingEntries;
 
   const txTable = document.getElementById('recentTx');
   if (txTable) {
