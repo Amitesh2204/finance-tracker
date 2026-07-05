@@ -9,27 +9,58 @@ function isOnline() {
   return typeof navigator !== 'undefined' ? navigator.onLine : true;
 }
 
+function mergeEntries(remoteEntries, localEntries) {
+  const merged = {};
+  localEntries.forEach(entry => {
+    if (entry._id) merged[entry._id] = entry;
+  });
+  remoteEntries.forEach(entry => {
+    if (entry._id) merged[entry._id] = entry;
+  });
+  return Object.values(merged).sort((a,b) => new Date(b.date) - new Date(a.date));
+}
+
 async function fetchEntries() {
+  const localEntries = await db.allDocs({include_docs:true}).then(r => r.rows.map(r=>r.doc));
   if (!isOnline()) {
-    return db.allDocs({include_docs:true}).then(r => r.rows.map(r=>r.doc));
+    return localEntries;
   }
 
   try {
     const res = await fetch(`${API_BASE}entries`);
     if (!res.ok) throw new Error('API unavailable');
-    return await res.json();
+    const remoteEntries = await res.json();
+    return mergeEntries(remoteEntries, localEntries);
   } catch (err) {
     console.warn('REST API failed, falling back to local DB', err);
-    return db.allDocs({include_docs:true}).then(r => r.rows.map(r=>r.doc));
+    return localEntries;
   }
+}
+
+async function saveLocalEntry(doc) {
+  try {
+    await db.put(doc);
+  } catch (err) {
+    if (err.name === 'conflict') {
+      const existing = await db.get(doc._id);
+      doc._rev = existing._rev;
+      await db.put(doc);
+    } else {
+      throw err;
+    }
+  }
+  return doc;
 }
 
 async function addEntry(entry) {
   const id = entry._id || `entry:${entry.type||'txn'}:${entry.date||Date.now()}:${Math.random().toString(36).slice(2,9)}`;
   const doc = Object.assign({}, entry, {_id: id});
 
+  // Save locally first so the entry appears immediately.
+  await saveLocalEntry(doc);
+
   if (!isOnline()) {
-    return db.put(doc).then(() => doc);
+    return doc;
   }
 
   try {
@@ -37,10 +68,15 @@ async function addEntry(entry) {
       method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(doc)
     });
     if (!res.ok) throw new Error('API returned ' + res.status);
-    return await res.json();
+    const remoteDoc = await res.json();
+    if (remoteDoc._id && remoteDoc._rev) {
+      doc._rev = remoteDoc._rev;
+      await saveLocalEntry(doc);
+    }
+    return remoteDoc;
   } catch (err) {
-    console.warn('REST API failed, storing locally instead', err);
-    return db.put(doc).then(() => doc);
+    console.warn('REST API failed, keeping local copy', err);
+    return doc;
   }
 }
 
