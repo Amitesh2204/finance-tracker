@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Investments</title>
-  <link rel="stylesheet" href="/style.css">
-  <script src="/app.js" defer></script>
+  <link rel="stylesheet" href="../style.css">
+  <script src="../app.js" defer></script>
 </head>
 <body>
   <div class="app">
@@ -22,7 +22,29 @@
       <section class="content">
         <div class="card">
           <h3>Investments</h3>
-          <p>Placeholder for investments page.</p>
+          <form id="investmentForm" class="investment-form">
+            <label for="investmentType">Investment type</label>
+            <select id="investmentType" required>
+              <option value="Mutual Fund">Mutual Fund</option>
+              <option value="LIC">LIC</option>
+              <option value="PPF">PPF</option>
+            </select>
+
+            <label for="investmentAmount">Amount</label>
+            <input id="investmentAmount" type="number" min="0" step="0.01" placeholder="Enter amount" required />
+
+            <button type="submit">Add Investment</button>
+          </form>
+
+          <div class="card">
+            <h4>Saved Investments</h4>
+            <table id="investmentsTable" class="investment-table">
+              <thead>
+                <tr><th>Type</th><th>Amount</th><th>Date</th></tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
         </div>
       </section>
     </main>
