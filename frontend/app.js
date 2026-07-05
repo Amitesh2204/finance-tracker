@@ -34,6 +34,7 @@ async function fetchEntries() {
   }
 
   try {
+    await syncPendingEntries();
     const res = await fetch(`${API_BASE}entries`);
     if (!res.ok) throw new Error('API unavailable');
     const remoteEntries = await res.json();
@@ -59,9 +60,56 @@ async function saveLocalEntry(doc) {
   return doc;
 }
 
+async function sendEntryToApi(doc) {
+  const payload = Object.assign({}, doc);
+  if (payload._rev === undefined) {
+    delete payload._rev;
+  }
+
+  const res = await fetch(`${API_BASE}entries`, {
+    method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload)
+  });
+
+  if (res.ok) {
+    const remoteDoc = await res.json();
+    return Object.assign({}, remoteDoc, {synced: true});
+  }
+
+  if (res.status === 409 && payload._id) {
+    const existing = await fetch(`${API_BASE}entries/${encodeURIComponent(payload._id)}`);
+    if (existing.ok) {
+      const remoteDoc = await existing.json();
+      return Object.assign({}, remoteDoc, {synced: true});
+    }
+  }
+
+  throw new Error(`API returned ${res.status}`);
+}
+
+async function syncPendingEntries() {
+  if (!isOnline()) return 0;
+
+  const localEntries = await db.allDocs({include_docs:true}).then(r => r.rows.map(r => r.doc));
+  const pending = localEntries.filter(entry => entry.type === 'investment' && entry.synced !== true);
+  let syncedCount = 0;
+
+  for (const entry of pending) {
+    try {
+      const remoteDoc = await sendEntryToApi(entry);
+      await saveLocalEntry(Object.assign({}, entry, remoteDoc));
+      syncedCount += 1;
+      console.log('Synced local entry to backend', remoteDoc._id);
+    } catch (err) {
+      console.warn('Failed to sync local entry', entry._id, err);
+    }
+  }
+
+  return syncedCount;
+}
+
 async function addEntry(entry) {
   const id = entry._id || `entry:${entry.type||'txn'}:${entry.date||Date.now()}:${Math.random().toString(36).slice(2,9)}`;
-  const doc = Object.assign({}, entry, {_id: id});
+  const doc = Object.assign({}, entry, {_id: id, synced: false});
 
   // Save locally first so the entry appears immediately.
   await saveLocalEntry(doc);
@@ -71,16 +119,10 @@ async function addEntry(entry) {
   }
 
   try {
-    const res = await fetch(`${API_BASE}entries`, {
-      method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(doc)
-    });
-    if (!res.ok) throw new Error('API returned ' + res.status);
-    const remoteDoc = await res.json();
-    if (remoteDoc._id && remoteDoc._rev) {
-      doc._rev = remoteDoc._rev;
-      await saveLocalEntry(doc);
-    }
-    return remoteDoc;
+    const remoteDoc = await sendEntryToApi(doc);
+    const merged = Object.assign({}, doc, remoteDoc, {synced: true});
+    await saveLocalEntry(merged);
+    return merged;
   } catch (err) {
     console.warn('REST API failed, keeping local copy', err);
     return doc;
@@ -148,11 +190,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   const remoteCouch = REMOTE_COUCH;
   let syncHandler = null;
 
-  window.addEventListener('online', () => {
+  window.addEventListener('online', async () => {
     console.log('Network online: attempting remote CouchDB sync');
     if (!syncHandler) {
       syncHandler = initSyncToCouch(remoteCouch, refreshInvestmentsCallback);
     }
+    await syncPendingEntries();
     loadInvestments();
   });
 
@@ -192,6 +235,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (investmentForm) {
     refreshInvestmentsCallback = loadInvestments;
     syncHandler = initSyncToCouch(remoteCouch, refreshInvestmentsCallback);
+    await syncPendingEntries();
     loadInvestments();
 
     investmentForm.addEventListener('submit', async event => {
