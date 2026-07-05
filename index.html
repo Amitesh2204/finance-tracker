@@ -21,17 +21,64 @@
         <a href="frontend/pages/investments.html">Investments</a>
         <a href="frontend/pages/report.html">Report</a>
       </nav>
+      <div class="sidebar-footer">
+        <button class="contact">Contact us</button>
+        <a href="#" class="logout">Log out</a>
+      </div>
     </aside>
 
     <main class="main">
       <header class="topbar">
         <h2>Overview</h2>
+        <div class="topbar-right">
+          <input class="search" placeholder="Search" />
+          <button class="icon">🔔</button>
+          <img class="avatar" src="/assets/avatar.png" alt="avatar" />
+        </div>
       </header>
 
-      <section class="content">
-        <div id="app-root">
-          <p>Welcome — open the sidebar pages to begin.</p>
+      <section class="content layout-split">
+        <div class="left">
+          <div class="cards">
+            <div class="card">
+              <h3>Total Balance</h3>
+              <p id="totalBalance">$11,716.77 <span class="positive">+4%</span></p>
+            </div>
+            <div class="card">
+              <h3>Main Account</h3>
+              <p id="mainAccount">$3,252.13</p>
+            </div>
+            <div class="card">
+              <h3>Savings</h3>
+              <p id="savings">$4,000.00 <span class="positive">+10%</span></p>
+            </div>
+          </div>
+
+          <div class="chart card">
+            <canvas id="balanceChart"></canvas>
+          </div>
+
+          <div class="transactions card">
+            <h3>Recent Transactions</h3>
+            <table id="recentTx">
+            </table>
+          </div>
         </div>
+
+        <aside class="right">
+          <div class="summary card">
+            <h4>Total Balance</h4>
+            <div class="amount">$11,716.77 <span class="positive">+4%</span></div>
+          </div>
+          <div class="summary card">
+            <h4>Investments</h4>
+            <div class="amount">$4,436.64 <span class="positive">+27.24%</span></div>
+          </div>
+          <div class="summary card">
+            <h4>Savings</h4>
+            <div class="amount">$4,000.00 <span class="positive">+10%</span></div>
+          </div>
+        </aside>
       </section>
     </main>
   </div>

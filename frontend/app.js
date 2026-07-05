@@ -1,11 +1,38 @@
-// PouchDB offline-first logic
+// PouchDB offline-first logic (optional)
 const db = new PouchDB('finance');
 
-// Sync to remote CouchDB via Cloudflare Tunnel or a direct CouchDB endpoint.
-// This should point to a CouchDB database endpoint, not the FastAPI server.
-const remote = 'https://personaltracker.duckdns.org/finance';
+// Backend API base (FastAPI)
+const API_BASE = window.__API_BASE__ || '/';
 
-function initSync() {
+async function fetchEntries() {
+  try {
+    const res = await fetch(`${API_BASE}entries`);
+    if (!res.ok) throw new Error('API unavailable');
+    return await res.json();
+  } catch (err) {
+    console.warn('REST API failed, falling back to local DB', err);
+    return db.allDocs({include_docs:true}).then(r => r.rows.map(r=>r.doc));
+  }
+}
+
+async function addEntry(entry) {
+  // Try REST API first
+  try {
+    const res = await fetch(`${API_BASE}entries`, {
+      method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(entry)
+    });
+    if (!res.ok) throw new Error('API returned ' + res.status);
+    return await res.json();
+  } catch (err) {
+    // Fallback to local PouchDB
+    const id = entry._id || `entry:${entry.type||'txn'}:${entry.date||Date.now()}:${Math.random().toString(36).slice(2,9)}`;
+    const doc = Object.assign({}, entry, {_id: id});
+    return db.put(doc).then(()=>doc);
+  }
+}
+
+function initSyncToCouch(remote) {
+  if (!remote) return;
   db.sync(remote, { live: true, retry: true })
     .on('change', info => console.log('sync change', info))
     .on('paused', err => console.log('sync paused', err))
@@ -15,24 +42,25 @@ function initSync() {
     .on('error', err => console.error('sync error', err));
 }
 
-// Prevent duplicates using deterministic _id (timestamp + random)
-function createEntry(entry) {
-  // Ensure unique id: type-date-uuid
-  const id = entry._id || `entry:${entry.type || 'txn'}:${entry.date || Date.now()}:${Math.random().toString(36).slice(2,9)}`;
-  const doc = Object.assign({}, entry, { _id: id });
-  return db.put(doc).catch(err => {
-    if (err.status === 409) {
-      // conflict -> fetch existing and merge if necessary
-      return db.get(id).then(existing => Object.assign({}, existing, doc)).then(merged => db.put(merged));
-    }
-    throw err;
-  });
-}
-
-// Simple UI bindings
-document.addEventListener('DOMContentLoaded', () => {
-  initSync();
+// Simple UI bindings and population
+document.addEventListener('DOMContentLoaded', async () => {
   // Expose for debugging
   window.financeDB = db;
-  window.createEntry = createEntry;
+  window.fetchEntries = fetchEntries;
+  window.addEntry = addEntry;
+
+  // Try to load recent transactions into UI table if present
+  const txTable = document.getElementById('recentTx');
+  if (txTable) {
+    const entries = await fetchEntries().catch(()=>[]);
+    if (entries && entries.length) {
+      txTable.innerHTML = entries.slice(0,6).map(e=>`<tr><td>${e.notes||e.type||'Entry'}</td><td>${e.date}</td><td>${e.amount<0?'-':''}$${Math.abs(e.amount).toFixed(2)}</td></tr>`).join('');
+    } else {
+      txTable.innerHTML = '<tr><td colspan="3">No transactions</td></tr>';
+    }
+  }
+
+  // Optional: initialize sync to a CouchDB remote if configured
+  const remoteCouch = null; // set to CouchDB endpoint if desired
+  initSyncToCouch(remoteCouch);
 });
