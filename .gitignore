@@ -1,0 +1,17 @@
+# Ignore everything by default
+*
+
+# But keep the frontend folder and this .gitignore
+!/.gitignore
+!/frontend/
+!/frontend/**
+
+# Ignore backend, caddy, docs, changelog, and any local DB data/logs
+/backend/
+/caddy/
+/docs/
+/changelog/
+/var/lib/couchdb/
+*.log
+*.sqlite
+/.githooks/

@@ -1,0 +1,22 @@
+/* Mobile-first responsive styles */
+:root{
+  --bg:#f6f8f9;
+  --accent:#0f766e;
+  --muted:#6b7280;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial;color:#0f172a;background:var(--bg)}
+.app{display:flex;min-height:100vh}
+.sidebar{position:fixed;left:0;top:0;bottom:0;width:72px;padding:16px 8px;background:#05302b;color:#fff;display:flex;flex-direction:column;align-items:center}
+.sidebar .brand{display:none}
+.main{margin-left:72px;flex:1;padding:20px}
+.topbar{display:flex;justify-content:space-between;align-items:center}
+
+/* Larger screens */
+@media(min-width:800px){
+  .sidebar{width:220px;padding:24px}
+  .sidebar .brand{display:flex;gap:12px;align-items:center}
+  .main{margin-left:220px}
+}
+
+.content{max-width:1100px;margin:18px auto}
