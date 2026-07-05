@@ -29,7 +29,6 @@ const defaultRemoteCouch = isGitHubPages ? null : `${currentOrigin.replace(/\/$/
 
 // Backend API base (FastAPI)
 const API_BASE = window.__API_BASE__ || queryApi || storedApi || defaultApiBase;
-const REMOTE_COUCH = window.__REMOTE_COUCH__ || queryRemote || storedRemote || defaultRemoteCouch;
 const hasRemoteApi = Boolean(API_BASE);
 const hasRemoteCouch = Boolean(REMOTE_COUCH);
 let refreshInvestmentsCallback = () => {};
