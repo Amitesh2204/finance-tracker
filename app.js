@@ -63,6 +63,14 @@ function initSyncToCouch(remote) {
   return sync;
 }
 
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js')
+      .then(reg => console.log('Service worker registered', reg.scope))
+      .catch(err => console.warn('Service worker registration failed', err));
+  });
+}
+
 // Simple UI bindings and population
 document.addEventListener('DOMContentLoaded', async () => {
   // Expose for debugging
@@ -95,4 +103,51 @@ document.addEventListener('DOMContentLoaded', async () => {
   window.addEventListener('offline', () => {
     console.log('Network offline: using local PouchDB only');
   });
+
+  const investmentForm = document.getElementById('investmentForm');
+  const investmentTableBody = document.querySelector('#investmentsTable tbody');
+
+  function renderInvestments(entries) {
+    if (!investmentTableBody) return;
+    investmentTableBody.innerHTML = entries.map(entry => {
+      const amount = typeof entry.amount === 'number' ? entry.amount.toFixed(2) : entry.amount;
+      return `
+        <tr>
+          <td>${entry.category || entry.type || 'Investment'}</td>
+          <td>${amount}</td>
+          <td>${new Date(entry.date).toLocaleString()}</td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+  async function loadInvestments() {
+    const entries = await fetchEntries().catch(() => []);
+    const investments = entries.filter(entry => entry.type === 'investment');
+    renderInvestments(investments);
+  }
+
+  if (investmentForm) {
+    loadInvestments();
+
+    investmentForm.addEventListener('submit', async event => {
+      event.preventDefault();
+      const type = document.getElementById('investmentType').value;
+      const amount = parseFloat(document.getElementById('investmentAmount').value);
+      if (Number.isNaN(amount) || amount <= 0) return;
+
+      const entry = {
+        type: 'investment',
+        category: type,
+        amount,
+        date: new Date().toISOString(),
+        notes: `Investment: ${type}`
+      };
+
+      const saved = await addEntry(entry);
+      loadInvestments();
+      investmentForm.reset();
+      console.log('Investment saved', saved);
+    });
+  }
 });
