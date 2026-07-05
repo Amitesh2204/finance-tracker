@@ -61,6 +61,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   // Optional: initialize sync to a CouchDB remote if configured
-  const remoteCouch = null; // set to CouchDB endpoint if desired
+  const remoteCouch = window.__REMOTE_COUCH__ || null; // e.g. set via HTML or deployment config
   initSyncToCouch(remoteCouch);
 });

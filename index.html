@@ -4,7 +4,6 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Finance Tracker</title>
-  <link rel="manifest" href="/manifest.json">
   <link rel="manifest" href="frontend/manifest.json">
   <link rel="stylesheet" href="frontend/style.css">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
@@ -85,6 +84,14 @@
     </main>
   </div>
 
+  <script>
+    // Override these values when the frontend and backend are hosted separately.
+    window.__API_BASE__ = window.__API_BASE__ || '/';
+    window.__REMOTE_COUCH__ = window.__REMOTE_COUCH__ || null;
+    // For GitHub Pages or remote backend, uncomment and set your tunnel URL:
+    // window.__API_BASE__ = 'https://hosts-pmid-violin-walter.trycloudflare.com/';
+    // window.__REMOTE_COUCH__ = 'https://hosts-pmid-violin-walter.trycloudflare.com/finance';
+  </script>
   <script src="frontend/app.js"></script>
 </body>
 </html>
