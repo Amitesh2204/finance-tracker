@@ -5,6 +5,7 @@
 !/.gitignore
 !/frontend/
 !/frontend/**
+!index.html
 
 # Ignore backend, caddy, docs, changelog, and any local DB data/logs
 /backend/
