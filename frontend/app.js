@@ -2,15 +2,39 @@
 const db = new PouchDB('finance');
 
 const currentOrigin = typeof window !== 'undefined' ? window.location.origin : '';
-const defaultApiBase = currentOrigin ? `${currentOrigin}/` : '/';
-const defaultRemoteCouch = currentOrigin ? `${currentOrigin}/finance` : null;
+const urlParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+const queryApi = urlParams?.get('api') || urlParams?.get('api_base') || urlParams?.get('API_BASE');
+const queryRemote = urlParams?.get('remote') || urlParams?.get('remote_couch') || urlParams?.get('REMOTE_COUCH');
+
+const storedApi = typeof window !== 'undefined' ? window.localStorage.getItem('finance_api_base') : null;
+const storedRemote = typeof window !== 'undefined' ? window.localStorage.getItem('finance_remote_couch') : null;
+
+function saveRemoteConfig(apiBase, remoteCouch) {
+  if (typeof window !== 'undefined') {
+    if (apiBase) window.localStorage.setItem('finance_api_base', apiBase);
+    if (remoteCouch) window.localStorage.setItem('finance_remote_couch', remoteCouch);
+  }
+}
+
+if (queryApi && typeof window !== 'undefined') {
+  saveRemoteConfig(queryApi, storedRemote);
+}
+if (queryRemote && typeof window !== 'undefined') {
+  saveRemoteConfig(storedApi, queryRemote);
+}
+
+const isGitHubPages = currentOrigin.includes('github.io');
+const defaultApiBase = isGitHubPages ? null : `${currentOrigin.replace(/\/$/, '')}/`;
+const defaultRemoteCouch = isGitHubPages ? null : `${currentOrigin.replace(/\/$/, '')}/finance`;
 
 // Backend API base (FastAPI)
-const API_BASE = window.__API_BASE__ || defaultApiBase;
-const REMOTE_COUCH = window.__REMOTE_COUCH__ || defaultRemoteCouch;
+const API_BASE = window.__API_BASE__ || queryApi || storedApi || defaultApiBase;
+const REMOTE_COUCH = window.__REMOTE_COUCH__ || queryRemote || storedRemote || defaultRemoteCouch;
+const hasRemoteApi = Boolean(API_BASE);
+const hasRemoteCouch = Boolean(REMOTE_COUCH);
 let refreshInvestmentsCallback = () => {};
 
-console.log('API_BASE=', API_BASE, 'REMOTE_COUCH=', REMOTE_COUCH);
+console.log('API_BASE=', API_BASE, 'REMOTE_COUCH=', REMOTE_COUCH, 'hasRemoteApi=', hasRemoteApi, 'hasRemoteCouch=', hasRemoteCouch);
 
 function isOnline() {
   return typeof navigator !== 'undefined' ? navigator.onLine : true;
