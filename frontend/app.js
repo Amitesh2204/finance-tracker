@@ -77,7 +77,8 @@ async function saveLocalEntry(doc) {
 
 async function sendEntryToApi(doc) {
   const payload = Object.assign({}, doc);
-  if (payload._rev === undefined) {
+  // Strip _rev for new docs
+  if (!payload._rev) {
     delete payload._rev;
   }
 
@@ -91,6 +92,7 @@ async function sendEntryToApi(doc) {
   }
 
   if (res.status === 409 && payload._id) {
+    // Conflict: fetch latest from backend
     const existing = await fetch(`${API_BASE}entries/${encodeURIComponent(payload._id)}`);
     if (existing.ok) {
       const remoteDoc = await existing.json();
