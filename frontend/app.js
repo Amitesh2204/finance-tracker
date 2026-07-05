@@ -145,6 +145,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   function renderInvestments(entries) {
     if (!investmentTableBody) return;
+    if (!entries || entries.length === 0) {
+      investmentTableBody.innerHTML = '<tr><td colspan="3">No investments yet</td></tr>';
+      return;
+    }
+
     investmentTableBody.innerHTML = entries.map(entry => {
       const amount = typeof entry.amount === 'number' ? entry.amount.toFixed(2) : entry.amount;
       return `
@@ -160,6 +165,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   async function loadInvestments() {
     const entries = await fetchEntries().catch(() => []);
     const investments = entries.filter(entry => entry.type === 'investment');
+    console.log(`Loaded ${investments.length} investments`, investments);
     renderInvestments(investments);
   }
 
