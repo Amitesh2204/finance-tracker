@@ -4,10 +4,13 @@
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Investments</title>
   <link rel="stylesheet" href="../style.css">
+
+  <!-- Explicit Cloudflare tunnel overrides -->
   <script>
-    window.__API_BASE__ = window.__API_BASE__ || `${window.location.origin}/`;
-    window.__REMOTE_COUCH__ = window.__REMOTE_COUCH__ || `${window.location.origin}/finance`;
+    window.__API_BASE__ = 'https://scholar-cooler-amp-soft.trycloudflare.com';
+    window.__REMOTE_COUCH__ = 'https://scholar-cooler-amp-soft.trycloudflare.com/finance';
   </script>
+
   <script src="https://unpkg.com/pouchdb@7.3.1/dist/pouchdb.min.js"></script>
   <script src="../app.js" defer></script>
 </head>
@@ -54,5 +57,15 @@
       </section>
     </main>
   </div>
+
+  <!-- Force sync of pending entries when page loads online -->
+  <script>
+    window.addEventListener('load', async () => {
+      if (navigator.onLine && window.syncPendingEntries) {
+        console.log('Page loaded online: syncing pending entries');
+        await window.syncPendingEntries();
+      }
+    });
+  </script>
 </body>
 </html>
