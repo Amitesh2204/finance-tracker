@@ -1,7 +1,6 @@
 // investments.js - dedicated logic for Investments page
 
 document.addEventListener('DOMContentLoaded', async () => {
-  const investmentForm = document.getElementById('investmentForm');
   const investmentTableBody = document.querySelector('#investmentsTable tbody');
 
   // Render investments table
@@ -11,55 +10,57 @@ document.addEventListener('DOMContentLoaded', async () => {
       investmentTableBody.innerHTML = '<tr><td colspan="3">No investments yet</td></tr>';
       return;
     }
-
-    investmentTableBody.innerHTML = entries.map(entry => {
-      const amount = typeof entry.amount === 'number' ? entry.amount.toFixed(2) : entry.amount;
-      return `
-        <tr>
-          <td>${entry.category || entry.type || 'Investment'}</td>
-          <td>$${amount}</td>
-          <td>${new Date(entry.date).toLocaleString()}</td>
-        </tr>
-      `;
-    }).join('');
+    investmentTableBody.innerHTML = entries.map(entry => `
+      <tr>
+        <td>${entry.category || entry.type}</td>
+        <td>$${Number(entry.amount).toFixed(2)}</td>
+        <td>${new Date(entry.date).toLocaleString()}</td>
+      </tr>
+    `).join('');
   }
 
-  // Load investments from DB
+  // Load investments and update category totals
   async function loadInvestments() {
     const entries = await window.fetchEntries().catch(() => []);
-    const investments = entries.filter(entry => entry.type === 'investment');
+    const investments = entries.filter(e => e.type === 'investment');
     renderInvestments(investments);
 
-    // Update Savings card on front page
-    const totalSavings = investments.reduce((sum, e) => sum + (e.amount || 0), 0);
-    const savingsCard = document.getElementById('savings');
-    if (savingsCard) {
-      savingsCard.textContent = `$${totalSavings.toFixed(2)}`;
-    }
-  }
+    // Totals per category
+    const totals = { 'Mutual Fund':0, 'LIC':0, 'PPF':0, 'Sukanya Yojana':0 };
+    investments.forEach(e => {
+      if (totals[e.category] !== undefined) {
+        totals[e.category] += e.amount || 0;
+      }
+    });
 
-  if (investmentForm) {
-    await window.syncPendingEntries();
-    loadInvestments();
+    document.getElementById('mutualFundTotal').textContent = `$${totals['Mutual Fund'].toFixed(2)}`;
+    document.getElementById('licTotal').textContent = `$${totals['LIC'].toFixed(2)}`;
+    document.getElementById('ppfTotal').textContent = `$${totals['PPF'].toFixed(2)}`;
+    document.getElementById('sukanyaTotal').textContent = `$${totals['Sukanya Yojana'].toFixed(2)}`;
 
-    investmentForm.addEventListener('submit', async event => {
-      event.preventDefault();
-      const type = document.getElementById('investmentType').value;
-      const amount = parseFloat(document.getElementById('investmentAmount').value);
-      if (Number.isNaN(amount) || amount <= 0) return;
-
-      const entry = {
-        type: 'investment',
-        category: type,
-        amount,
-        date: new Date().toISOString(),
-        notes: `Investment: ${type}`
-      };
-
-      const saved = await window.addEntry(entry);
-      console.log('Investment saved', saved);
-      investmentForm.reset();
-      loadInvestments();
+    // Investment Growth chart
+    const ctx = document.getElementById('investmentGrowthChart').getContext('2d');
+    new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: Object.keys(totals),
+        datasets: [{
+          label: 'Investment Growth',
+          data: Object.values(totals),
+          borderColor: '#1abc9c',
+          backgroundColor: 'rgba(26,188,156,0.2)',
+          fill: true,
+          tension: 0.3
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: { y: { beginAtZero: true } }
+      }
     });
   }
+
+  await window.syncPendingEntries();
+  loadInvestments();
 });
