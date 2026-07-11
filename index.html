@@ -23,8 +23,8 @@
         <a href="frontend/pages/reports/report.html">Report</a>
       </nav>
       <div class="sidebar-footer">
-        <button class="contact">Contact us</button>
-        <a href="#" class="logout">Log out</a>
+        <a href="frontend/pages/settings.html" class="settings">Settings</a>
+        <a href="frontend/pages/login.html" class="logout">Logout</a>
       </div>
     </aside>
 
@@ -38,60 +38,41 @@
         </div>
       </header>
 
-      <section class="content layout-split">
-        <div class="left">
-          <div class="cards">
-            <div class="card">
-              <h3>Total Balance</h3>
-              <p id="totalBalance">$11,716.77 <span class="positive">+4%</span></p>
-            </div>
-            <div class="card">
-              <h3>Main Account</h3>
-              <p id="mainAccount">$3,252.13</p>
-            </div>
-            <div class="card">
-              <h3>Savings</h3>
-              <p id="savings">$4,000.00 <span class="positive">+10%</span></p>
-            </div>
+      <section class="content">
+        <!-- Summary cards -->
+        <div class="cards">
+          <div class="card">
+            <h3>Balance</h3>
+            <p id="totalBalance">$0.00</p>
           </div>
-
-          <div class="chart card">
-            <canvas id="balanceChart"></canvas>
+          <div class="card">
+            <h3>Savings</h3>
+            <p id="savings">$0.00</p>
           </div>
-
-          <div class="transactions card">
-            <h3>Recent Transactions</h3>
-            <table id="recentTx">
-            </table>
+          <div class="card">
+            <h3>Expenses</h3>
+            <p id="expenses">$0.00</p>
           </div>
         </div>
 
-        <aside class="right">
-          <div class="summary card">
-            <h4>Total Balance</h4>
-            <div class="amount">$11,716.77 <span class="positive">+4%</span></div>
-          </div>
-          <div class="summary card">
-            <h4>Investments</h4>
-            <div class="amount">$4,436.64 <span class="positive">+27.24%</span></div>
-          </div>
-          <div class="summary card">
-            <h4>Savings</h4>
-            <div class="amount">$4,000.00 <span class="positive">+10%</span></div>
-          </div>
-        </aside>
+        <!-- Financial Statistics -->
+        <div class="chart card">
+          <h3>Financial Statistics</h3>
+          <canvas id="financeChart"></canvas>
+        </div>
+
+        <!-- Recent Activities -->
+        <div class="transactions card">
+          <h3>Recent Activities (Last Month)</h3>
+          <table id="recentTx"></table>
+        </div>
       </section>
     </main>
   </div>
 
   <script>
-    // Override these values when the frontend and backend are hosted separately.
     window.__API_BASE__ = window.__API_BASE__ || '/';
     window.__REMOTE_COUCH__ = window.__REMOTE_COUCH__ || null;
-    // For GitHub Pages or remote backend, uncomment and set your tunnel URL(es):
-    // window.__API_BASE__ = 'https://hosts-pmid-violin-walter.trycloudflare.com/';
-    // window.__REMOTE_COUCH__ = 'https://hosts-pmid-violin-walter.trycloudflare.com/finance';
-
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('/sw.js')
