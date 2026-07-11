@@ -32,16 +32,24 @@ body {
 .sidebar nav.main-menu {
   margin-top:28px; display:flex; flex-direction:column; gap:14px;
 }
-.sidebar nav.main-menu a {
+.sidebar nav.main-menu a,
+.sidebar-footer a {
   display:flex; align-items:center; gap:8px;
   color:rgba(255,255,255,0.95);
   text-decoration:none; padding:10px 12px;
   border-radius:10px;
 }
-.sidebar nav.main-menu a:hover {
+.sidebar nav.main-menu a:hover,
+.sidebar-footer a:hover {
   background:rgba(255,255,255,0.08);
 }
-.sidebar nav a .icon { font-size:1.2rem }
+.sidebar nav a .icon,
+.sidebar-footer a .icon { font-size:1.2rem }
+
+/* Sidebar footer pinned to bottom */
+.sidebar-footer {
+  margin-top:auto; display:flex; flex-direction:column; gap:14px;
+}
 
 /* Main layout */
 .main { margin-left:260px; flex:1; padding:28px }
