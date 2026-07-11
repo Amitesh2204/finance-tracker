@@ -11,20 +11,19 @@
 </head>
 <body>
   <div class="app">
-    <!-- Sidebar with icons -->
+    <!-- Sidebar -->
     <aside class="sidebar">
       <div class="brand">
         <img src="frontend/assets/logo.svg" alt="logo" />
         <h1>Wealty</h1>
       </div>
       <nav class="main-menu">
-        <!-- Main menu items -->
         <a href="frontend/pages/budget/budget.html"><span class="icon">📊</span> Budget</a>
         <a href="frontend/pages/expense/expense.html"><span class="icon">💸</span> Expense</a>
         <a href="frontend/pages/investments/investments.html"><span class="icon">💹</span> Investments</a>
         <a href="frontend/pages/reports/report.html"><span class="icon">📑</span> Report</a>
       </nav>
-      <!-- Footer section for Settings and Logout -->
+      <!-- Footer pinned to bottom -->
       <div class="sidebar-footer">
         <a href="frontend/pages/settings.html"><span class="icon">⚙️</span> Settings</a>
         <a href="frontend/pages/login.html"><span class="icon">🚪</span> Logout</a>
@@ -73,7 +72,7 @@
 
         <!-- Right column -->
         <aside class="right">
-          <div class="transactions card">
+          <div class="transactions card large">
             <h3>Last Transaction</h3>
             <table id="lastTx"></table>
           </div>
