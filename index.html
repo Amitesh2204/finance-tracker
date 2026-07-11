@@ -18,20 +18,22 @@
         <h1>Wealty</h1>
       </div>
       <nav class="main-menu">
-        <!-- Added icons for each menu item -->
+        <!-- Main menu items -->
         <a href="frontend/pages/budget/budget.html"><span class="icon">📊</span> Budget</a>
         <a href="frontend/pages/expense/expense.html"><span class="icon">💸</span> Expense</a>
         <a href="frontend/pages/investments/investments.html"><span class="icon">💹</span> Investments</a>
         <a href="frontend/pages/reports/report.html"><span class="icon">📑</span> Report</a>
+      </nav>
+      <!-- Footer section for Settings and Logout -->
+      <div class="sidebar-footer">
         <a href="frontend/pages/settings.html"><span class="icon">⚙️</span> Settings</a>
         <a href="frontend/pages/login.html"><span class="icon">🚪</span> Logout</a>
-      </nav>
+      </div>
     </aside>
 
     <!-- Main content -->
     <main class="main">
       <header class="topbar">
-        <!-- Changed heading to Financial Statistics -->
         <h2>Financial Statistics</h2>
         <div class="topbar-right">
           <input class="search" placeholder="Search" />
@@ -43,7 +45,6 @@
       <section class="content layout-split">
         <!-- Center column -->
         <div class="left">
-          <!-- Summary cards -->
           <div class="cards">
             <div class="card balance">
               <h3>Balance</h3>
@@ -59,13 +60,11 @@
             </div>
           </div>
 
-          <!-- Financial Statistics chart -->
           <div class="chart card">
             <h3>Financial Statistics</h3>
             <canvas id="financeChart"></canvas>
           </div>
 
-          <!-- Recent Activities graph -->
           <div class="chart card">
             <h3>Recent Activities (Last Month)</h3>
             <canvas id="recentActivityChart"></canvas>
@@ -74,7 +73,6 @@
 
         <!-- Right column -->
         <aside class="right">
-          <!-- Dedicated Last Transaction card -->
           <div class="transactions card">
             <h3>Last Transaction</h3>
             <table id="lastTx"></table>
