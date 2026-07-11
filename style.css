@@ -83,3 +83,63 @@ body{margin:0;font-family:Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial;color:
 }
 
 
+/* Sidebar footer */
+.sidebar-footer {
+  margin-top: auto;
+  padding-top: 18px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.sidebar-footer a.settings,
+.sidebar-footer a.logout {
+  display: block;
+  color: rgba(255,255,255,0.85);
+  text-decoration: none;
+  padding: 10px 12px;
+  border-radius: 10px;
+}
+.sidebar-footer a.settings:hover,
+.sidebar-footer a.logout:hover {
+  background: rgba(255,255,255,0.04);
+}
+
+/* Summary cards */
+.cards {
+  display: flex;
+  gap: 20px;
+  margin-bottom: 20px;
+}
+.cards .card {
+  flex: 1;
+}
+.cards .card h3 {
+  margin-bottom: 8px;
+}
+.cards .card p {
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+/* Chart section */
+.chart {
+  height: 300px;
+  margin-bottom: 20px;
+}
+
+/* Recent Activities */
+.transactions h3 {
+  margin-bottom: 12px;
+}
+.transactions table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.transactions td {
+  padding: 10px;
+  border-bottom: 1px solid #f1f3f4;
+}
+.transactions tr:nth-child(even) {
+  background: #fafafa;
+}
