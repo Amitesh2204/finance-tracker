@@ -1,6 +1,7 @@
 // investments.js - dedicated logic for Investments page
 
 document.addEventListener('DOMContentLoaded', async () => {
+  const investmentForm = document.getElementById('investmentForm');
   const investmentTableBody = document.querySelector('#investmentsTable tbody');
 
   // Render investments table
@@ -33,12 +34,13 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     });
 
+    // Update summary cards
     document.getElementById('mutualFundTotal').textContent = `$${totals['Mutual Fund'].toFixed(2)}`;
     document.getElementById('licTotal').textContent = `$${totals['LIC'].toFixed(2)}`;
     document.getElementById('ppfTotal').textContent = `$${totals['PPF'].toFixed(2)}`;
     document.getElementById('sukanyaTotal').textContent = `$${totals['Sukanya Yojana'].toFixed(2)}`;
 
-    // Investment Growth chart
+    // Render Investment Growth chart
     const ctx = document.getElementById('investmentGrowthChart').getContext('2d');
     new Chart(ctx, {
       type: 'line',
@@ -47,20 +49,49 @@ document.addEventListener('DOMContentLoaded', async () => {
         datasets: [{
           label: 'Investment Growth',
           data: Object.values(totals),
-          borderColor: '#1abc9c',
+          borderColor: ['#1abc9c','#3498db','#e67e22','#9b59b6'],
           backgroundColor: 'rgba(26,188,156,0.2)',
           fill: true,
-          tension: 0.3
+          tension: 0.4,
+          pointBackgroundColor: ['#1abc9c','#3498db','#e67e22','#9b59b6'],
+          pointRadius: 5
         }]
       },
       options: {
         responsive: true,
-        plugins: { legend: { display: false } },
-        scales: { y: { beginAtZero: true } }
+        plugins: {
+          tooltip: { enabled: true },
+          legend: { display: false }
+        },
+        scales: {
+          y: { beginAtZero: true }
+        }
       }
     });
   }
 
-  await window.syncPendingEntries();
-  loadInvestments();
+  // Handle form submission
+  if (investmentForm) {
+    await window.syncPendingEntries();
+    loadInvestments();
+
+    investmentForm.addEventListener('submit', async event => {
+      event.preventDefault();
+      const type = document.getElementById('investmentType').value;
+      const amount = parseFloat(document.getElementById('investmentAmount').value);
+      if (Number.isNaN(amount) || amount <= 0) return;
+
+      const entry = {
+        type: 'investment',
+        category: type,
+        amount,
+        date: new Date().toISOString(),
+        notes: `Investment: ${type}`
+      };
+
+      await window.addEntry(entry);
+      investmentForm.reset();
+      loadInvestments();
+    });
+  }
 });
