@@ -4,6 +4,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   const investmentForm = document.getElementById('investmentForm');
   const investmentTableBody = document.querySelector('#investmentsTable tbody');
 
+  function formatINR(amount) {
+    return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(amount);
+  }
+
   function renderInvestments(entries) {
     if (!investmentTableBody) return;
     if (!entries || entries.length === 0) {
@@ -13,7 +17,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     investmentTableBody.innerHTML = entries.map(entry => `
       <tr>
         <td>${entry.category || entry.type}</td>
-        <td>$${Number(entry.amount).toFixed(2)}</td>
+        <td>${formatINR(Number(entry.amount))}</td>
         <td>${new Date(entry.date).toLocaleString()}</td>
       </tr>
     `).join('');
@@ -31,10 +35,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     });
 
-    document.getElementById('mutualFundTotal').textContent = `$${totals['Mutual Fund'].toFixed(2)}`;
-    document.getElementById('licTotal').textContent = `$${totals['LIC'].toFixed(2)}`;
-    document.getElementById('ppfTotal').textContent = `$${totals['PPF'].toFixed(2)}`;
-    document.getElementById('sukanyaTotal').textContent = `$${totals['Sukanya Yojana'].toFixed(2)}`;
+    document.getElementById('mutualFundTotal').textContent = formatINR(totals['Mutual Fund']);
+    document.getElementById('licTotal').textContent = formatINR(totals['LIC']);
+    document.getElementById('ppfTotal').textContent = formatINR(totals['PPF']);
+    document.getElementById('sukanyaTotal').textContent = formatINR(totals['Sukanya Yojana']);
 
     const ctx = document.getElementById('investmentGrowthChart').getContext('2d');
     new Chart(ctx, {
@@ -61,7 +65,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   if (investmentForm) {
-    // Ensure syncPendingEntries exists before calling
     if (typeof window.syncPendingEntries === 'function') {
       await window.syncPendingEntries();
     }
