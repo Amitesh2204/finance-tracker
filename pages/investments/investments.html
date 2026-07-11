@@ -3,8 +3,9 @@
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Investments</title>
-  <link rel="stylesheet" href="../style.css">
-  <link rel="stylesheet" href="investments.css"> <!-- Dedicated CSS -->
+  <!-- Adjusted paths: style.css and app.js are one level up from /pages/investments -->
+  <link rel="stylesheet" href="../../style.css">
+  <link rel="stylesheet" href="investments.css">
 
   <!-- Explicit Cloudflare tunnel overrides -->
   <script>
@@ -12,23 +13,23 @@
   </script>
 
   <script src="https://unpkg.com/pouchdb@7.3.1/dist/pouchdb.min.js"></script>
-  <script src="../app.js" defer></script>
-  <script src="investments.js" defer></script> <!-- Dedicated JS -->
+  <script src="../../app.js" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="investments.js" defer></script>
 </head>
 <body>
   <div class="app">
     <aside class="sidebar">
       <div class="brand"><h1>Wealty</h1></div>
       <nav>
-        <a href="budget.html">Budget</a>
-        <a href="expense.html">Expense</a>
+        <a href="../budget.html">Budget</a>
+        <a href="../expense.html">Expense</a>
         <a href="investments.html" class="active">Investments</a>
-        <a href="report.html">Report</a>
+        <a href="../report.html">Report</a>
       </nav>
       <div class="sidebar-footer">
-        <a href="settings.html">⚙️ Settings</a>
-        <a href="login.html">🚪 Logout</a>
+        <a href="../settings.html">⚙️ Settings</a>
+        <a href="../login.html">🚪 Logout</a>
       </div>
     </aside>
 
@@ -37,22 +38,10 @@
       <section class="content">
         <!-- Summary cards -->
         <div class="cards">
-          <div class="card mutualfund">
-            <h3>Mutual Fund</h3>
-            <p id="mutualFundTotal">$0.00</p>
-          </div>
-          <div class="card lic">
-            <h3>LIC</h3>
-            <p id="licTotal">$0.00</p>
-          </div>
-          <div class="card ppf">
-            <h3>PPF</h3>
-            <p id="ppfTotal">$0.00</p>
-          </div>
-          <div class="card sukanya">
-            <h3>Sukanya Yojana</h3>
-            <p id="sukanyaTotal">$0.00</p>
-          </div>
+          <div class="card mutualfund"><h3>Mutual Fund</h3><p id="mutualFundTotal">$0.00</p></div>
+          <div class="card lic"><h3>LIC</h3><p id="licTotal">$0.00</p></div>
+          <div class="card ppf"><h3>PPF</h3><p id="ppfTotal">$0.00</p></div>
+          <div class="card sukanya"><h3>Sukanya Yojana</h3><p id="sukanyaTotal">$0.00</p></div>
         </div>
 
         <!-- Add Investment form -->
@@ -84,9 +73,7 @@
         <div class="card">
           <h3>Saved Investments</h3>
           <table id="investmentsTable" class="investment-table">
-            <thead>
-              <tr><th>Type</th><th>Amount</th><th>Date</th></tr>
-            </thead>
+            <thead><tr><th>Type</th><th>Amount</th><th>Date</th></tr></thead>
             <tbody><tr><td colspan="3">Loading investments...</td></tr></tbody>
           </table>
         </div>
