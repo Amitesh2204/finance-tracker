@@ -9,7 +9,7 @@
 
 .card {
   background:#1e1e1e;
-  padding:24px;
+  padding:28px;
   border-radius:18px;
   box-shadow:0 6px 22px rgba(0,0,0,0.4);
 }
@@ -19,9 +19,10 @@
   color:#ecf0f1;
 }
 .card p {
-  font-size:1.6rem;
+  font-size:1.8rem;
   font-weight:800;
   margin:0;
+  text-align:center;
 }
 
 /* Category colors */
@@ -29,6 +30,37 @@
 .card.lic p { color:#3498db; }
 .card.ppf p { color:#e67e22; }
 .card.sukanya p { color:#9b59b6; }
+
+.investment-form {
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+  margin-bottom:20px;
+}
+.investment-form label {
+  font-weight:600;
+  color:#ecf0f1;
+}
+.investment-form select,
+.investment-form input {
+  padding:10px;
+  border-radius:8px;
+  border:1px solid #444;
+  background:#1e1e1e;
+  color:#ecf0f1;
+}
+.investment-form button {
+  padding:12px;
+  border:none;
+  border-radius:8px;
+  background:#1abc9c;
+  color:#fff;
+  font-weight:700;
+  cursor:pointer;
+}
+.investment-form button:hover {
+  background:#16a085;
+}
 
 .investment-table {
   width:100%;
@@ -49,4 +81,12 @@
 /* Chart sizing */
 .chart.same-size {
   height:400px;
+}
+
+/* Responsive */
+@media(max-width:900px){
+  .cards { grid-template-columns: repeat(2, 1fr); }
+}
+@media(max-width:600px){
+  .cards { grid-template-columns: 1fr; }
 }
