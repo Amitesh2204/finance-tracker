@@ -4,7 +4,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   const investmentForm = document.getElementById('investmentForm');
   const investmentTableBody = document.querySelector('#investmentsTable tbody');
 
-  // Render investments table
   function renderInvestments(entries) {
     if (!investmentTableBody) return;
     if (!entries || entries.length === 0) {
@@ -20,13 +19,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     `).join('');
   }
 
-  // Load investments and update category totals
   async function loadInvestments() {
     const entries = await window.fetchEntries().catch(() => []);
     const investments = entries.filter(e => e.type === 'investment');
     renderInvestments(investments);
 
-    // Totals per category
     const totals = { 'Mutual Fund':0, 'LIC':0, 'PPF':0, 'Sukanya Yojana':0 };
     investments.forEach(e => {
       if (totals[e.category] !== undefined) {
@@ -34,13 +31,11 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     });
 
-    // Update summary cards
     document.getElementById('mutualFundTotal').textContent = `$${totals['Mutual Fund'].toFixed(2)}`;
     document.getElementById('licTotal').textContent = `$${totals['LIC'].toFixed(2)}`;
     document.getElementById('ppfTotal').textContent = `$${totals['PPF'].toFixed(2)}`;
     document.getElementById('sukanyaTotal').textContent = `$${totals['Sukanya Yojana'].toFixed(2)}`;
 
-    // Render Investment Growth chart
     const ctx = document.getElementById('investmentGrowthChart').getContext('2d');
     new Chart(ctx, {
       type: 'line',
@@ -59,20 +54,17 @@ document.addEventListener('DOMContentLoaded', async () => {
       },
       options: {
         responsive: true,
-        plugins: {
-          tooltip: { enabled: true },
-          legend: { display: false }
-        },
-        scales: {
-          y: { beginAtZero: true }
-        }
+        plugins: { tooltip: { enabled: true }, legend: { display: false } },
+        scales: { y: { beginAtZero: true } }
       }
     });
   }
 
-  // Handle form submission
   if (investmentForm) {
-    await window.syncPendingEntries();
+    // Ensure syncPendingEntries exists before calling
+    if (typeof window.syncPendingEntries === 'function') {
+      await window.syncPendingEntries();
+    }
     loadInvestments();
 
     investmentForm.addEventListener('submit', async event => {
@@ -89,7 +81,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         notes: `Investment: ${type}`
       };
 
-      await window.addEntry(entry);
+      if (typeof window.addEntry === 'function') {
+        await window.addEntry(entry);
+      }
       investmentForm.reset();
       loadInvestments();
     });
