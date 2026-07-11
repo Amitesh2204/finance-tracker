@@ -1,145 +1,65 @@
-/* Mobile-first responsive styles */
-:root{
-  --bg:#f1f5f5;
-  --accent:#0f766e;
-  --muted:#6b7280;
-  --sidebar:#0a3b36;
-  --card-bg:#ffffff;
-  --glass: rgba(255,255,255,0.6);
-  --rounded:18px;
-}
-*{box-sizing:border-box}
-body{margin:0;font-family:Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial;color:#0f172a;background:var(--bg)}
-.app{display:flex;min-height:100vh}
-.sidebar{position:fixed;left:0;top:0;bottom:0;width:72px;padding:20px 12px;background:var(--sidebar);color:#fff;display:flex;flex-direction:column;align-items:center}
-.sidebar .brand{display:none}
-.main{margin-left:72px;flex:1;padding:28px}
-.topbar{display:flex;justify-content:space-between;align-items:center}
-
-.topbar .search{padding:10px 14px;border-radius:999px;border:1px solid #e6eef0;background:#fff;min-width:240px}
-.topbar .avatar{width:36px;height:36px;border-radius:50%;margin-left:8px}
-
-.layout-split{display:flex;gap:28px;align-items:flex-start}
-.layout-split .left{flex:1}
-.layout-split .right{width:320px}
-
-.card{background:var(--card-bg);padding:18px;border-radius:var(--rounded);box-shadow:0 10px 30px rgba(15,23,42,0.06);}
-.summary .amount{font-size:1.1rem;font-weight:700}
-
-/* Larger screens */
-@media(min-width:800px){
-  .sidebar{width:260px;padding:28px}
-  .sidebar .brand{display:flex;gap:12px;align-items:center}
-  .main{margin-left:260px}
-}
-
-.content{max-width:1100px;margin:10px auto}
-
-.cards {
+/* Sidebar styles */
+.sidebar {
+  position: fixed;
+  left: 0; top: 0; bottom: 0;
+  width: 260px;
+  padding: 28px;
+  background: var(--sidebar);
+  color: #fff;
   display: flex;
-  gap: 20px;
-  margin-bottom: 20px;
+  flex-direction: column;
 }
+.sidebar .brand {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+.sidebar .brand img { width: 36px; height: 36px; }
+.sidebar .brand h1 { font-size: 1.6rem; margin: 0; font-weight: 700; }
+.sidebar nav.main-menu {
+  margin-top: 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.sidebar nav.main-menu a {
+  color: rgba(255,255,255,0.95);
+  text-decoration: none;
+  padding: 10px 12px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.sidebar nav.main-menu a:hover {
+  background: rgba(255,255,255,0.08);
+}
+
+/* Main layout */
+.main { margin-left: 260px; flex: 1; padding: 28px; }
+.topbar { display: flex; justify-content: space-between; align-items: center; }
+.topbar h2 { font-size: 1.4rem; font-weight: 700; }
+
+.layout-split { display: flex; gap: 28px; align-items: flex-start; }
+.layout-split .left { flex: 1; }
+.layout-split .right { width: 320px; }
+
+/* Cards */
+.cards { display: flex; gap: 20px; margin-bottom: 20px; }
 .card {
-  flex: 1;
   background: var(--card-bg);
   padding: 18px;
   border-radius: var(--rounded);
   box-shadow: 0 6px 22px rgba(15,23,42,0.04);
 }
 .card h3 { margin: 0 0 8px; }
-.card .positive { color: var(--accent); font-weight: 700; }
+.card p { font-size: 1.2rem; font-weight: 700; }
 
-.transactions table {
-  width: 100%;
-  border-collapse: collapse;
-}
-.transactions td {
-  padding: 12px 10px;
-  border-bottom: 1px solid #f1f3f4;
-}
-.transactions tr:nth-child(even) { background: transparent; }
+/* Chart sections */
+.chart { height: 300px; margin-bottom: 20px; }
 
-/* Sidebar styles */
-.sidebar .brand{display:flex;gap:12px;align-items:center}
-.sidebar .brand img{width:36px;height:36px}
-.sidebar .brand h1{font-size:1.6rem;margin:0;font-weight:700}
-.sidebar nav{margin-top:28px;display:flex;flex-direction:column;gap:14px}
-.sidebar nav a{color:rgba(255,255,255,0.95);text-decoration:none;padding:10px 12px;border-radius:10px}
-.sidebar nav a:hover{background:rgba(255,255,255,0.04)}
-.sidebar-footer{margin-top:auto;padding-top:18px;width:100%}
-.sidebar-footer .contact{background:linear-gradient(135deg,#1a8b80,#0b6a5f);color:#fff;border:none;padding:10px 14px;border-radius:10px}
-.sidebar-footer a.logout{display:block;color:rgba(255,255,255,0.85);margin-top:10px}
-
-/* Right column summaries */
-.right .summary{margin-bottom:16px}
-
-/* Chart placeholder sizing */
-.chart{height:260px;display:flex;align-items:center;justify-content:center}
-
-@media(max-width:799px){
-  .layout-split{flex-direction:column}
-  .layout-split .right{width:100%}
-}
-
-
-/* Sidebar footer */
-.sidebar-footer {
-  margin-top: auto;
-  padding-top: 18px;
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-.sidebar-footer a.settings,
-.sidebar-footer a.logout {
-  display: block;
-  color: rgba(255,255,255,0.85);
-  text-decoration: none;
-  padding: 10px 12px;
-  border-radius: 10px;
-}
-.sidebar-footer a.settings:hover,
-.sidebar-footer a.logout:hover {
-  background: rgba(255,255,255,0.04);
-}
-
-/* Summary cards */
-.cards {
-  display: flex;
-  gap: 20px;
-  margin-bottom: 20px;
-}
-.cards .card {
-  flex: 1;
-}
-.cards .card h3 {
-  margin-bottom: 8px;
-}
-.cards .card p {
-  font-size: 1.2rem;
-  font-weight: 700;
-}
-
-/* Chart section */
-.chart {
-  height: 300px;
-  margin-bottom: 20px;
-}
-
-/* Recent Activities */
-.transactions h3 {
-  margin-bottom: 12px;
-}
-.transactions table {
-  width: 100%;
-  border-collapse: collapse;
-}
-.transactions td {
-  padding: 10px;
-  border-bottom: 1px solid #f1f3f4;
-}
-.transactions tr:nth-child(even) {
-  background: #fafafa;
-}
+/* Transactions */
+.transactions h3 { margin-bottom: 12px; }
+.transactions table { width: 100%; border-collapse: collapse; }
+.transactions td { padding: 10px; border-bottom: 1px solid #f1f3f4; }
+.transactions tr:nth-child(even) { background: #fafafa; }
