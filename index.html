@@ -11,13 +11,14 @@
 </head>
 <body>
   <div class="app">
-    <!-- Sidebar -->
+    <!-- Sidebar with icons -->
     <aside class="sidebar">
       <div class="brand">
         <img src="frontend/assets/logo.svg" alt="logo" />
         <h1>Wealty</h1>
       </div>
       <nav class="main-menu">
+        <!-- Added icons for each menu item -->
         <a href="frontend/pages/budget/budget.html"><span class="icon">📊</span> Budget</a>
         <a href="frontend/pages/expense/expense.html"><span class="icon">💸</span> Expense</a>
         <a href="frontend/pages/investments/investments.html"><span class="icon">💹</span> Investments</a>
@@ -27,55 +28,60 @@
       </nav>
     </aside>
 
+    <!-- Main content -->
     <main class="main">
-    <header class="topbar">
-      <h2>Financial Statistics</h2>
-      <div class="topbar-right">
-        <input class="search" placeholder="Search" />
-        <button class="icon">🔔</button>
-        <img class="avatar" src="frontend/assets/avatar.svg" alt="avatar" />
-      </div>
-    </header>
+      <header class="topbar">
+        <!-- Changed heading to Financial Statistics -->
+        <h2>Financial Statistics</h2>
+        <div class="topbar-right">
+          <input class="search" placeholder="Search" />
+          <button class="icon">🔔</button>
+          <img class="avatar" src="frontend/assets/avatar.svg" alt="avatar" />
+        </div>
+      </header>
 
-    <section class="content layout-split">
-      <!-- Center column -->
-      <div class="left">
-        <div class="cards">
-          <div class="card balance">
-            <h3>Balance</h3>
-            <p id="totalBalance">$0.00</p>
+      <section class="content layout-split">
+        <!-- Center column -->
+        <div class="left">
+          <!-- Summary cards -->
+          <div class="cards">
+            <div class="card balance">
+              <h3>Balance</h3>
+              <p id="totalBalance">$0.00</p>
+            </div>
+            <div class="card savings">
+              <h3>Savings</h3>
+              <p id="savings">$0.00</p>
+            </div>
+            <div class="card expenses">
+              <h3>Expenses</h3>
+              <p id="expenses">$0.00</p>
+            </div>
           </div>
-          <div class="card savings">
-            <h3>Savings</h3>
-            <p id="savings">$0.00</p>
+
+          <!-- Financial Statistics chart -->
+          <div class="chart card">
+            <h3>Financial Statistics</h3>
+            <canvas id="financeChart"></canvas>
           </div>
-          <div class="card expenses">
-            <h3>Expenses</h3>
-            <p id="expenses">$0.00</p>
+
+          <!-- Recent Activities graph -->
+          <div class="chart card">
+            <h3>Recent Activities (Last Month)</h3>
+            <canvas id="recentActivityChart"></canvas>
           </div>
         </div>
 
-        <div class="chart card">
-          <h3>Financial Statistics</h3>
-          <canvas id="financeChart"></canvas>
-        </div>
-
-        <div class="chart card">
-          <h3>Recent Activities (Last Month)</h3>
-          <canvas id="recentActivityChart"></canvas>
-        </div>
-      </div>
-
-      <!-- Right column -->
-      <aside class="right">
-        <div class="transactions card">
-          <h3>Last Transaction</h3>
-          <table id="lastTx"></table>
-        </div>
-      </aside>
-    </section>
-  </main>
-
+        <!-- Right column -->
+        <aside class="right">
+          <!-- Dedicated Last Transaction card -->
+          <div class="transactions card">
+            <h3>Last Transaction</h3>
+            <table id="lastTx"></table>
+          </div>
+        </aside>
+      </section>
+    </main>
   </div>
 
   <script>

@@ -1,60 +1,88 @@
-/* Sidebar menu with icons */
-.sidebar nav a {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: rgba(255,255,255,0.95);
-  text-decoration: none;
-  padding: 10px 12px;
-  border-radius: 10px;
-}
-.sidebar nav a .icon {
-  font-size: 1.2rem;
+:root {
+  --bg:#f1f5f5;
+  --accent:#0f766e;
+  --muted:#6b7280;
+  --sidebar:#0a3b36;
+  --card-bg:#ffffff;
+  --rounded:18px;
 }
 
-/* Summary cards styling */
-.cards .card {
-  flex: 1;
-  text-align: center;
+/* Reset and base */
+* { box-sizing:border-box }
+body {
+  margin:0;
+  font-family:Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial;
+  color:#0f172a;
+  background:var(--bg);
 }
-.cards .card h3 {
-  margin-bottom: 8px;
-  font-weight: 600;
+.app { display:flex; min-height:100vh }
+
+/* Sidebar */
+.sidebar {
+  position:fixed; left:0; top:0; bottom:0;
+  width:260px; padding:28px;
+  background:var(--sidebar); color:#fff;
+  display:flex; flex-direction:column;
 }
-.cards .card p {
-  font-size: 1.4rem;
-  font-weight: 700;
+.sidebar .brand {
+  display:flex; gap:12px; align-items:center;
 }
-.card.balance p { color: #0f766e; }
-.card.savings p { color: #1a8b80; }
-.card.expenses p { color: #d9534f; }
+.sidebar .brand img { width:36px; height:36px }
+.sidebar .brand h1 { font-size:1.6rem; margin:0; font-weight:700 }
+.sidebar nav.main-menu {
+  margin-top:28px; display:flex; flex-direction:column; gap:14px;
+}
+.sidebar nav.main-menu a {
+  display:flex; align-items:center; gap:8px;
+  color:rgba(255,255,255,0.95);
+  text-decoration:none; padding:10px 12px;
+  border-radius:10px;
+}
+.sidebar nav.main-menu a:hover {
+  background:rgba(255,255,255,0.08);
+}
+.sidebar nav a .icon { font-size:1.2rem }
+
+/* Main layout */
+.main { margin-left:260px; flex:1; padding:28px }
+.topbar { display:flex; justify-content:space-between; align-items:center }
+.topbar h2 { font-size:1.4rem; font-weight:700 }
+.topbar .search {
+  padding:10px 14px; border-radius:999px;
+  border:1px solid #e6eef0; background:#fff; min-width:240px;
+}
+.topbar .avatar { width:36px; height:36px; border-radius:50%; margin-left:8px }
+
+/* Layout split */
+.layout-split { display:flex; gap:28px; align-items:flex-start }
+.layout-split .left { flex:1 }
+.layout-split .right { width:320px }
+
+/* Cards */
+.cards { display:flex; gap:20px; margin-bottom:20px }
+.card {
+  background:var(--card-bg);
+  padding:18px; border-radius:var(--rounded);
+  box-shadow:0 6px 22px rgba(15,23,42,0.04);
+}
+.card h3 { margin:0 0 8px; font-weight:600 }
+.card p { font-size:1.4rem; font-weight:700; margin:0 }
+.card.balance p { color:#0f766e }
+.card.savings p { color:#1a8b80 }
+.card.expenses p { color:#d9534f }
 
 /* Chart sections */
-.chart {
-  height: 320px;
-  margin-bottom: 20px;
-}
-.chart h3 {
-  margin-bottom: 12px;
-  font-weight: 600;
-}
+.chart { height:320px; margin-bottom:20px }
+.chart h3 { margin-bottom:12px; font-weight:600 }
 
 /* Last Transaction card */
-.transactions {
-  padding: 18px;
-}
-.transactions h3 {
-  margin-bottom: 12px;
-  font-weight: 600;
-}
-.transactions table {
-  width: 100%;
-  border-collapse: collapse;
-}
-.transactions td {
-  padding: 10px;
-  border-bottom: 1px solid #f1f3f4;
-}
-.transactions tr:nth-child(even) {
-  background: #fafafa;
+.transactions h3 { margin-bottom:12px; font-weight:600 }
+.transactions table { width:100%; border-collapse:collapse }
+.transactions td { padding:10px; border-bottom:1px solid #f1f3f4 }
+.transactions tr:nth-child(even) { background:#fafafa }
+
+/* Responsive */
+@media(max-width:799px){
+  .layout-split { flex-direction:column }
+  .layout-split .right { width:100% }
 }
