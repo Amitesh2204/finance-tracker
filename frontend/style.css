@@ -82,13 +82,10 @@ body {
   gap:28px;
   margin-bottom:28px;
 }
-.stats-row .chart {
-  flex:2;
-  height:400px;
-}
+.stats-row .chart,
 .stats-row .transactions.large {
   flex:1;
-  min-height:400px;
+  height:400px; /* equal height */
 }
 
 /* Chart sections */
