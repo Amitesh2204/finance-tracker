@@ -27,57 +27,55 @@
       </nav>
     </aside>
 
-    <!-- Main content -->
     <main class="main">
-      <header class="topbar">
-        <h2>Financial Statistics</h2>
-        <div class="topbar-right">
-          <input class="search" placeholder="Search" />
-          <button class="icon">🔔</button>
-          <img class="avatar" src="frontend/assets/avatar.svg" alt="avatar" />
-        </div>
-      </header>
+    <header class="topbar">
+      <h2>Financial Statistics</h2>
+      <div class="topbar-right">
+        <input class="search" placeholder="Search" />
+        <button class="icon">🔔</button>
+        <img class="avatar" src="frontend/assets/avatar.svg" alt="avatar" />
+      </div>
+    </header>
 
-      <section class="content layout-split">
-        <!-- Center column -->
-        <div class="left">
-          <!-- Summary cards -->
-          <div class="cards">
-            <div class="card">
-              <h3>Balance</h3>
-              <p id="totalBalance">$0.00</p>
-            </div>
-            <div class="card">
-              <h3>Savings</h3>
-              <p id="savings">$0.00</p>
-            </div>
-            <div class="card">
-              <h3>Expenses</h3>
-              <p id="expenses">$0.00</p>
-            </div>
+    <section class="content layout-split">
+      <!-- Center column -->
+      <div class="left">
+        <div class="cards">
+          <div class="card balance">
+            <h3>Balance</h3>
+            <p id="totalBalance">$0.00</p>
           </div>
-
-          <!-- Financial Statistics chart -->
-          <div class="chart card">
-            <canvas id="financeChart"></canvas>
+          <div class="card savings">
+            <h3>Savings</h3>
+            <p id="savings">$0.00</p>
           </div>
-
-          <!-- Recent Activities graph -->
-          <div class="chart card">
-            <h3>Recent Activities (Last Month)</h3>
-            <canvas id="recentActivityChart"></canvas>
+          <div class="card expenses">
+            <h3>Expenses</h3>
+            <p id="expenses">$0.00</p>
           </div>
         </div>
 
-        <!-- Right column -->
-        <aside class="right">
-          <div class="transactions card">
-            <h3>Last Transaction</h3>
-            <table id="lastTx"></table>
-          </div>
-        </aside>
-      </section>
-    </main>
+        <div class="chart card">
+          <h3>Financial Statistics</h3>
+          <canvas id="financeChart"></canvas>
+        </div>
+
+        <div class="chart card">
+          <h3>Recent Activities (Last Month)</h3>
+          <canvas id="recentActivityChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Right column -->
+      <aside class="right">
+        <div class="transactions card">
+          <h3>Last Transaction</h3>
+          <table id="lastTx"></table>
+        </div>
+      </aside>
+    </section>
+  </main>
+
   </div>
 
   <script>
