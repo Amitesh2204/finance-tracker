@@ -10,28 +10,35 @@ async function getEntries() {
 }
 
 // Finance Chart (Budget integration)
-async function renderFinanceChart() {
-  const ctx = document.getElementById('financeChart').getContext('2d');
-  const entries = await getEntries();
-  const budgetEntries = entries.filter(e => e.type === 'budget');
+async function renderInvestmentGrowthChart(selectedYear) {
+  const entries = await window.fetchEntries().catch(() => []);
+  const investments = entries.filter(e => e.type === 'investment');
 
-  // Group by month
+  // Group by month for the selected year
   const monthlyTotals = {};
-  budgetEntries.forEach(e => {
-    const month = new Date(e.date).toLocaleString('default', { month: 'short' });
-    monthlyTotals[month] = (monthlyTotals[month] || 0) + e.amount;
+  const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  months.forEach(m => monthlyTotals[m] = 0);
+
+  investments.forEach(e => {
+    const d = new Date(e.date);
+    const year = d.getFullYear();
+    if (year === parseInt(selectedYear)) {
+      const month = d.toLocaleString('default', { month: 'short' });
+      monthlyTotals[month] += e.amount || 0;
+    }
   });
 
-  const labels = Object.keys(monthlyTotals);
-  const data = Object.values(monthlyTotals);
-
-  new Chart(ctx, {
+  const ctx = document.getElementById('investmentGrowthChart').getContext('2d');
+  if (window.investmentChart) {
+    window.investmentChart.destroy();
+  }
+  window.investmentChart = new Chart(ctx, {
     type: 'bar',
     data: {
-      labels,
+      labels: months,
       datasets: [{
-        label: 'Budget',
-        data,
+        label: `Investments in ${selectedYear}`,
+        data: months.map(m => monthlyTotals[m]),
         backgroundColor: '#1abc9c'
       }]
     },
@@ -47,53 +54,25 @@ async function renderFinanceChart() {
   });
 }
 
-// Recent Activity Chart (Expense integration)
-async function renderRecentActivityChart() {
-  const ctx = document.getElementById('recentActivityChart').getContext('2d');
-  const entries = await getEntries();
-  const expenseEntries = entries.filter(e => e.type === 'expense');
-
-  // Last month’s expenses grouped by day
-  const now = new Date();
-  const lastMonth = now.getMonth() - 1;
-  const monthlyExpenses = expenseEntries.filter(e => new Date(e.date).getMonth() === lastMonth);
-
-  const dailyTotals = {};
-  monthlyExpenses.forEach(e => {
-    const day = new Date(e.date).getDate();
-    dailyTotals[day] = (dailyTotals[day] || 0) + e.amount;
-  });
-
-  const labels = Object.keys(dailyTotals).map(d => `Day ${d}`);
-  const data = Object.values(dailyTotals);
-
-  new Chart(ctx, {
-    type: 'line',
-    data: {
-      labels,
-      datasets: [{
-        label: 'Expenses',
-        data,
-        borderColor: '#e74c3c',
-        backgroundColor: 'rgba(231,76,60,0.2)',
-        fill: true,
-        tension: 0.3
-      }]
-    },
-    options: {
-      responsive: true,
-      plugins: {
-        legend: { display: false }
-      },
-      scales: {
-        y: { beginAtZero: true }
-      }
+document.addEventListener('DOMContentLoaded', async () => {
+  // Populate year selector dynamically based on entries
+  const entries = await window.fetchEntries().catch(() => []);
+  const years = [...new Set(entries.map(e => new Date(e.date).getFullYear()))];
+  const yearSelect = document.getElementById('yearSelect');
+  years.sort().forEach(y => {
+    if (!Array.from(yearSelect.options).some(opt => opt.value == y)) {
+      const opt = document.createElement('option');
+      opt.value = y;
+      opt.textContent = y;
+      yearSelect.appendChild(opt);
     }
   });
-}
 
-// Initialize charts on DOM load
-document.addEventListener('DOMContentLoaded', () => {
-  renderFinanceChart();
-  renderRecentActivityChart();
+  // Initial render
+  renderInvestmentGrowthChart(yearSelect.value);
+
+  // Update chart when year changes
+  yearSelect.addEventListener('change', () => {
+    renderInvestmentGrowthChart(yearSelect.value);
+  });
 });
