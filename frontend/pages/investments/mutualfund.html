@@ -9,27 +9,31 @@
 <body>
   <div class="app">
     <aside class="sidebar">
-      <div class="brand"><h1>Wealty</h1></div>
-      <nav class="main-menu">
-        <a href="../../../index.html">🏠 Home</a>
-        <a href="../budget.html">📊 Budget</a>
-        <a href="../expense.html">💸 Expense</a>
-        <div class="submenu">
-          <a href="investments.html">📈 Investments</a>
-          <ul>
-            <li><a href="mutualfund.html" class="active">Mutual Fund</a></li>
-            <li><a href="lic.html">LIC</a></li>
-            <li><a href="ppf.html">PPF</a></li>
-            <li><a href="sukanya.html">Sukanya Yojana</a></li>
-          </ul>
+        <div class="brand"><h1>Wealty</h1></div>
+        <nav class="main-menu">
+            <a href="../../../index.html">🏠 Home</a>
+            <a href="../budget.html">📊 Budget</a>
+            <a href="../expense.html">💸 Expense</a>
+
+            <!-- Expandable Investments section -->
+            <div class="submenu">
+            <a href="investments.html" class="submenu-toggle">📈 Investments ▸</a>
+            <ul class="submenu-list hidden">
+                <li><a href="mutualfund.html">Mutual Fund</a></li>
+                <li><a href="lic.html">LIC</a></li>
+                <li><a href="ppf.html">PPF</a></li>
+                <li><a href="sukanya.html">Sukanya Yojana</a></li>
+            </ul>
+            </div>
+
+            <a href="../report.html">📑 Report</a>
+        </nav>
+        <div class="sidebar-footer">
+            <a href="../settings.html">⚙️ Settings</a>
+            <a href="../login.html">🚪 Logout</a>
         </div>
-        <a href="../report.html">📑 Report</a>
-      </nav>
-      <div class="sidebar-footer">
-        <a href="../settings.html">⚙️ Settings</a>
-        <a href="../login.html">🚪 Logout</a>
-      </div>
     </aside>
+
 
     <main class="main">
       <header class="topbar"><h2>Mutual Fund Details</h2></header>
