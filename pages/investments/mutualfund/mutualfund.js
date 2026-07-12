@@ -64,7 +64,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Load existing entries from DB
   async function loadEntries() {
     const entries = await window.fetchEntries().catch(() => []);
-    const mfEntries = entries.filter(e => e.type === 'mutualfund');
+    const mfEntries = entries.filter(e => e.type === 'investment' && e.category === 'Mutual Fund');
     totalInvested = 0;
     totalGrowth = 0;
     monthlyData = {};
@@ -72,10 +72,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     mfEntries.forEach(e => {
       const month = new Date(e.date).toLocaleString('default',{month:'short'});
       monthlyData[month] = monthlyData[month] || { invested:0, profit:0 };
-      if (e.category === 'investment') {
+      if (e.notes?.includes('investment')) {
         monthlyData[month].invested += e.amount;
         totalInvested += e.amount;
-      } else if (e.category === 'profit') {
+      } else if (e.notes?.includes('profit')) {
         monthlyData[month].profit += e.amount;
         totalGrowth += e.amount;
       }
@@ -97,10 +97,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     monthlyData[month] = monthlyData[month] || { invested:0, profit:0 };
     monthlyData[month].invested += amt;
 
-    // Save entry to DB
+    // Save entry to DB (investment type so Investments page sees it)
     const entry = {
-      type: 'mutualfund',
-      category: 'investment',
+      type: 'investment',
+      category: 'Mutual Fund',
       amount: amt,
       currency: 'INR',
       date: new Date().toISOString(),
@@ -125,10 +125,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     monthlyData[month] = monthlyData[month] || { invested:0, profit:0 };
     monthlyData[month].profit += profit;
 
-    // Save entry to DB
+    // Save entry to DB (investment type so Investments page sees it)
     const entry = {
-      type: 'mutualfund',
-      category: 'profit',
+      type: 'investment',
+      category: 'Mutual Fund',
       amount: profit,
       currency: 'INR',
       date: new Date().toISOString(),
