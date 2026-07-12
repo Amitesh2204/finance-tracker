@@ -72,10 +72,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     mfEntries.forEach(e => {
       const month = new Date(e.date).toLocaleString('default',{month:'short'});
       monthlyData[month] = monthlyData[month] || { invested:0, profit:0 };
-      if (e.notes?.includes('investment')) {
+      if (e.subtype === 'investment') {
         monthlyData[month].invested += e.amount;
         totalInvested += e.amount;
-      } else if (e.notes?.includes('profit')) {
+      } else if (e.subtype === 'profit') {
         monthlyData[month].profit += e.amount;
         totalGrowth += e.amount;
       }
@@ -97,10 +97,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     monthlyData[month] = monthlyData[month] || { invested:0, profit:0 };
     monthlyData[month].invested += amt;
 
-    // Save entry to DB (investment type so Investments page sees it)
+    // Save entry to DB
     const entry = {
       type: 'investment',
       category: 'Mutual Fund',
+      subtype: 'investment',
       amount: amt,
       currency: 'INR',
       date: new Date().toISOString(),
@@ -125,10 +126,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     monthlyData[month] = monthlyData[month] || { invested:0, profit:0 };
     monthlyData[month].profit += profit;
 
-    // Save entry to DB (investment type so Investments page sees it)
+    // Save entry to DB
     const entry = {
       type: 'investment',
       category: 'Mutual Fund',
+      subtype: 'profit',
       amount: profit,
       currency: 'INR',
       date: new Date().toISOString(),
