@@ -4,43 +4,83 @@
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Mutual Fund</title>
   <link rel="stylesheet" href="../../../style.css">
-  <link rel="stylesheet" href="../investments.css">
+  <link rel="stylesheet" href="mutualfund.css">
+  <script src="https://unpkg.com/pouchdb@7.3.1/dist/pouchdb.min.js"></script>
+  <script src="../../../app.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="mutualfund.js" defer></script>
 </head>
 <body>
   <div class="app">
     <aside class="sidebar">
-        <div class="brand"><h1>Wealty</h1></div>
-        <nav class="main-menu">
-            <a href="../../../../index.html">🏠 Home</a>
-            <a href="../budget/budget.html">📊 Budget</a>
-            <a href="../expense/expense.html">💸 Expense</a>
-
-            <!-- Expandable Investments section -->
-            <div class="submenu">
-            <a href="../investments.html" class="submenu-toggle">📈 Investments ▸</a>
-            <ul class="submenu-list hidden">
-                <li><a href="mutualfund/mutualfund.html">Mutual Fund</a></li>
-                <li><a href="lic/lic.html">LIC</a></li>
-                <li><a href="ppf/ppf.html">PPF</a></li>
-                <li><a href="sukanya/sukanya.html">Sukanya Yojana</a></li>
-            </ul>
-            </div>
-
-            <a href="../../report.html">📑 Report</a>
-        </nav>
-        <div class="sidebar-footer">
-            <a href="../settings.html">⚙️ Settings</a>
-            <a href="../login.html">🚪 Logout</a>
+      <div class="brand"><h1>Wealty</h1></div>
+      <nav class="main-menu">
+        <a href="../../../../index.html">🏠 Home</a>
+        <a href="../budget/budget.html">📊 Budget</a>
+        <a href="../expense/expense.html">💸 Expense</a>
+        <div class="submenu">
+          <a href="../investments.html" class="submenu-toggle">📈 Investments ▾</a>
+          <ul class="submenu-list">
+            <li><a href="mutualfund.html" class="active">Mutual Fund</a></li>
+            <li><a href="../lic/lic.html">LIC</a></li>
+            <li><a href="../ppf/ppf.html">PPF</a></li>
+            <li><a href="../sukanya/sukanya.html">Sukanya Yojana</a></li>
+          </ul>
         </div>
+        <a href="../../report.html">📑 Report</a>
+      </nav>
+      <div class="sidebar-footer">
+        <a href="../settings.html">⚙️ Settings</a>
+        <a href="../login.html">🚪 Logout</a>
+      </div>
     </aside>
-
 
     <main class="main">
       <header class="topbar"><h2>Mutual Fund Details</h2></header>
       <section class="content">
+        <!-- Summary cards -->
+        <div class="cards">
+          <div class="card"><h3>Total Invested</h3><p id="totalInvested">₹0.00</p></div>
+          <div class="card"><h3>Total Growth</h3><p id="totalGrowth">₹0.00</p></div>
+        </div>
+
+        <!-- Chart -->
+        <div class="chart card same-size">
+          <h3>Mutual Fund Growth</h3>
+          <canvas id="mutualFundChart"></canvas>
+        </div>
+
+        <!-- Investment form -->
         <div class="card">
-          <h3>Overview</h3>
-          <p>This page is dedicated to Mutual Fund investments. You can expand this section with charts, tables, and analysis specific to Mutual Funds.</p>
+          <h3>Add Monthly Investment</h3>
+          <form id="investmentForm" class="investment-form">
+            <label>Investment Type</label>
+            <input type="text" value="Mutual Fund" readonly />
+            <label for="monthlyAmount">Monthly Amount</label>
+            <input id="monthlyAmount" type="number" min="0" step="0.01" required />
+            <button type="submit">Add Investment</button>
+          </form>
+        </div>
+
+        <!-- Profit form -->
+        <div class="card">
+          <h3>Update Monthly Profit</h3>
+          <form id="profitForm" class="investment-form">
+            <label for="monthlyProfit">Monthly Profit</label>
+            <input id="monthlyProfit" type="number" min="0" step="0.01" required />
+            <button type="submit">Update Profit</button>
+          </form>
+        </div>
+
+        <!-- Monthly table -->
+        <div class="card">
+          <h3>Monthly Mutual Fund Summary</h3>
+          <table id="mutualFundTable" class="investment-table">
+            <thead>
+              <tr><th>Investment Name</th><th>Monthly Invested</th><th>Total Profit</th><th>Growth %</th></tr>
+            </thead>
+            <tbody><tr><td colspan="4">No data yet</td></tr></tbody>
+          </table>
         </div>
       </section>
     </main>
