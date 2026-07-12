@@ -3,11 +3,9 @@
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Investments</title>
-  <!-- Adjusted paths: style.css and app.js are one level up from /pages/investments -->
   <link rel="stylesheet" href="../../style.css">
   <link rel="stylesheet" href="investments.css">
 
-  <!-- Explicit Cloudflare tunnel overrides -->
   <script>
     window.__API_BASE__ = 'https://cotton-farmer-giving-committed.trycloudflare.com/';
   </script>
@@ -39,10 +37,16 @@
       <section class="content">
         <!-- Summary cards -->
         <div class="cards">
-          <div class="card mutualfund"><h3>Mutual Fund</h3><p id="mutualFundTotal">₹0.00</p></div>
-          <div class="card lic"><h3>LIC</h3><p id="licTotal">₹0.00</p></div>
-          <div class="card ppf"><h3>PPF</h3><p id="ppfTotal">₹0.00</p></div>
-          <div class="card sukanya"><h3>Sukanya Yojana</h3><p id="sukanyaTotal">₹0.00</p></div>
+          <div class="card mutualfund" data-category="Mutual Fund"><h3>Mutual Fund</h3><p id="mutualFundTotal">₹0.00</p></div>
+          <div class="card lic" data-category="LIC"><h3>LIC</h3><p id="licTotal">₹0.00</p></div>
+          <div class="card ppf" data-category="PPF"><h3>PPF</h3><p id="ppfTotal">₹0.00</p></div>
+          <div class="card sukanya" data-category="Sukanya Yojana"><h3>Sukanya Yojana</h3><p id="sukanyaTotal">₹0.00</p></div>
+        </div>
+
+        <!-- Detail view placeholder -->
+        <div id="categoryDetail" class="card hidden">
+          <h3 id="detailTitle">Category Details</h3>
+          <div id="detailContent">Click a card above to view details.</div>
         </div>
 
         <!-- Add Investment form -->
