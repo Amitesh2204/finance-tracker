@@ -1,6 +1,6 @@
-// mutualfund.js - dedicated logic for Mutual Fund page
+// mutualfund.js - dedicated logic for Mutual Fund page with PouchDB + CouchDB sync
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   const investedCard = document.getElementById('totalInvested');
   const growthCard = document.getElementById('totalGrowth');
   const tableBody = document.querySelector('#mutualFundTable tbody');
@@ -61,8 +61,33 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // Load existing entries from DB
+  async function loadEntries() {
+    const entries = await window.fetchEntries().catch(() => []);
+    const mfEntries = entries.filter(e => e.type === 'mutualfund');
+    totalInvested = 0;
+    totalGrowth = 0;
+    monthlyData = {};
+
+    mfEntries.forEach(e => {
+      const month = new Date(e.date).toLocaleString('default',{month:'short'});
+      monthlyData[month] = monthlyData[month] || { invested:0, profit:0 };
+      if (e.category === 'investment') {
+        monthlyData[month].invested += e.amount;
+        totalInvested += e.amount;
+      } else if (e.category === 'profit') {
+        monthlyData[month].profit += e.amount;
+        totalGrowth += e.amount;
+      }
+    });
+
+    updateCards();
+    renderTable();
+    renderChart();
+  }
+
   // Handle investment form
-  document.getElementById('investmentForm').addEventListener('submit', e => {
+  document.getElementById('investmentForm').addEventListener('submit', async e => {
     e.preventDefault();
     const amt = parseFloat(document.getElementById('monthlyAmount').value);
     if (isNaN(amt) || amt <= 0) return;
@@ -72,6 +97,17 @@ document.addEventListener('DOMContentLoaded', () => {
     monthlyData[month] = monthlyData[month] || { invested:0, profit:0 };
     monthlyData[month].invested += amt;
 
+    // Save entry to DB
+    const entry = {
+      type: 'mutualfund',
+      category: 'investment',
+      amount: amt,
+      currency: 'INR',
+      date: new Date().toISOString(),
+      notes: `Mutual Fund investment for ${month}`
+    };
+    await window.addEntry(entry);
+
     updateCards();
     renderTable();
     renderChart();
@@ -79,7 +115,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // Handle profit form
-  document.getElementById('profitForm').addEventListener('submit', e => {
+  document.getElementById('profitForm').addEventListener('submit', async e => {
     e.preventDefault();
     const profit = parseFloat(document.getElementById('monthlyProfit').value);
     if (isNaN(profit) || profit <= 0) return;
@@ -89,14 +125,24 @@ document.addEventListener('DOMContentLoaded', () => {
     monthlyData[month] = monthlyData[month] || { invested:0, profit:0 };
     monthlyData[month].profit += profit;
 
+    // Save entry to DB
+    const entry = {
+      type: 'mutualfund',
+      category: 'profit',
+      amount: profit,
+      currency: 'INR',
+      date: new Date().toISOString(),
+      notes: `Mutual Fund profit for ${month}`
+    };
+    await window.addEntry(entry);
+
     updateCards();
     renderTable();
     renderChart();
     e.target.reset();
   });
 
-  // Initial render
-  updateCards();
-  renderTable();
-  renderChart();
+  // Initial load
+  await window.syncPendingEntries();
+  loadEntries();
 });
