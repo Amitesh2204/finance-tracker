@@ -94,3 +94,28 @@
 .hidden {
   display: none;
 }
+
+/* Submenu styling */
+.submenu .submenu-list {
+  list-style: none;
+  margin: 0;
+  padding-left: 15px;
+}
+
+.submenu .submenu-list li a {
+  display: block;
+  padding: 6px 0;
+  color: #ecf0f1;
+  font-size: 0.9rem;
+}
+
+.submenu .submenu-toggle {
+  cursor: pointer;
+  display: block;
+  color: #ecf0f1;
+  font-weight: 600;
+}
+
+.submenu .submenu-toggle.active {
+  color: #1abc9c;
+}

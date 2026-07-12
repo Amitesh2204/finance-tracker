@@ -103,6 +103,25 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
       investmentForm.reset();
       loadInvestments();
+
+      // Sidebar submenu toggle
+      const submenuToggle = document.querySelector('.submenu-toggle');
+      const submenuList = document.querySelector('.submenu-list');
+
+      if (submenuToggle && submenuList) {
+        submenuToggle.addEventListener('click', (e) => {
+          e.preventDefault(); // prevent navigation
+          submenuList.classList.toggle('hidden');
+          submenuToggle.classList.toggle('active');
+          // Update arrow indicator ▸ vs ▾
+          if (submenuToggle.textContent.includes('▸')) {
+            submenuToggle.textContent = '📈 Investments ▾';
+          } else {
+            submenuToggle.textContent = '📈 Investments ▸';
+          }
+        });
+      }
+
     });
   }
 });
