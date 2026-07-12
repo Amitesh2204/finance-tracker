@@ -6,10 +6,6 @@
   <link rel="stylesheet" href="../../style.css">
   <link rel="stylesheet" href="investments.css">
 
-  <script>
-    window.__API_BASE__ = 'https://cotton-farmer-giving-committed.trycloudflare.com/';
-  </script>
-
   <script src="https://unpkg.com/pouchdb@7.3.1/dist/pouchdb.min.js"></script>
   <script src="../../app.js" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -23,7 +19,15 @@
         <a href="../../../index.html">🏠 Home</a>
         <a href="../budget.html">📊 Budget</a>
         <a href="../expense.html">💸 Expense</a>
-        <a href="investments.html" class="active">📈 Investments</a>
+        <div class="submenu">
+          <a href="investments.html" class="active">📈 Investments</a>
+          <ul>
+            <li><a href="mutualfund.html">Mutual Fund</a></li>
+            <li><a href="lic.html">LIC</a></li>
+            <li><a href="ppf.html">PPF</a></li>
+            <li><a href="sukanya.html">Sukanya Yojana</a></li>
+          </ul>
+        </div>
         <a href="../report.html">📑 Report</a>
       </nav>
       <div class="sidebar-footer">
@@ -37,16 +41,10 @@
       <section class="content">
         <!-- Summary cards -->
         <div class="cards">
-          <div class="card mutualfund" data-category="Mutual Fund"><h3>Mutual Fund</h3><p id="mutualFundTotal">₹0.00</p></div>
-          <div class="card lic" data-category="LIC"><h3>LIC</h3><p id="licTotal">₹0.00</p></div>
-          <div class="card ppf" data-category="PPF"><h3>PPF</h3><p id="ppfTotal">₹0.00</p></div>
-          <div class="card sukanya" data-category="Sukanya Yojana"><h3>Sukanya Yojana</h3><p id="sukanyaTotal">₹0.00</p></div>
-        </div>
-
-        <!-- Detail view placeholder -->
-        <div id="categoryDetail" class="card hidden">
-          <h3 id="detailTitle">Category Details</h3>
-          <div id="detailContent">Click a card above to view details.</div>
+          <a href="mutualfund.html" class="card mutualfund"><h3>Mutual Fund</h3><p id="mutualFundTotal">₹0.00</p></a>
+          <a href="lic.html" class="card lic"><h3>LIC</h3><p id="licTotal">₹0.00</p></a>
+          <a href="ppf.html" class="card ppf"><h3>PPF</h3><p id="ppfTotal">₹0.00</p></a>
+          <a href="sukanya.html" class="card sukanya"><h3>Sukanya Yojana</h3><p id="sukanyaTotal">₹0.00</p></a>
         </div>
 
         <!-- Add Investment form -->
