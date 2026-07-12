@@ -3,6 +3,9 @@
 document.addEventListener('DOMContentLoaded', async () => {
   const investmentForm = document.getElementById('investmentForm');
   const investmentTableBody = document.querySelector('#investmentsTable tbody');
+  const categoryDetail = document.getElementById('categoryDetail');
+  const detailTitle = document.getElementById('detailTitle');
+  const detailContent = document.getElementById('detailContent');
 
   function formatINR(amount) {
     return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(amount);
@@ -63,6 +66,17 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     });
   }
+
+  // Handle card clicks
+  document.querySelectorAll('.cards .card').forEach(card => {
+    card.addEventListener('click', () => {
+      const category = card.getAttribute('data-category');
+      detailTitle.textContent = category + " Details";
+      detailContent.textContent = "This is a simple placeholder view for " + category + ".";
+      categoryDetail.classList.remove('hidden');
+      categoryDetail.scrollIntoView({ behavior: 'smooth' });
+    });
+  });
 
   if (investmentForm) {
     if (typeof window.syncPendingEntries === 'function') {
