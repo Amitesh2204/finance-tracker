@@ -44,12 +44,10 @@ function mergeEntries(remoteEntries, localEntries) {
 
 async function fetchEntries() {
   const localEntries = await db.allDocs({include_docs:true}).then(r => r.rows.map(r=>r.doc));
-  if (!isOnline()) {
-    return localEntries;
-  }
+  if (!isOnline()) return localEntries;
 
   try {
-    await syncPendingEntries();
+    await syncPendingEntries(); // always sync first
     const res = await fetch(`${API_BASE}entries`);
     if (!res.ok) throw new Error('API unavailable');
     const remoteEntries = await res.json();

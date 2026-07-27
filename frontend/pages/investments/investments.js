@@ -48,6 +48,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   async function loadInvestments() {
+    await window.syncPendingEntries();
     const entries = await window.fetchEntries().catch(() => []);
     const investments = entries.filter(e => e.type === 'investment');
 

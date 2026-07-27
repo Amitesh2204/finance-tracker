@@ -91,10 +91,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Load existing entries from DB
   async function loadEntries() {
     const entries = await window.fetchEntries().catch(() => []);
-    const mfEntries = entries.filter(e => e.type === 'investment' && e.category === 'Mutual Fund');
-    totalInvested = 0;
-    totalGrowth = 0;
-    monthlyData = {};
+    const mfEntries = entries.filter(e =>
+      e.type === 'investment' && e.category === 'Mutual Fund'
+    );
 
     mfEntries.forEach(e => {
       const d = new Date(e.date);
@@ -102,10 +101,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       const year = d.getFullYear();
       const key = `${month}-${year}`;
       monthlyData[key] = monthlyData[key] || { invested:0, profit:0 };
-      if (e.subtype === 'investment') {
+      if (e.subtype === 'investment' || e.notes?.toLowerCase().includes('investment')) {
         monthlyData[key].invested += e.amount;
         totalInvested += e.amount;
-      } else if (e.subtype === 'profit') {
+      } else if (e.subtype === 'profit' || e.notes?.toLowerCase().includes('profit')) {
         monthlyData[key].profit += e.amount;
         totalGrowth += e.amount;
       }
