@@ -3,7 +3,8 @@
 document.addEventListener('DOMContentLoaded', async () => {
   const investmentForm = document.getElementById('investmentForm');
   const investmentTableBody = document.querySelector('#investmentsTable tbody');
-  const yearSelect = document.getElementById('yearSelect');
+  const yearSelect = document.getElementById('yearSelect');       // chart year selector
+  const savedYearSelect = document.getElementById('savedYearSelect'); // table year selector
   const categoryDetail = document.getElementById('categoryDetail');
   const detailTitle = document.getElementById('detailTitle');
   const detailContent = document.getElementById('detailContent');
@@ -46,18 +47,22 @@ document.addEventListener('DOMContentLoaded', async () => {
     const entries = await window.fetchEntries().catch(() => []);
     const investments = entries.filter(e => e.type === 'investment');
 
-    // Populate year selector dynamically
+    // Populate year selectors dynamically
     const years = [...new Set(investments.map(e => new Date(e.date).getFullYear()))];
-    yearSelect.innerHTML = '';
-    years.sort().forEach(y => {
-      const opt = document.createElement('option');
-      opt.value = y;
-      opt.textContent = y;
-      yearSelect.appendChild(opt);
+    [yearSelect, savedYearSelect].forEach(sel => {
+      sel.innerHTML = '';
+      years.sort().forEach(y => {
+        const opt = document.createElement('option');
+        opt.value = y;
+        opt.textContent = y;
+        sel.appendChild(opt);
+      });
     });
 
-    const selectedYear = yearSelect.value || null;
-    renderInvestments(investments, selectedYear);
+    const selectedYearChart = yearSelect.value || null;
+    const selectedYearTable = savedYearSelect.value || null;
+
+    renderInvestments(investments, selectedYearTable);
 
     // Totals: for Mutual Fund, use only profit subtype
     const totals = { 'Mutual Fund':0, 'LIC':0, 'PPF':0, 'Sukanya Yojana':0 };
@@ -84,7 +89,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       data: {
         labels: Object.keys(totals),
         datasets: [{
-          label: `Investment Growth ${selectedYear || ''}`,
+          label: `Investment Growth ${selectedYearChart || ''}`,
           data: Object.values(totals),
           borderColor: ['#1abc9c','#3498db','#e67e22','#9b59b6'],
           backgroundColor: 'rgba(26,188,156,0.2)',
@@ -113,10 +118,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   });
 
-  // Year selector change
-  yearSelect.addEventListener('change', () => {
-    loadInvestments();
-  });
+  // Year selector changes
+  yearSelect.addEventListener('change', () => loadInvestments());
+  savedYearSelect.addEventListener('change', () => loadInvestments());
 
   if (investmentForm) {
     if (typeof window.syncPendingEntries === 'function') {

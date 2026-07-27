@@ -80,6 +80,11 @@
         <!-- Saved Investments table -->
         <div class="card">
           <h3>Saved Investments</h3>
+          <label for="savedYearSelect">Select Year:</label>
+          <select id="savedYearSelect">
+            <option value="2026" selected>2026</option>
+            <!-- Future years will be added dynamically -->
+          </select>
           <table id="investmentsTable" class="investment-table">
             <thead><tr><th>Type</th><th>Amount</th><th>Date</th></tr></thead>
             <tbody><tr><td colspan="3">Loading investments...</td></tr></tbody>
