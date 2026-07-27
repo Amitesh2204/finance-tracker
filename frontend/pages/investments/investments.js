@@ -13,12 +13,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   function renderInvestments(entries) {
     if (!investmentTableBody) return;
-    const investmentEntries = entries.filter(e => e.subtype === 'investment'); // only show invested
-    if (!investmentEntries || investmentEntries.length === 0) {
-      investmentTableBody.innerHTML = '<tr><td colspan="3">No investments yet</td></tr>';
+    const profitEntries = entries.filter(e => e.subtype === 'profit'); // only show profit entries
+    if (!profitEntries || profitEntries.length === 0) {
+      investmentTableBody.innerHTML = '<tr><td colspan="3">No profit entries yet</td></tr>';
       return;
     }
-    investmentTableBody.innerHTML = investmentEntries.map(entry => `
+    investmentTableBody.innerHTML = profitEntries.map(entry => `
       <tr>
         <td>${entry.category || entry.type}</td>
         <td>${formatINR(Number(entry.amount))}</td>
@@ -101,10 +101,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       const entry = {
         type: 'investment',
         category: type,
-        subtype: 'investment', // ensure subtype is investment
+        subtype: 'profit', // ensure subtype is profit for table
         amount,
         date: new Date().toISOString(),
-        notes: `Investment: ${type}`
+        notes: `Profit: ${type}`
       };
 
       if (typeof window.addEntry === 'function') {
