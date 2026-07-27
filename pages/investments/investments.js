@@ -1,8 +1,9 @@
-// investments.js - dedicated logic for Investments page
+// investments.js - dedicated logic for Investments page with year-wise profit view
 
 document.addEventListener('DOMContentLoaded', async () => {
   const investmentForm = document.getElementById('investmentForm');
   const investmentTableBody = document.querySelector('#investmentsTable tbody');
+  const yearSelect = document.getElementById('yearSelect');
   const categoryDetail = document.getElementById('categoryDetail');
   const detailTitle = document.getElementById('detailTitle');
   const detailContent = document.getElementById('detailContent');
@@ -11,18 +12,32 @@ document.addEventListener('DOMContentLoaded', async () => {
     return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(amount);
   }
 
-  function renderInvestments(entries) {
+  // Render Saved Investments table (profit only, aggregated year-wise)
+  function renderInvestments(entries, selectedYear) {
     if (!investmentTableBody) return;
-    const profitEntries = entries.filter(e => e.subtype === 'profit'); // only show profit entries
+
+    const profitEntries = entries.filter(e => e.subtype === 'profit');
     if (!profitEntries || profitEntries.length === 0) {
       investmentTableBody.innerHTML = '<tr><td colspan="3">No profit entries yet</td></tr>';
       return;
     }
-    investmentTableBody.innerHTML = profitEntries.map(entry => `
+
+    // Group profits by year
+    const yearlyTotals = {};
+    profitEntries.forEach(entry => {
+      const year = new Date(entry.date).getFullYear();
+      if (!yearlyTotals[year]) yearlyTotals[year] = 0;
+      yearlyTotals[year] += entry.amount || 0;
+    });
+
+    // If year selected, filter
+    const displayYears = selectedYear ? [parseInt(selectedYear)] : Object.keys(yearlyTotals);
+
+    investmentTableBody.innerHTML = displayYears.map(y => `
       <tr>
-        <td>${entry.category || entry.type}</td>
-        <td>${formatINR(Number(entry.amount))}</td>
-        <td>${new Date(entry.date).toLocaleString()}</td>
+        <td>Mutual Fund</td>
+        <td>${formatINR(yearlyTotals[y])}</td>
+        <td>${y}</td>
       </tr>
     `).join('');
   }
@@ -30,7 +45,19 @@ document.addEventListener('DOMContentLoaded', async () => {
   async function loadInvestments() {
     const entries = await window.fetchEntries().catch(() => []);
     const investments = entries.filter(e => e.type === 'investment');
-    renderInvestments(investments);
+
+    // Populate year selector dynamically
+    const years = [...new Set(investments.map(e => new Date(e.date).getFullYear()))];
+    yearSelect.innerHTML = '';
+    years.sort().forEach(y => {
+      const opt = document.createElement('option');
+      opt.value = y;
+      opt.textContent = y;
+      yearSelect.appendChild(opt);
+    });
+
+    const selectedYear = yearSelect.value || null;
+    renderInvestments(investments, selectedYear);
 
     // Totals: for Mutual Fund, use only profit subtype
     const totals = { 'Mutual Fund':0, 'LIC':0, 'PPF':0, 'Sukanya Yojana':0 };
@@ -57,7 +84,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       data: {
         labels: Object.keys(totals),
         datasets: [{
-          label: 'Investment Growth',
+          label: `Investment Growth ${selectedYear || ''}`,
           data: Object.values(totals),
           borderColor: ['#1abc9c','#3498db','#e67e22','#9b59b6'],
           backgroundColor: 'rgba(26,188,156,0.2)',
@@ -86,6 +113,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   });
 
+  // Year selector change
+  yearSelect.addEventListener('change', () => {
+    loadInvestments();
+  });
+
   if (investmentForm) {
     if (typeof window.syncPendingEntries === 'function') {
       await window.syncPendingEntries();
@@ -98,10 +130,11 @@ document.addEventListener('DOMContentLoaded', async () => {
       const amount = parseFloat(document.getElementById('investmentAmount').value);
       if (Number.isNaN(amount) || amount <= 0) return;
 
+      // Save as profit entry (only profit is tracked here)
       const entry = {
         type: 'investment',
         category: type,
-        subtype: 'profit', // ensure subtype is profit for table
+        subtype: 'profit',
         amount,
         date: new Date().toISOString(),
         notes: `Profit: ${type}`
