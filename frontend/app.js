@@ -44,6 +44,8 @@ async function fetchEntries() {
     if (!res.ok) throw new Error('API unavailable');
     const remoteEntries = await res.json();
 
+    console.debug(`Fetched ${remoteEntries.length} remote entries from API`);
+
     // Down-sync remote entries into PouchDB so local DB mirrors CouchDB
     for (const entry of remoteEntries) {
       if (entry._id) {
@@ -63,7 +65,10 @@ async function saveLocalEntry(doc) {
   try {
     if (!doc._rev) {
       const existing = await db.get(doc._id).catch(() => null);
-      if (existing) doc._rev = existing._rev;
+      if (existing) {
+        doc._rev = existing._rev;
+        console.debug(`Merged remote doc ${doc._id} with local rev ${doc._rev}`);
+      }
     }
     await db.put(doc);
   } catch (err) {
@@ -71,6 +76,7 @@ async function saveLocalEntry(doc) {
       const existing = await db.get(doc._id);
       doc._rev = existing._rev;
       await db.put(doc);
+      console.debug(`Conflict resolved for ${doc._id} with rev ${doc._rev}`);
     } else throw err;
   }
   return doc;
@@ -86,12 +92,14 @@ async function sendEntryToApi(doc) {
 
   if (res.ok) {
     const remoteDoc = await res.json();
+    console.debug(`Entry sent to API and saved: ${remoteDoc._id} rev ${remoteDoc._rev}`);
     return Object.assign({}, remoteDoc, {synced: true});
   }
   if (res.status === 409 && payload._id) {
     const existing = await fetch(`${API_BASE}entries/${encodeURIComponent(payload._id)}`);
     if (existing.ok) {
       const remoteDoc = await existing.json();
+      console.debug(`Conflict resolved via API fetch: ${remoteDoc._id} rev ${remoteDoc._rev}`);
       return Object.assign({}, remoteDoc, {synced: true});
     }
   }
