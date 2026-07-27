@@ -16,7 +16,6 @@ if (queryApi && typeof window !== 'undefined') saveRemoteConfig(queryApi);
 const isGitHubPages = currentOrigin.includes('github.io');
 const defaultApiBase = isGitHubPages ? null : `${currentOrigin.replace(/\/$/, '')}/`;
 
-// Backend API base (FastAPI) — always ensure trailing slash
 const API_BASE = (window.__API_BASE__ || queryApi || storedApi || defaultApiBase || '').replace(/\/?$/, '/');
 const hasRemoteApi = Boolean(API_BASE);
 let refreshInvestmentsCallback = () => {};
@@ -39,14 +38,13 @@ async function fetchEntries() {
   if (!isOnline()) return localEntries;
 
   try {
-    await syncPendingEntries(); // push local changes first
+    await syncPendingEntries();
     const res = await fetch(`${API_BASE}entries`);
     if (!res.ok) throw new Error('API unavailable');
     const remoteEntries = await res.json();
 
     console.debug(`Fetched ${remoteEntries.length} remote entries from API`);
 
-    // Down-sync remote entries into PouchDB so local DB mirrors CouchDB
     for (const entry of remoteEntries) {
       if (entry._id) {
         try { await saveLocalEntry(entry); }
@@ -77,7 +75,10 @@ async function saveLocalEntry(doc) {
       doc._rev = existing._rev;
       await db.put(doc);
       console.debug(`Conflict resolved for ${doc._id} with rev ${doc._rev}`);
-    } else throw err;
+    } else {
+      console.error(`Error saving doc ${doc._id}`, err);
+      throw err;
+    }
   }
   return doc;
 }
