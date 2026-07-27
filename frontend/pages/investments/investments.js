@@ -13,11 +13,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   function renderInvestments(entries) {
     if (!investmentTableBody) return;
-    if (!entries || entries.length === 0) {
+    const investmentEntries = entries.filter(e => e.subtype === 'investment'); // only show invested
+    if (!investmentEntries || investmentEntries.length === 0) {
       investmentTableBody.innerHTML = '<tr><td colspan="3">No investments yet</td></tr>';
       return;
     }
-    investmentTableBody.innerHTML = entries.map(entry => `
+    investmentTableBody.innerHTML = investmentEntries.map(entry => `
       <tr>
         <td>${entry.category || entry.type}</td>
         <td>${formatINR(Number(entry.amount))}</td>
@@ -31,10 +32,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     const investments = entries.filter(e => e.type === 'investment');
     renderInvestments(investments);
 
+    // Totals: for Mutual Fund, use only profit subtype
     const totals = { 'Mutual Fund':0, 'LIC':0, 'PPF':0, 'Sukanya Yojana':0 };
     investments.forEach(e => {
       if (totals[e.category] !== undefined) {
-        totals[e.category] += e.amount || 0;
+        if (e.category === 'Mutual Fund') {
+          if (e.subtype === 'profit') {
+            totals['Mutual Fund'] += e.amount || 0;
+          }
+        } else {
+          totals[e.category] += e.amount || 0;
+        }
       }
     });
 
@@ -93,6 +101,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       const entry = {
         type: 'investment',
         category: type,
+        subtype: 'investment', // ensure subtype is investment
         amount,
         date: new Date().toISOString(),
         notes: `Investment: ${type}`
@@ -110,10 +119,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       if (submenuToggle && submenuList) {
         submenuToggle.addEventListener('click', (e) => {
-          e.preventDefault(); // prevent navigation
+          e.preventDefault();
           submenuList.classList.toggle('hidden');
           submenuToggle.classList.toggle('active');
-          // Update arrow indicator ▸ vs ▾
           if (submenuToggle.textContent.includes('▸')) {
             submenuToggle.textContent = '📈 Investments ▾';
           } else {
@@ -121,7 +129,6 @@ document.addEventListener('DOMContentLoaded', async () => {
           }
         });
       }
-
     });
   }
 });
