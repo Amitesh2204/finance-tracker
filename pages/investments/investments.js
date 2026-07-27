@@ -17,7 +17,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   function renderInvestments(entries, selectedYear) {
     if (!investmentTableBody) return;
 
-    const profitEntries = entries.filter(e => e.subtype === 'profit');
+    const profitEntries = entries.filter(e =>
+      e.category === 'Mutual Fund' &&
+      (e.subtype === 'profit' || e.notes?.toLowerCase().includes('profit'))
+    );
+
     if (!profitEntries || profitEntries.length === 0) {
       investmentTableBody.innerHTML = '<tr><td colspan="3">No profit entries yet</td></tr>';
       return;
