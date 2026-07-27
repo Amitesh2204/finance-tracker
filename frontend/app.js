@@ -47,10 +47,22 @@ async function fetchEntries() {
   if (!isOnline()) return localEntries;
 
   try {
-    await syncPendingEntries(); // always sync first
+    await syncPendingEntries(); // push local changes first
     const res = await fetch(`${API_BASE}entries`);
     if (!res.ok) throw new Error('API unavailable');
     const remoteEntries = await res.json();
+
+    // NEW: save remote entries into PouchDB so local DB mirrors CouchDB
+    for (const entry of remoteEntries) {
+      if (entry._id) {
+        try {
+          await saveLocalEntry(entry);
+        } catch (err) {
+          console.warn('Failed to save remote entry locally', entry._id, err);
+        }
+      }
+    }
+
     return mergeEntries(remoteEntries, localEntries);
   } catch (err) {
     console.warn('REST API failed, falling back to local DB', err);
