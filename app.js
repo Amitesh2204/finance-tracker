@@ -186,5 +186,21 @@ document.addEventListener('DOMContentLoaded', async () => {
       investmentForm.reset();
       console.log('Investment saved', saved);
     });
+    
+    // Background sync every 30 seconds
+    setInterval(async () => {
+      if (isOnline()) {
+        try {
+          await syncPendingEntries();
+          await fetchEntries(); // pulls remote entries into PouchDB
+          if (typeof refreshInvestmentsCallback === 'function') {
+            refreshInvestmentsCallback(); // refresh UI if callback set
+          }
+        } catch (err) {
+          console.warn('Background sync failed', err);
+        }
+      }
+    }, 30000);
+
   }
 });
