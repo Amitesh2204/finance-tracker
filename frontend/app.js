@@ -4,7 +4,6 @@ const db = new PouchDB('finance');
 const currentOrigin = typeof window !== 'undefined' ? window.location.origin : '';
 const urlParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
 const queryApi = urlParams?.get('api') || urlParams?.get('api_base') || urlParams?.get('API_BASE');
-
 const storedApi = typeof window !== 'undefined' ? window.localStorage.getItem('finance_api_base') : null;
 
 function saveRemoteConfig(apiBase) {
@@ -12,10 +11,7 @@ function saveRemoteConfig(apiBase) {
     if (apiBase) window.localStorage.setItem('finance_api_base', apiBase);
   }
 }
-
-if (queryApi && typeof window !== 'undefined') {
-  saveRemoteConfig(queryApi);
-}
+if (queryApi && typeof window !== 'undefined') saveRemoteConfig(queryApi);
 
 const isGitHubPages = currentOrigin.includes('github.io');
 const defaultApiBase = isGitHubPages ? null : `${currentOrigin.replace(/\/$/, '')}/`;
@@ -33,12 +29,8 @@ function isOnline() {
 
 function mergeEntries(remoteEntries, localEntries) {
   const merged = {};
-  localEntries.forEach(entry => {
-    if (entry._id) merged[entry._id] = entry;
-  });
-  remoteEntries.forEach(entry => {
-    if (entry._id) merged[entry._id] = entry;
-  });
+  localEntries.forEach(entry => { if (entry._id) merged[entry._id] = entry; });
+  remoteEntries.forEach(entry => { if (entry._id) merged[entry._id] = entry; });
   return Object.values(merged).sort((a,b) => new Date(b.date) - new Date(a.date));
 }
 
@@ -52,14 +44,11 @@ async function fetchEntries() {
     if (!res.ok) throw new Error('API unavailable');
     const remoteEntries = await res.json();
 
-    // NEW: save remote entries into PouchDB so local DB mirrors CouchDB
+    // Down-sync remote entries into PouchDB so local DB mirrors CouchDB
     for (const entry of remoteEntries) {
       if (entry._id) {
-        try {
-          await saveLocalEntry(entry);
-        } catch (err) {
-          console.warn('Failed to save remote entry locally', entry._id, err);
-        }
+        try { await saveLocalEntry(entry); }
+        catch (err) { console.warn('Failed to save remote entry locally', entry._id, err); }
       }
     }
 
@@ -71,26 +60,20 @@ async function fetchEntries() {
 }
 
 async function saveLocalEntry(doc) {
-  try {
-    await db.put(doc);
-  } catch (err) {
+  try { await db.put(doc); }
+  catch (err) {
     if (err.name === 'conflict') {
       const existing = await db.get(doc._id);
       doc._rev = existing._rev;
       await db.put(doc);
-    } else {
-      throw err;
-    }
+    } else throw err;
   }
   return doc;
 }
 
 async function sendEntryToApi(doc) {
   const payload = Object.assign({}, doc);
-  // Strip _rev for new docs
-  if (!payload._rev) {
-    delete payload._rev;
-  }
+  if (!payload._rev) delete payload._rev;
 
   const res = await fetch(`${API_BASE}entries`, {
     method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload)
@@ -100,22 +83,18 @@ async function sendEntryToApi(doc) {
     const remoteDoc = await res.json();
     return Object.assign({}, remoteDoc, {synced: true});
   }
-
   if (res.status === 409 && payload._id) {
-    // Conflict: fetch latest from backend
     const existing = await fetch(`${API_BASE}entries/${encodeURIComponent(payload._id)}`);
     if (existing.ok) {
       const remoteDoc = await existing.json();
       return Object.assign({}, remoteDoc, {synced: true});
     }
   }
-
   throw new Error(`API returned ${res.status}`);
 }
 
 async function syncPendingEntries() {
   if (!isOnline()) return 0;
-
   const localEntries = await db.allDocs({include_docs:true}).then(r => r.rows.map(r => r.doc));
   const pending = localEntries.filter(entry => entry.type === 'investment' && entry.synced !== true);
   let syncedCount = 0;
@@ -130,20 +109,15 @@ async function syncPendingEntries() {
       console.warn('Failed to sync local entry', entry._id, err);
     }
   }
-
   return syncedCount;
 }
 
 async function addEntry(entry) {
   const id = entry._id || `entry:${entry.type||'txn'}:${entry.date||Date.now()}:${Math.random().toString(36).slice(2,9)}`;
   const doc = Object.assign({}, entry, {_id: id, synced: false});
-
-  // Save locally first so the entry appears immediately.
   await saveLocalEntry(doc);
 
-  if (!isOnline()) {
-    return doc;
-  }
+  if (!isOnline()) return doc;
 
   try {
     const remoteDoc = await sendEntryToApi(doc);
@@ -192,16 +166,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       investmentTableBody.innerHTML = '<tr><td colspan="3">No investments yet</td></tr>';
       return;
     }
-
     investmentTableBody.innerHTML = entries.map(entry => {
       const amount = typeof entry.amount === 'number' ? entry.amount.toFixed(2) : entry.amount;
-      return `
-        <tr>
-          <td>${entry.category || entry.type || 'Investment'}</td>
-          <td>${amount}</td>
-          <td>${new Date(entry.date).toLocaleString()}</td>
-        </tr>
-      `;
+      return `<tr><td>${entry.category || entry.type || 'Investment'}</td><td>${amount}</td><td>${new Date(entry.date).toLocaleString()}</td></tr>`;
     }).join('');
   }
 
@@ -223,14 +190,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       const amount = parseFloat(document.getElementById('investmentAmount').value);
       if (Number.isNaN(amount) || amount <= 0) return;
 
-      const entry = {
-        type: 'investment',
-        category: type,
-        amount,
-        date: new Date().toISOString(),
-        notes: `Investment: ${type}`
-      };
-
+      const entry = { type: 'investment', category: type, amount, date: new Date().toISOString(), notes: `Investment: ${type}` };
       const saved = await addEntry(entry);
       loadInvestments();
       investmentForm.reset();
