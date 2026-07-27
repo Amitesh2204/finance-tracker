@@ -74,7 +74,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     investments.forEach(e => {
       if (totals[e.category] !== undefined) {
         if (e.category === 'Mutual Fund') {
-          if (e.subtype === 'profit') {
+          if (e.subtype === 'profit' || e.notes?.toLowerCase().includes('profit')) {
             totals['Mutual Fund'] += e.amount || 0;
           }
         } else {
@@ -128,9 +128,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   savedYearSelect.addEventListener('change', () => loadInvestments());
 
   if (investmentForm) {
-    if (typeof window.syncPendingEntries === 'function') {
-      await window.syncPendingEntries();
-    }
+    await window.syncPendingEntries();
     loadInvestments();
 
     investmentForm.addEventListener('submit', async event => {
@@ -149,28 +147,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         notes: `Profit: ${type}`
       };
 
-      if (typeof window.addEntry === 'function') {
-        await window.addEntry(entry);
-      }
+      await window.addEntry(entry);
       investmentForm.reset();
       loadInvestments();
-
-      // Sidebar submenu toggle
-      const submenuToggle = document.querySelector('.submenu-toggle');
-      const submenuList = document.querySelector('.submenu-list');
-
-      if (submenuToggle && submenuList) {
-        submenuToggle.addEventListener('click', (e) => {
-          e.preventDefault();
-          submenuList.classList.toggle('hidden');
-          submenuToggle.classList.toggle('active');
-          if (submenuToggle.textContent.includes('▸')) {
-            submenuToggle.textContent = '📈 Investments ▾';
-          } else {
-            submenuToggle.textContent = '📈 Investments ▸';
-          }
-        });
-      }
     });
   }
 });

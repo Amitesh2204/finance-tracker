@@ -90,10 +90,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Load existing entries from DB
   async function loadEntries() {
+    await window.syncPendingEntries();
     const entries = await window.fetchEntries().catch(() => []);
-    const mfEntries = entries.filter(e =>
-      e.type === 'investment' && e.category === 'Mutual Fund'
-    );
+    const mfEntries = entries.filter(e => e.type === 'investment' && e.category === 'Mutual Fund');
+
+    totalInvested = 0;
+    totalGrowth = 0;
+    monthlyData = {};
 
     mfEntries.forEach(e => {
       const d = new Date(e.date);

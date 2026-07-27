@@ -130,18 +130,8 @@ async function addEntry(entry) {
   }
 }
 
-// Service worker disabled for now to avoid 404 errors
-// if ('serviceWorker' in navigator) {
-//   window.addEventListener('load', () => {
-//     navigator.serviceWorker.register('/sw.js')
-//       .then(reg => console.log('Service worker registered', reg.scope))
-//       .catch(err => console.warn('Service worker registration failed', err));
-//   });
-// }
-
 // Simple UI bindings and population
 document.addEventListener('DOMContentLoaded', async () => {
-  // Expose for debugging
   window.financeDB = db;
   window.fetchEntries = fetchEntries;
   window.addEntry = addEntry;
