@@ -1,4 +1,4 @@
-// investments.js - dedicated logic for Investments page with year-wise profit view
+// investments.js - dedicated logic for Investments page with year-wise profit aggregation
 
 document.addEventListener('DOMContentLoaded', async () => {
   const investmentForm = document.getElementById('investmentForm');
