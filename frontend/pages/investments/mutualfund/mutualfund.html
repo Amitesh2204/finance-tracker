@@ -75,11 +75,19 @@
         <!-- Monthly table -->
         <div class="card">
           <h3>Monthly Mutual Fund Summary</h3>
+          <label for="monthYearSelect">Select Month-Year:</label>
+          <select id="monthYearSelect"></select>
           <table id="mutualFundTable" class="investment-table">
             <thead>
-              <tr><th>Investment Name</th><th>Monthly Invested</th><th>Total Profit</th><th>Growth %</th></tr>
+              <tr>
+                <th>Month-Year</th>
+                <th>Investment Name</th>
+                <th>Monthly Invested</th>
+                <th>Total Profit</th>
+                <th>Growth %</th>
+              </tr>
             </thead>
-            <tbody><tr><td colspan="4">No data yet</td></tr></tbody>
+            <tbody><tr><td colspan="5">No data yet</td></tr></tbody>
           </table>
         </div>
       </section>

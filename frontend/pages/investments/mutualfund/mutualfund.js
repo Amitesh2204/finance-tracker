@@ -1,13 +1,14 @@
-// mutualfund.js - dedicated logic for Mutual Fund page with PouchDB + CouchDB sync
+// mutualfund.js - Mutual Fund page with PouchDB + CouchDB sync and month-year filter
 
 document.addEventListener('DOMContentLoaded', async () => {
   const investedCard = document.getElementById('totalInvested');
   const growthCard = document.getElementById('totalGrowth');
   const tableBody = document.querySelector('#mutualFundTable tbody');
+  const monthYearSelect = document.getElementById('monthYearSelect');
 
   let totalInvested = 0;
   let totalGrowth = 0;
-  let monthlyData = {}; // { "Jul": { invested: X, profit: Y } }
+  let monthlyData = {}; // { "Jul-2026": { invested: X, profit: Y } }
 
   function formatINR(amount) {
     return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(amount);
@@ -18,16 +19,36 @@ document.addEventListener('DOMContentLoaded', async () => {
     growthCard.textContent = formatINR(totalGrowth);
   }
 
-  function renderTable() {
+  function populateMonthYearDropdown() {
     const months = Object.keys(monthlyData);
+    monthYearSelect.innerHTML = '';
     if (months.length === 0) {
-      tableBody.innerHTML = '<tr><td colspan="4">No data yet</td></tr>';
+      const opt = document.createElement('option');
+      opt.value = '';
+      opt.textContent = 'No data';
+      monthYearSelect.appendChild(opt);
       return;
     }
-    tableBody.innerHTML = months.map(m => {
+    months.forEach(m => {
+      const opt = document.createElement('option');
+      opt.value = m;
+      opt.textContent = m;
+      monthYearSelect.appendChild(opt);
+    });
+  }
+
+  function renderTable(selectedMonthYear = null) {
+    const months = Object.keys(monthlyData);
+    if (months.length === 0) {
+      tableBody.innerHTML = '<tr><td colspan="5">No data yet</td></tr>';
+      return;
+    }
+    const filtered = selectedMonthYear ? [selectedMonthYear] : months;
+    tableBody.innerHTML = filtered.map(m => {
       const d = monthlyData[m];
       const growthPct = d.profit && d.invested ? ((d.profit / d.invested) * 100).toFixed(2) : "0.00";
       return `<tr>
+        <td>${m}</td>
         <td>Mutual Fund</td>
         <td>${formatINR(d.invested)}</td>
         <td>${formatINR(d.profit)}</td>
@@ -36,13 +57,19 @@ document.addEventListener('DOMContentLoaded', async () => {
     }).join('');
   }
 
-  function renderChart() {
+  function renderChart(selectedYear = "2026") {
     const ctx = document.getElementById('mutualFundChart').getContext('2d');
     if (window.mfChart) window.mfChart.destroy();
 
     const months = ["Jul","Aug","Sep","Oct","Nov","Dec","Jan","Feb","Mar","Apr","May","Jun"];
-    const investedData = months.map(m => monthlyData[m]?.invested || 0);
-    const profitData = months.map(m => monthlyData[m]?.profit || 0);
+    const investedData = months.map(m => {
+      const key = `${m}-${selectedYear}`;
+      return monthlyData[key]?.invested || 0;
+    });
+    const profitData = months.map(m => {
+      const key = `${m}-${selectedYear}`;
+      return monthlyData[key]?.profit || 0;
+    });
 
     window.mfChart = new Chart(ctx, {
       type: 'bar',
@@ -70,20 +97,24 @@ document.addEventListener('DOMContentLoaded', async () => {
     monthlyData = {};
 
     mfEntries.forEach(e => {
-      const month = new Date(e.date).toLocaleString('default',{month:'short'});
-      monthlyData[month] = monthlyData[month] || { invested:0, profit:0 };
+      const d = new Date(e.date);
+      const month = d.toLocaleString('default',{month:'short'});
+      const year = d.getFullYear();
+      const key = `${month}-${year}`;
+      monthlyData[key] = monthlyData[key] || { invested:0, profit:0 };
       if (e.subtype === 'investment') {
-        monthlyData[month].invested += e.amount;
+        monthlyData[key].invested += e.amount;
         totalInvested += e.amount;
       } else if (e.subtype === 'profit') {
-        monthlyData[month].profit += e.amount;
+        monthlyData[key].profit += e.amount;
         totalGrowth += e.amount;
       }
     });
 
     updateCards();
-    renderTable();
-    renderChart();
+    populateMonthYearDropdown();
+    renderTable(monthYearSelect.value || null);
+    renderChart("2026");
   }
 
   // Handle investment form
@@ -92,10 +123,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     const amt = parseFloat(document.getElementById('monthlyAmount').value);
     if (isNaN(amt) || amt <= 0) return;
 
-    const month = new Date().toLocaleString('default',{month:'short'});
+    const d = new Date();
+    const month = d.toLocaleString('default',{month:'short'});
+    const year = d.getFullYear();
+    const key = `${month}-${year}`;
     totalInvested += amt;
-    monthlyData[month] = monthlyData[month] || { invested:0, profit:0 };
-    monthlyData[month].invested += amt;
+    monthlyData[key] = monthlyData[key] || { invested:0, profit:0 };
+    monthlyData[key].invested += amt;
 
     // Save entry to DB
     const entry = {
@@ -104,14 +138,15 @@ document.addEventListener('DOMContentLoaded', async () => {
       subtype: 'investment',
       amount: amt,
       currency: 'INR',
-      date: new Date().toISOString(),
-      notes: `Mutual Fund investment for ${month}`
+      date: d.toISOString(),
+      notes: `Mutual Fund investment for ${key}`
     };
     await window.addEntry(entry);
 
     updateCards();
-    renderTable();
-    renderChart();
+    populateMonthYearDropdown();
+    renderTable(monthYearSelect.value || null);
+    renderChart(year.toString());
     e.target.reset();
   });
 
@@ -121,10 +156,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     const profit = parseFloat(document.getElementById('monthlyProfit').value);
     if (isNaN(profit) || profit <= 0) return;
 
-    const month = new Date().toLocaleString('default',{month:'short'});
+    const d = new Date();
+    const month = d.toLocaleString('default',{month:'short'});
+    const year = d.getFullYear();
+    const key = `${month}-${year}`;
     totalGrowth += profit;
-    monthlyData[month] = monthlyData[month] || { invested:0, profit:0 };
-    monthlyData[month].profit += profit;
+    monthlyData[key] = monthlyData[key] || { invested:0, profit:0 };
+    monthlyData[key].profit += profit;
 
     // Save entry to DB
     const entry = {
@@ -133,15 +171,22 @@ document.addEventListener('DOMContentLoaded', async () => {
       subtype: 'profit',
       amount: profit,
       currency: 'INR',
-      date: new Date().toISOString(),
-      notes: `Mutual Fund profit for ${month}`
+      date: d.toISOString(),
+      notes: `Mutual Fund profit for ${key}`
     };
     await window.addEntry(entry);
 
     updateCards();
-    renderTable();
-    renderChart();
+    populateMonthYearDropdown();
+    renderTable(monthYearSelect.value || null);
+    renderChart(year.toString());
     e.target.reset();
+  });
+
+  // Month-year dropdown change
+  monthYearSelect.addEventListener('change', () => {
+    const selected = monthYearSelect.value;
+    renderTable(selected);
   });
 
   // Initial load
