@@ -60,8 +60,13 @@ async function fetchEntries() {
 }
 
 async function saveLocalEntry(doc) {
-  try { await db.put(doc); }
-  catch (err) {
+  try {
+    if (!doc._rev) {
+      const existing = await db.get(doc._id).catch(() => null);
+      if (existing) doc._rev = existing._rev;
+    }
+    await db.put(doc);
+  } catch (err) {
     if (err.name === 'conflict') {
       const existing = await db.get(doc._id);
       doc._rev = existing._rev;
@@ -186,21 +191,20 @@ document.addEventListener('DOMContentLoaded', async () => {
       investmentForm.reset();
       console.log('Investment saved', saved);
     });
-    
-    // Background sync every 30 seconds
-    setInterval(async () => {
-      if (isOnline()) {
-        try {
-          await syncPendingEntries();
-          await fetchEntries(); // pulls remote entries into PouchDB
-          if (typeof refreshInvestmentsCallback === 'function') {
-            refreshInvestmentsCallback(); // refresh UI if callback set
-          }
-        } catch (err) {
-          console.warn('Background sync failed', err);
-        }
-      }
-    }, 30000);
-
   }
+
+  // Background sync every 30 seconds (runs globally)
+  setInterval(async () => {
+    if (isOnline()) {
+      try {
+        await syncPendingEntries();
+        await fetchEntries();
+        if (typeof refreshInvestmentsCallback === 'function') {
+          refreshInvestmentsCallback();
+        }
+      } catch (err) {
+        console.warn('Background sync failed', err);
+      }
+    }
+  }, 30000);
 });
