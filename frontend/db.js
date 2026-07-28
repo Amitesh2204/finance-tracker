@@ -4,11 +4,13 @@ const db = new PouchDB('finance');
 // Read from config.js
 const { couchHost, couchDbName } = window.__CONFIG__;
 
-// Connect to CouchDB via Caddy proxy (credentials injected by Caddy)
+// Connect directly to CouchDB with credentials
 const remoteDB = new PouchDB(`https://${couchHost}/${couchDbName}`, {
+  auth: { username: "admin", password: "Winter_2026" },  // direct credentials
   skip_setup: true
 });
 
+// Live sync between local PouchDB and remote CouchDB
 db.sync(remoteDB, { live: true, retry: true })
   .on('error', err => console.error("Sync error:", err));
 
