@@ -52,7 +52,6 @@ async function fetchEntries() {
   const localEntries = await db.allDocs({include_docs:true}).then(r => r.rows.map(r=>r.doc));
   console.debug("Fetched entries from local DB:", localEntries.map(e => ({id: e._id, rev: e._rev})));
   return localEntries;
-}
 
   try {
     await syncPendingEntries();
@@ -75,7 +74,7 @@ async function fetchEntries() {
   } catch (err) {
     console.warn('REST API failed, falling back to local DB', err);
     return localEntries;
-  }
+  }}
 
 async function saveLocalEntry(doc) {
   try {
