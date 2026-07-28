@@ -106,10 +106,9 @@ async function addEntry(entry) {
   const id = entry._id || `entry:${entry.type||'txn'}:${entry.date||Date.now()}:${Math.random().toString(36).slice(2,9)}`;
   const doc = Object.assign({}, entry, {_id: id});
   await saveLocalEntry(doc);
+  if (!isOnline()){
   return doc; // replication will push it to CouchDB automatically
-}
-
-  if (!isOnline()) return doc;
+  }
 
   try {
     const remoteDoc = await sendEntryToApi(doc);
@@ -120,7 +119,7 @@ async function addEntry(entry) {
     console.warn('REST API failed, keeping local copy', err);
     return doc;
   }
-
+}
 // Simple UI bindings and population
 document.addEventListener('DOMContentLoaded', async () => {
   window.financeDB = db;
