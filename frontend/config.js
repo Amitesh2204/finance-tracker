@@ -1,7 +1,5 @@
-// config.js - generated from .env at build time
+// config.js - frontend only needs host + DB name now
 window.__CONFIG__ = {
-  couchUser: "yourUser",        // from .env
-  couchPass: "yourPassword",    // from .env
-  couchHost: "localhost:5984",  // or your Cloudflare tunnel host
+  couchHost: "eos-whats-everyone-shoulder.trycloudflare.com", // your Cloudflare tunnel domain
   couchDbName: "finance"
 };
