@@ -1,6 +1,21 @@
 // PouchDB offline-first logic
 const db = new PouchDB('finance');
 
+// --- Direct replication with CouchDB ---
+const COUCHDB_URL = 'http://127.0.0.1:5984/finance'; // adjust to your CouchDB URL or Cloudflare tunnel
+db.sync(COUCHDB_URL, {
+  live: true,
+  retry: true
+}).on('change', info => {
+  console.log('Replication change:', info);
+}).on('paused', err => {
+  console.log('Replication paused', err || '');
+}).on('active', () => {
+  console.log('Replication resumed');
+}).on('error', err => {
+  console.error('Replication error:', err);
+});
+
 const currentOrigin = typeof window !== 'undefined' ? window.location.origin : '';
 const urlParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
 const queryApi = urlParams?.get('api') || urlParams?.get('api_base') || urlParams?.get('API_BASE');
@@ -33,8 +48,11 @@ function mergeEntries(remoteEntries, localEntries) {
 }
 
 async function fetchEntries() {
+  // With replication, local DB is always kept in sync
   const localEntries = await db.allDocs({include_docs:true}).then(r => r.rows.map(r=>r.doc));
-  if (!isOnline()) return localEntries;
+  console.debug("Fetched entries from local DB:", localEntries.map(e => ({id: e._id, rev: e._rev})));
+  return localEntries;
+}
 
   try {
     await syncPendingEntries();
@@ -86,53 +104,12 @@ async function saveLocalEntry(doc) {
   return doc;
 }
 
-async function sendEntryToApi(doc) {
-  const payload = Object.assign({}, doc);
-  if (!payload._rev) delete payload._rev;
-
-  const res = await fetch(`${API_BASE}entries`, {
-    method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload)
-  });
-
-  if (res.ok) {
-    const remoteDoc = await res.json();
-    console.debug(`Entry sent to API and saved: ${remoteDoc._id} rev ${remoteDoc._rev}`);
-    return Object.assign({}, remoteDoc, {synced: true});
-  }
-  if (res.status === 409 && payload._id) {
-    const existing = await fetch(`${API_BASE}entries/${encodeURIComponent(payload._id)}`);
-    if (existing.ok) {
-      const remoteDoc = await existing.json();
-      console.debug(`Conflict resolved via API fetch: ${remoteDoc._id} rev ${remoteDoc._rev}`);
-      return Object.assign({}, remoteDoc, {synced: true});
-    }
-  }
-  throw new Error(`API returned ${res.status}`);
-}
-
-async function syncPendingEntries() {
-  if (!isOnline()) return 0;
-  const localEntries = await db.allDocs({include_docs:true}).then(r => r.rows.map(r => r.doc));
-  const pending = localEntries.filter(entry => entry.type === 'investment' && entry.synced !== true);
-  let syncedCount = 0;
-
-  for (const entry of pending) {
-    try {
-      const remoteDoc = await sendEntryToApi(entry);
-      await saveLocalEntry(Object.assign({}, entry, remoteDoc));
-      syncedCount += 1;
-      console.log('Synced local entry to backend', remoteDoc._id);
-    } catch (err) {
-      console.warn('Failed to sync local entry', entry._id, err);
-    }
-  }
-  return syncedCount;
-}
-
 async function addEntry(entry) {
   const id = entry._id || `entry:${entry.type||'txn'}:${entry.date||Date.now()}:${Math.random().toString(36).slice(2,9)}`;
-  const doc = Object.assign({}, entry, {_id: id, synced: false});
+  const doc = Object.assign({}, entry, {_id: id});
   await saveLocalEntry(doc);
+  return doc; // replication will push it to CouchDB automatically
+}
 
   if (!isOnline()) return doc;
 
@@ -205,18 +182,5 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  // Background sync every 30 seconds (runs globally)
-  setInterval(async () => {
-    if (isOnline()) {
-      try {
-        await syncPendingEntries();
-        await fetchEntries();
-        if (typeof refreshInvestmentsCallback === 'function') {
-          refreshInvestmentsCallback();
-        }
-      } catch (err) {
-        console.warn('Background sync failed', err);
-      }
-    }
-  }, 30000);
+
 });
