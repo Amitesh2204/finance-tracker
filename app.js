@@ -41,11 +41,13 @@ async function fetchEntries() {
     const res = await fetch(`${API_BASE}entries`);
     if (!res.ok) throw new Error('API unavailable');
     const remoteEntries = await res.json();
-
+    // ADD THIS DEBUG LINE
+    console.debug("Remote entries received:", remoteEntries.map(e => ({id: e._id, rev: e._rev})));
     console.debug(`Fetched ${remoteEntries.length} remote entries from API`);
 
     for (const entry of remoteEntries) {
       if (entry._id) {
+        console.debug("Attempting to save remote entry:", entry._id, "rev:", entry._rev);
         try { await saveLocalEntry(entry); }
         catch (err) { console.warn('Failed to save remote entry locally', entry._id, err); }
       }
@@ -67,7 +69,9 @@ async function saveLocalEntry(doc) {
         console.debug(`Merged remote doc ${doc._id} with local rev ${doc._rev}`);
       }
     }
+    console.debug("Saving doc locally:", doc._id, "rev:", doc._rev);
     await db.put(doc);
+    console.debug("Saved doc successfully:", doc._id, "rev:", doc._rev);
   } catch (err) {
     if (err.name === 'conflict') {
       const existing = await db.get(doc._id);
