@@ -1,11 +1,8 @@
 // db.js - Shared database functions
 const db = new PouchDB('finance');
 
-// Expect environment variables injected at build/runtime
-const couchUser = process.env.COUCHDB_USER;
-const couchPass = process.env.COUCHDB_PASS;
-const couchHost = process.env.COUCHDB_HOST || 'localhost:5984';
-const couchDbName = process.env.COUCHDB_DB || 'finance';
+// Read from config.js
+const { couchUser, couchPass, couchHost, couchDbName } = window.__CONFIG__;
 
 const remoteDB = new PouchDB(`http://${couchUser}:${couchPass}@${couchHost}/${couchDbName}`);
 
