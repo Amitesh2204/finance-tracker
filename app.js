@@ -17,10 +17,9 @@ const isGitHubPages = currentOrigin.includes('github.io');
 const defaultApiBase = isGitHubPages ? null : `${currentOrigin.replace(/\/$/, '')}/`;
 
 const API_BASE = (window.__API_BASE__ || queryApi || storedApi || defaultApiBase || '').replace(/\/?$/, '/');
-const hasRemoteApi = Boolean(API_BASE);
 let refreshInvestmentsCallback = () => {};
 
-console.log('API_BASE=', API_BASE, 'hasRemoteApi=', hasRemoteApi);
+console.log('API_BASE=', API_BASE);
 
 function isOnline() {
   return typeof navigator !== 'undefined' ? navigator.onLine : true;
