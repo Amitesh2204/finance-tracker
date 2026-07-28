@@ -1,21 +1,5 @@
-// --- Direct replication with CouchDB ---
-const db = new PouchDB('finance');
-
-// Use Cloudflare tunnel or CouchDB URL
-const COUCHDB_URL = 'https://my-finance-tracker.duckdns.org/finance';
-
-db.sync(COUCHDB_URL, {
-  live: true,
-  retry: true
-}).on('change', info => {
-  console.log('Replication change:', info);
-}).on('paused', err => {
-  console.log('Replication paused', err || '');
-}).on('active', () => {
-  console.log('Replication resumed');
-}).on('error', err => {
-  console.error('Replication error:', err);
-});
+// --- Use shared PouchDB instance from db.js ---
+const db = window.financeDB;
 
 // --- Utility functions ---
 async function fetchEntries() {
@@ -59,7 +43,6 @@ async function addEntry(entry) {
 
 // --- UI bindings ---
 document.addEventListener('DOMContentLoaded', async () => {
-  window.financeDB = db;
   window.fetchEntries = fetchEntries;
   window.addEntry = addEntry;
 
