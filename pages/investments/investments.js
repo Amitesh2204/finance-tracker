@@ -1,4 +1,5 @@
 // investments.js - dedicated logic for Investments page with year-wise profit aggregation
+// NOTE: Requires db.js to be loaded first (finance-tracker/backend/database/js/db.js)
 
 document.addEventListener('DOMContentLoaded', async () => {
   const investmentForm = document.getElementById('investmentForm');

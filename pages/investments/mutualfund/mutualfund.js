@@ -1,4 +1,5 @@
 // mutualfund.js - Mutual Fund page with PouchDB + CouchDB sync and month-year filter
+// NOTE: Requires db.js to be loaded first (finance-tracker/backend/database/js/db.js)
 
 document.addEventListener('DOMContentLoaded', async () => {
   const investedCard = document.getElementById('totalInvested');
