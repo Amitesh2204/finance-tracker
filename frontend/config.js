@@ -1,5 +1,5 @@
-// config.js - frontend only needs host + DB name now
+// config.js
 window.__CONFIG__ = {
-  couchHost: "casino-regulation-anchor-arcade.trycloudflare.com", // your Cloudflare tunnel domain
+  couchHost: "casino-regulation-anchor-arcade.trycloudflare.com", // <-- replace with your current tunnel URL
   couchDbName: "finance"
 };
