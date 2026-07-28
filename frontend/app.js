@@ -76,7 +76,6 @@ async function fetchEntries() {
     console.warn('REST API failed, falling back to local DB', err);
     return localEntries;
   }
-}
 
 async function saveLocalEntry(doc) {
   try {
@@ -122,7 +121,6 @@ async function addEntry(entry) {
     console.warn('REST API failed, keeping local copy', err);
     return doc;
   }
-}
 
 // Simple UI bindings and population
 document.addEventListener('DOMContentLoaded', async () => {
