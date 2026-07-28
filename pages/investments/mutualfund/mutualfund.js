@@ -90,7 +90,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Load existing entries from DB
   async function loadEntries() {
-    await window.syncPendingEntries();
     const entries = await window.fetchEntries().catch(() => []);
     const mfEntries = entries.filter(e => e.type === 'investment' && e.category === 'Mutual Fund');
 
@@ -192,6 +191,5 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   // Initial load
-  await window.syncPendingEntries();
   loadEntries();
 });
