@@ -167,9 +167,6 @@ document.addEventListener('DOMContentLoaded', async () => {
           cat = 'Hybrid';
         }
 
-        const equityFunds = ["WhiteOak","Bajaj","WealthCo","Groww","JM","Abakkus"];
-        const hybridFunds = ["Edelweiss","360 ONE"];
-
         let cat = null;
         if (equityFunds.some(f => e.notes?.includes(f))) {
           cat = 'Equity';
