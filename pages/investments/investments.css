@@ -52,6 +52,12 @@
   height:400px;
 }
 
+/* Ensure charts stack vertically */
+.chart.card {
+  width: 100%;
+  display: block;
+}
+
 /* Layout fix: stack charts vertically */
 .content {
   display: flex;
