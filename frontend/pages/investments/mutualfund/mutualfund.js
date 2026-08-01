@@ -294,11 +294,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   document.getElementById('portfolioMonthYear').addEventListener('change', e => {
+    const selected = e.target.value;
     window.fetchEntries().then(entries => {
       const mfEntries = entries.filter(en => en.type === 'investment' && en.category === 'Mutual Fund');
-      renderPortfolioChart(mfEntries, e.target.value);
+      renderPortfolioChart(mfEntries, selected);
     });
   });
+
 
   // Initial load
   loadEntries();
