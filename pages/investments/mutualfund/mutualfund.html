@@ -107,8 +107,12 @@
         <div class="card portfolio-card">
           <h3>Portfolio Details</h3>
           <div class="portfolio-section">
+            <label for="portfolioMonthYear">Select Month-Year:</label>
+            <select id="portfolioMonthYear"></select>
+
             <button class="toggle-btn" data-target="equityFunds">Equity ▾</button>
             <ul id="equityFunds" class="fund-list">
+
               <li>WhiteOak Capital Large & Mid Cap Fund Reg (G) <span class="fund-value" data-fund="WhiteOak"></span></li>
               <li>Bajaj Finserv Small Cap Fund (G) <span class="fund-value" data-fund="Bajaj"></span></li>
               <li>The Wealth Company Flexi Cap Fund Reg (G) <span class="fund-value" data-fund="WealthCo"></span></li>
@@ -123,6 +127,13 @@
               <li>360 ONE Multi Asset Allocation Fund (G) <span class="fund-value" data-fund="360One"></span></li>
             </ul>
           </div>
+
+          <!-- Portfolio Chart -->
+          <div class="chart same-size">
+            <h3>Portfolio Growth</h3>
+            <canvas id="portfolioChart"></canvas>
+          </div>
+
         </div>
       </section>
     </main>

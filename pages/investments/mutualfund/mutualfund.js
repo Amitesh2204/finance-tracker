@@ -115,6 +115,62 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
+  // --- Portfolio chart rendering ---
+  function populatePortfolioMonthYear(entries) {
+    const select = document.getElementById('portfolioMonthYear');
+    const months = [...new Set(entries.map(e => {
+      const d = new Date(e.date);
+      return `${d.toLocaleString('default',{month:'short'})}-${d.getFullYear()}`;
+    }))];
+    select.innerHTML = '';
+    months.forEach(m => {
+      const opt = document.createElement('option');
+      opt.value = m;
+      opt.textContent = m;
+      select.appendChild(opt);
+    });
+  }
+
+  function renderPortfolioChart(entries, selectedMonthYear = null) {
+    const ctx = document.getElementById('portfolioChart').getContext('2d');
+    if (window.portfolioChart) window.portfolioChart.destroy();
+
+    const filtered = selectedMonthYear
+      ? entries.filter(e => {
+          const d = new Date(e.date);
+          const key = `${d.toLocaleString('default',{month:'short'})}-${d.getFullYear()}`;
+          return key === selectedMonthYear;
+        })
+      : entries;
+
+    const categories = { Equity: { invested:0, profit:0 }, Hybrid: { invested:0, profit:0 } };
+    filtered.forEach(e => {
+      if (e.category === 'Mutual Fund') {
+        const isEquity = ["WhiteOak","Bajaj","WealthCo","Groww","JM","Abakkus"]
+          .some(f => e.notes?.includes(f));
+        const cat = isEquity ? 'Equity' : 'Hybrid';
+        if (e.subtype === 'investment') categories[cat].invested += e.amount;
+        if (e.subtype === 'profit') categories[cat].profit += e.amount;
+      }
+    });
+
+    window.portfolioChart = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: Object.keys(categories),
+        datasets: [
+          { label: 'Invested', data: Object.values(categories).map(c => c.invested), backgroundColor: '#3498db' },
+          { label: 'Profit', data: Object.values(categories).map(c => c.profit), backgroundColor: '#1abc9c' }
+        ]
+      },
+      options: {
+        responsive: true,
+        plugins: { legend: { position: 'top' } },
+        scales: { y: { beginAtZero: true } }
+      }
+    });
+  }
+
   // Load existing entries from DB
   async function loadEntries() {
     const entries = await window.fetchEntries().catch(() => []);
@@ -145,6 +201,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     renderChart("2026");
     // NEW: update portfolio section
     updatePortfolio(mfEntries);
+    populatePortfolioMonthYear(mfEntries);
+    renderPortfolioChart(mfEntries);
   }
 
   // Handle investment form
@@ -232,6 +290,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         target.style.display = "block";
         btn.textContent = btn.textContent.replace("▸", "▾");
       }
+    });
+  });
+
+  document.getElementById('portfolioMonthYear').addEventListener('change', e => {
+    window.fetchEntries().then(entries => {
+      const mfEntries = entries.filter(en => en.type === 'investment' && en.category === 'Mutual Fund');
+      renderPortfolioChart(mfEntries, e.target.value);
     });
   });
 
