@@ -6,11 +6,6 @@
   <link rel="stylesheet" href="../../../style.css">
   <link rel="stylesheet" href="mutualfund.css">
 
-  <!-- Explicit Cloudflare tunnel overrides -->
-  <!--<script>
-    window.__API_BASE__ = 'https://makes-belt-classical-syracuse.trycloudflare.com/';
-  </script> -->
-
   <!-- Core libraries -->
   <script type="module" src="https://unpkg.com/pouchdb@7.3.1/dist/pouchdb.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -19,7 +14,6 @@
   <script src="../../../config.js" defer></script>
   <script src="../../../db.js" defer></script>
   <script src="../../../app.js" defer></script>
-
 
   <!-- Page-specific logic -->
   <script src="mutualfund.js" defer></script>
@@ -53,83 +47,85 @@
     <main class="main">
       <header class="topbar"><h2>Mutual Fund Details</h2></header>
       <section class="content">
-        <!-- Summary cards -->
-        <div class="cards">
-          <div class="card"><h3>Total Invested</h3><p id="totalInvested">₹0.00</p></div>
-          <div class="card"><h3>Total Growth</h3><p id="totalGrowth">₹0.00</p></div>
+        <!-- Left side: Mutual Fund details -->
+        <div class="mf-section">
+          <!-- Summary cards -->
+          <div class="cards">
+            <div class="card"><h3>Total Invested</h3><p id="totalInvested">₹0.00</p></div>
+            <div class="card"><h3>Total Growth</h3><p id="totalGrowth">₹0.00</p></div>
+          </div>
+
+          <!-- Chart -->
+          <div class="chart card same-size">
+            <h3>Mutual Fund Growth</h3>
+            <canvas id="mutualFundChart"></canvas>
+          </div>
+
+          <!-- Investment form -->
+          <div class="card">
+            <h3>Add Monthly Investment</h3>
+            <form id="investmentForm" class="investment-form">
+              <label>Investment Type</label>
+              <input type="text" value="Mutual Fund" readonly />
+              <label for="monthlyAmount">Monthly Amount</label>
+              <input id="monthlyAmount" type="number" min="0" step="0.01" required />
+              <button type="submit">Add Investment</button>
+            </form>
+          </div>
+
+          <!-- Profit form -->
+          <div class="card">
+            <h3>Update Monthly Profit</h3>
+            <form id="profitForm" class="investment-form">
+              <label for="monthlyProfit">Monthly Profit</label>
+              <input id="monthlyProfit" type="number" min="0" step="0.01" required />
+              <button type="submit">Update Profit</button>
+            </form>
+          </div>
+
+          <!-- Monthly table -->
+          <div class="card">
+            <h3>Monthly Mutual Fund Summary</h3>
+            <label for="monthYearSelect">Select Month-Year:</label>
+            <select id="monthYearSelect"></select>
+            <table id="mutualFundTable" class="investment-table">
+              <thead>
+                <tr>
+                  <th>Month-Year</th>
+                  <th>Investment Name</th>
+                  <th>Monthly Invested</th>
+                  <th>Total Profit</th>
+                  <th>Growth %</th>
+                </tr>
+              </thead>
+              <tbody><tr><td colspan="5">No data yet</td></tr></tbody>
+            </table>
+          </div>
         </div>
 
-        <!-- Chart -->
-        <div class="chart card same-size">
-          <h3>Mutual Fund Growth</h3>
-          <canvas id="mutualFundChart"></canvas>
-        </div>
+        <!-- Right side: Portfolio Details -->
+        <div class="card portfolio-card">
+          <h3>Portfolio Details</h3>
+          <div class="portfolio-section">
+            <button class="toggle-btn" data-target="equityFunds">Equity ▾</button>
+            <ul id="equityFunds" class="fund-list">
+              <li>WhiteOak Capital Large & Mid Cap Fund Reg (G) <span class="fund-value" data-fund="WhiteOak"></span></li>
+              <li>Bajaj Finserv Small Cap Fund (G) <span class="fund-value" data-fund="Bajaj"></span></li>
+              <li>The Wealth Company Flexi Cap Fund Reg (G) <span class="fund-value" data-fund="WealthCo"></span></li>
+              <li>Groww Multi Cap Fund Reg (G) <span class="fund-value" data-fund="Groww"></span></li>
+              <li>JM Large & Mid Cap Fund Reg (G) <span class="fund-value" data-fund="JM"></span></li>
+              <li>Abakkus Small Cap Fund (G) <span class="fund-value" data-fund="Abakkus"></span></li>
+            </ul>
 
-        <!-- Investment form -->
-        <div class="card">
-          <h3>Add Monthly Investment</h3>
-          <form id="investmentForm" class="investment-form">
-            <label>Investment Type</label>
-            <input type="text" value="Mutual Fund" readonly />
-            <label for="monthlyAmount">Monthly Amount</label>
-            <input id="monthlyAmount" type="number" min="0" step="0.01" required />
-            <button type="submit">Add Investment</button>
-          </form>
-        </div>
-
-        <!-- Profit form -->
-        <div class="card">
-          <h3>Update Monthly Profit</h3>
-          <form id="profitForm" class="investment-form">
-            <label for="monthlyProfit">Monthly Profit</label>
-            <input id="monthlyProfit" type="number" min="0" step="0.01" required />
-            <button type="submit">Update Profit</button>
-          </form>
-        </div>
-
-        <!-- Monthly table -->
-        <div class="card">
-          <h3>Monthly Mutual Fund Summary</h3>
-          <label for="monthYearSelect">Select Month-Year:</label>
-          <select id="monthYearSelect"></select>
-          <table id="mutualFundTable" class="investment-table">
-            <thead>
-              <tr>
-                <th>Month-Year</th>
-                <th>Investment Name</th>
-                <th>Monthly Invested</th>
-                <th>Total Profit</th>
-                <th>Growth %</th>
-              </tr>
-            </thead>
-            <tbody><tr><td colspan="5">No data yet</td></tr></tbody>
-          </table>
+            <button class="toggle-btn" data-target="hybridFunds">Hybrid ▾</button>
+            <ul id="hybridFunds" class="fund-list">
+              <li>Edelweiss Aggressive Hybrid Fund (G) <span class="fund-value" data-fund="Edelweiss"></span></li>
+              <li>360 ONE Multi Asset Allocation Fund (G) <span class="fund-value" data-fund="360One"></span></li>
+            </ul>
+          </div>
         </div>
       </section>
     </main>
-    
-    <!-- Portfolio Details Section -->
-    <div class="card portfolio-card">
-      <h3>Portfolio Details</h3>
-      <div class="portfolio-section">
-        <button class="toggle-btn" data-target="equityFunds">Equity ▾</button>
-        <ul id="equityFunds" class="fund-list">
-          <li>WhiteOak Capital Large & Mid Cap Fund Reg (G) <span class="fund-value" data-fund="WhiteOak"></span></li>
-          <li>Bajaj Finserv Small Cap Fund (G) <span class="fund-value" data-fund="Bajaj"></span></li>
-          <li>The Wealth Company Flexi Cap Fund Reg (G) <span class="fund-value" data-fund="WealthCo"></span></li>
-          <li>Groww Multi Cap Fund Reg (G) <span class="fund-value" data-fund="Groww"></span></li>
-          <li>JM Large & Mid Cap Fund Reg (G) <span class="fund-value" data-fund="JM"></span></li>
-          <li>Abakkus Small Cap Fund (G) <span class="fund-value" data-fund="Abakkus"></span></li>
-        </ul>
-
-        <button class="toggle-btn" data-target="hybridFunds">Hybrid ▾</button>
-        <ul id="hybridFunds" class="fund-list">
-          <li>Edelweiss Aggressive Hybrid Fund (G) <span class="fund-value" data-fund="Edelweiss"></span></li>
-          <li>360 ONE Multi Asset Allocation Fund (G) <span class="fund-value" data-fund="360One"></span></li>
-        </ul>
-      </div>
-    </div>
-
   </div>
 </body>
 </html>

@@ -1,33 +1,52 @@
 .cards {
-  display:grid;
+  display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap:20px;
-  margin-bottom:24px;
+  gap: 20px;
+  margin-bottom: 24px;
 }
+
 .card {
-  background:#1e1e1e;
-  padding:20px;
-  border-radius:12px;
-  box-shadow:0 4px 12px rgba(0,0,0,0.3);
+  background: #1e1e1e;
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
 }
-.card h3 { color:#ecf0f1; margin-bottom:10px; }
-.card p { font-size:1.5rem; font-weight:700; color:#1abc9c; text-align:center; }
-.investment-form { display:flex; flex-direction:column; gap:10px; }
+
+.card h3 { color: #ecf0f1; margin-bottom: 10px; }
+.card p { font-size: 1.5rem; font-weight: 700; color: #1abc9c; text-align: center; }
+
+.investment-form { display: flex; flex-direction: column; gap: 10px; }
 .investment-form input, .investment-form button, .investment-form select {
-  padding:10px; border-radius:6px; border:1px solid #444; background:#1e1e1e; color:#ecf0f1;
+  padding: 10px; border-radius: 6px; border: 1px solid #444; background: #1e1e1e; color: #ecf0f1;
 }
-.investment-form button { background:#1abc9c; color:#fff; font-weight:700; cursor:pointer; }
-.investment-form button:hover { background:#16a085; }
-.investment-table { width:100%; border-collapse:collapse; margin-top:12px; }
+.investment-form button { background: #1abc9c; color: #fff; font-weight: 700; cursor: pointer; }
+.investment-form button:hover { background: #16a085; }
+
+.investment-table { width: 100%; border-collapse: collapse; margin-top: 12px; }
 .investment-table th, .investment-table td {
-  padding:10px; border-bottom:1px solid #333; color:#ecf0f1; text-align:center;
+  padding: 10px; border-bottom: 1px solid #333; color: #ecf0f1; text-align: center;
 }
-.investment-table th { background:#2c2c2c; }
-.investment-table tr:nth-child(even) { background:#2c2c2c; }
-.chart.same-size { height:400px; }
+.investment-table th { background: #2c2c2c; }
+.investment-table tr:nth-child(even) { background: #2c2c2c; }
+
+.chart.same-size { height: 400px; }
+
+/* Layout for content: Mutual Fund + Portfolio side by side */
+.content {
+  display: grid;
+  grid-template-columns: 3fr 2fr; /* left wider, right narrower */
+  gap: 20px;
+}
+
+.mf-section {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
 
 .portfolio-card {
-  margin-top: 20px;
+  width: 100%;
+  min-width: 320px; /* ensure visibility on smaller screens */
 }
 
 .portfolio-section {
@@ -68,4 +87,14 @@
 .fund-value {
   font-weight: 700;
   color: #1abc9c;
+}
+
+/* Responsive adjustments for mobile */
+@media (max-width: 768px) {
+  .content {
+    grid-template-columns: 1fr; /* stack vertically on small screens */
+  }
+  .portfolio-card {
+    min-width: auto;
+  }
 }
