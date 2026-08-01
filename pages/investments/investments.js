@@ -1,8 +1,7 @@
-// investments.js - dedicated logic for Investments page with year-wise profit aggregation
+// investments.js - dedicated logic for Investments page with year-wise aggregation
 // NOTE: Requires db.js to be loaded first (finance-tracker/backend/database/js/db.js)
 
 document.addEventListener('DOMContentLoaded', async () => {
-  const investmentForm = document.getElementById('investmentForm');
   const investmentTableBody = document.querySelector('#investmentsTable tbody');
   const yearSelect = document.getElementById('yearSelect');       // chart year selector
   const savedYearSelect = document.getElementById('savedYearSelect'); // table year selector
@@ -14,23 +13,21 @@ document.addEventListener('DOMContentLoaded', async () => {
     return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(amount);
   }
 
-  // Render Saved Investments table (profit only, aggregated year-wise)
+  // Render Saved Investments table (aggregated year-wise for Mutual Fund)
   function renderInvestments(entries, selectedYear) {
     if (!investmentTableBody) return;
 
-    const profitEntries = entries.filter(e =>
-      e.category === 'Mutual Fund' &&
-      (e.subtype === 'profit' || e.notes?.toLowerCase().includes('profit'))
-    );
+    // Include all Mutual Fund entries (invested + profit)
+    const mfEntries = entries.filter(e => e.category === 'Mutual Fund');
 
-    if (!profitEntries || profitEntries.length === 0) {
-      investmentTableBody.innerHTML = '<tr><td colspan="3">No profit entries yet</td></tr>';
+    if (!mfEntries || mfEntries.length === 0) {
+      investmentTableBody.innerHTML = '<tr><td colspan="3">No entries yet</td></tr>';
       return;
     }
 
-    // Group profits by year
+    // Group totals by year
     const yearlyTotals = {};
-    profitEntries.forEach(entry => {
+    mfEntries.forEach(entry => {
       const year = new Date(entry.date).getFullYear();
       if (!yearlyTotals[year]) yearlyTotals[year] = 0;
       yearlyTotals[year] += entry.amount || 0;
@@ -69,46 +66,103 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     renderInvestments(investments, selectedYearTable);
 
-    // Totals: for Mutual Fund, use only profit subtype
+    // Totals: include all amounts for each category
     const totals = { 'Mutual Fund':0, 'LIC':0, 'PPF':0, 'Sukanya Yojana':0 };
     investments.forEach(e => {
       if (totals[e.category] !== undefined) {
-        if (e.category === 'Mutual Fund') {
-          if (e.subtype === 'profit' || e.notes?.toLowerCase().includes('profit')) {
-            totals['Mutual Fund'] += e.amount || 0;
-          }
-        } else {
-          totals[e.category] += e.amount || 0;
-        }
+        totals[e.category] += e.amount || 0;
       }
     });
 
+    // Update summary cards
     document.getElementById('mutualFundTotal').textContent = formatINR(totals['Mutual Fund']);
     document.getElementById('licTotal').textContent = formatINR(totals['LIC']);
     document.getElementById('ppfTotal').textContent = formatINR(totals['PPF']);
     document.getElementById('sukanyaTotal').textContent = formatINR(totals['Sukanya Yojana']);
 
-    const ctx = document.getElementById('investmentGrowthChart').getContext('2d');
-    new Chart(ctx, {
+    // Render charts for each category
+    const ctxMF = document.getElementById('mutualFundGrowthChart').getContext('2d');
+    new Chart(ctxMF, {
       type: 'line',
       data: {
-        labels: Object.keys(totals),
+        labels: years,
         datasets: [{
-          label: `Investment Growth ${selectedYearChart || ''}`,
-          data: Object.values(totals),
-          borderColor: ['#1abc9c','#3498db','#e67e22','#9b59b6'],
+          label: 'Mutual Fund Growth',
+          data: years.map(y => {
+            return investments
+              .filter(e => e.category === 'Mutual Fund' && new Date(e.date).getFullYear() === y)
+              .reduce((sum, e) => sum + (e.amount || 0), 0);
+          }),
+          borderColor: '#1abc9c',
           backgroundColor: 'rgba(26,188,156,0.2)',
           fill: true,
-          tension: 0.4,
-          pointBackgroundColor: ['#1abc9c','#3498db','#e67e22','#9b59b6'],
-          pointRadius: 5
+          tension: 0.4
         }]
       },
-      options: {
-        responsive: true,
-        plugins: { tooltip: { enabled: true }, legend: { display: false } },
-        scales: { y: { beginAtZero: true } }
-      }
+      options: { responsive: true, scales: { y: { beginAtZero: true } } }
+    });
+
+    const ctxLIC = document.getElementById('licGrowthChart').getContext('2d');
+    new Chart(ctxLIC, {
+      type: 'line',
+      data: {
+        labels: years,
+        datasets: [{
+          label: 'LIC Growth',
+          data: years.map(y => {
+            return investments
+              .filter(e => e.category === 'LIC' && new Date(e.date).getFullYear() === y)
+              .reduce((sum, e) => sum + (e.amount || 0), 0);
+          }),
+          borderColor: '#3498db',
+          backgroundColor: 'rgba(52,152,219,0.2)',
+          fill: true,
+          tension: 0.4
+        }]
+      },
+      options: { responsive: true, scales: { y: { beginAtZero: true } } }
+    });
+
+    const ctxPPF = document.getElementById('ppfGrowthChart').getContext('2d');
+    new Chart(ctxPPF, {
+      type: 'line',
+      data: {
+        labels: years,
+        datasets: [{
+          label: 'PPF Growth',
+          data: years.map(y => {
+            return investments
+              .filter(e => e.category === 'PPF' && new Date(e.date).getFullYear() === y)
+              .reduce((sum, e) => sum + (e.amount || 0), 0);
+          }),
+          borderColor: '#e67e22',
+          backgroundColor: 'rgba(230,126,34,0.2)',
+          fill: true,
+          tension: 0.4
+        }]
+      },
+      options: { responsive: true, scales: { y: { beginAtZero: true } } }
+    });
+
+    const ctxSukanya = document.getElementById('sukanyaGrowthChart').getContext('2d');
+    new Chart(ctxSukanya, {
+      type: 'line',
+      data: {
+        labels: years,
+        datasets: [{
+          label: 'Sukanya Yojana Growth',
+          data: years.map(y => {
+            return investments
+              .filter(e => e.category === 'Sukanya Yojana' && new Date(e.date).getFullYear() === y)
+              .reduce((sum, e) => sum + (e.amount || 0), 0);
+          }),
+          borderColor: '#9b59b6',
+          backgroundColor: 'rgba(155,89,182,0.2)',
+          fill: true,
+          tension: 0.4
+        }]
+      },
+      options: { responsive: true, scales: { y: { beginAtZero: true } } }
     });
   }
 
@@ -124,31 +178,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   // Year selector changes
-  yearSelect.addEventListener('change', () => loadInvestments());
-  savedYearSelect.addEventListener('change', () => loadInvestments());
-
-  if (investmentForm) {
-    loadInvestments();
-
-    investmentForm.addEventListener('submit', async event => {
-      event.preventDefault();
-      const type = document.getElementById('investmentType').value;
-      const amount = parseFloat(document.getElementById('investmentAmount').value);
-      if (Number.isNaN(amount) || amount <= 0) return;
-
-      // Save as profit entry (only profit is tracked here)
-      const entry = {
-        type: 'investment',
-        category: type,
-        subtype: 'profit',
-        amount,
-        date: new Date().toISOString(),
-        notes: `Profit: ${type}`
-      };
-
-      await window.addEntry(entry);
-      investmentForm.reset();
-      loadInvestments();
-    });
+  if (yearSelect) {
+    yearSelect.addEventListener('change', () => loadInvestments());
   }
+  if (savedYearSelect) {
+    savedYearSelect.addEventListener('change', () => loadInvestments());
+  }
+
+  await loadInvestments();
 });

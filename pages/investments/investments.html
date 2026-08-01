@@ -60,34 +60,29 @@
           <a href="sukanya/sukanya.html" class="card sukanya"><h3>Sukanya Yojana</h3><p id="sukanyaTotal">₹0.00</p></a>
         </div>
 
-        <!-- Add Investment form -->
-        <div class="card">
-          <h3>Add Investment</h3>
-          <form id="investmentForm" class="investment-form">
-            <label for="investmentType">Investment type</label>
-            <select id="investmentType" required>
-              <option value="Mutual Fund">Mutual Fund</option>
-              <option value="LIC">LIC</option>
-              <option value="PPF">PPF</option>
-              <option value="Sukanya Yojana">Sukanya Yojana</option>
-            </select>
-
-            <label for="investmentAmount">Amount</label>
-            <input id="investmentAmount" type="number" min="0" step="0.01" placeholder="Enter amount" required />
-
-            <button type="submit">Add Investment</button>
-          </form>
+        <!-- Investment Growth chart -->
+        <!-- Mutual Fund Growth chart -->
+        <div class="chart card same-size">
+          <h3>Mutual Fund Growth</h3>
+          <canvas id="mutualFundGrowthChart"></canvas>
         </div>
 
-        <!-- Investment Growth chart -->
+        <!-- LIC Growth chart -->
         <div class="chart card same-size">
-          <h3>Investment Growth</h3>
-          <label for="yearSelect">Select Year:</label>
-          <select id="yearSelect">
-            <option value="2026" selected>2026</option>
-            <!-- Future years will be added dynamically -->
-          </select>
-          <canvas id="investmentGrowthChart"></canvas>
+          <h3>LIC Growth</h3>
+          <canvas id="licGrowthChart"></canvas>
+        </div>
+
+        <!-- PPF Growth chart -->
+        <div class="chart card same-size">
+          <h3>PPF Growth</h3>
+          <canvas id="ppfGrowthChart"></canvas>
+        </div>
+
+        <!-- Sukanya Yojana Growth chart -->
+        <div class="chart card same-size">
+          <h3>Sukanya Yojana Growth</h3>
+          <canvas id="sukanyaGrowthChart"></canvas>
         </div>
 
         <!-- Saved Investments table -->
