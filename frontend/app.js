@@ -45,6 +45,11 @@ function getMutualFundSummary(entries = []) {
 }
 
 async function fetchEntries() {
+  if (!db || typeof db.allDocs !== 'function') {
+    console.warn('PouchDB is not ready yet; returning no entries.');
+    return [];
+  }
+
   const localEntries = await db.allDocs({ include_docs: true })
     .then(r => r.rows.map(r => r.doc));
   console.debug("Fetched entries from local DB:", localEntries.map(e => ({ id: e._id, rev: e._rev })));
@@ -52,6 +57,10 @@ async function fetchEntries() {
 }
 
 async function saveLocalEntry(doc) {
+  if (!db || typeof db.get !== 'function' || typeof db.put !== 'function') {
+    throw new Error('PouchDB is not ready yet');
+  }
+
   try {
     if (!doc._rev) {
       const existing = await db.get(doc._id).catch(() => null);
