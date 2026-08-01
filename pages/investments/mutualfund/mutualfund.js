@@ -60,7 +60,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   function renderChart(selectedYear = "2026") {
     const ctx = document.getElementById('mutualFundChart').getContext('2d');
-    if (window.mfChart) window.mfChart.destroy();
+    if (window.mfChart && typeof window.mfChart.destroy === 'function') {
+      window.mfChart.destroy();
+    }
 
     const months = ["Jul","Aug","Sep","Oct","Nov","Dec","Jan","Feb","Mar","Apr","May","Jun"];
     const investedData = months.map(m => {
@@ -165,13 +167,20 @@ document.addEventListener('DOMContentLoaded', async () => {
           cat = 'Hybrid';
         }
 
+        const equityFunds = ["WhiteOak","Bajaj","WealthCo","Groww","JM","Abakkus"];
+        const hybridFunds = ["Edelweiss","360 ONE"];
+
+        let cat = null;
+        if (equityFunds.some(f => e.notes?.includes(f))) {
+          cat = 'Equity';
+        } else if (hybridFunds.some(f => e.notes?.includes(f))) {
+          cat = 'Hybrid';
+        }
+
         if (cat) {
           if (e.subtype === 'investment') categories[cat].invested += e.amount;
           if (e.subtype === 'profit') categories[cat].profit += e.amount;
         }
-
-        if (e.subtype === 'investment') categories[cat].invested += e.amount;
-        if (e.subtype === 'profit') categories[cat].profit += e.amount;
       }
     });
 
@@ -252,12 +261,13 @@ document.addEventListener('DOMContentLoaded', async () => {
       notes: `${fundName} Mutual Fund investment for ${key}`
     };
     await window.addEntry(entry);
+    await loadEntries(); // refresh portfolio and portfolio chart
 
     updateCards();
     populateMonthYearDropdown();
     renderTable(monthYearSelect.value || null);
     renderChart(year.toString());
-    loadEntries(); // refresh portfolio too
+
     e.target.reset();
   });
 
@@ -287,12 +297,13 @@ document.addEventListener('DOMContentLoaded', async () => {
       notes: `${fundNameProfit} Mutual Fund profit for ${key}`
     };
     await window.addEntry(entry);
+    await loadEntries(); // refresh portfolio and portfolio chart
 
     updateCards();
     populateMonthYearDropdown();
     renderTable(monthYearSelect.value || null);
     renderChart(year.toString());
-    loadEntries(); // refresh portfolio too
+
     e.target.reset();
   });
 
