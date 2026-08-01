@@ -1,5 +1,5 @@
 // --- Use shared PouchDB instance from db.js ---
-const db = window.financeDB;
+const db = window.financeDB || null;
 
 // --- Utility functions ---
 function getMutualFundSummary(entries = []) {

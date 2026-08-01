@@ -1,5 +1,6 @@
 // db.js - Shared database functions
 const db = new PouchDB('finance');
+window.financeDB = db;
 
 // Read from config.js
 const { couchHost, couchDbName } = window.__CONFIG__;
