@@ -136,6 +136,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       opt.textContent = m;
       select.appendChild(opt);
     });
+  }
 
   function renderPortfolioChart(entries, selectedMonthYear = null) {
     const ctx = document.getElementById('portfolioChart').getContext('2d');
