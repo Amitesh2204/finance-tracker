@@ -167,13 +167,6 @@ document.addEventListener('DOMContentLoaded', async () => {
           cat = 'Hybrid';
         }
 
-        let cat = null;
-        if (equityFunds.some(f => e.notes?.includes(f))) {
-          cat = 'Equity';
-        } else if (hybridFunds.some(f => e.notes?.includes(f))) {
-          cat = 'Hybrid';
-        }
-
         if (cat) {
           if (e.subtype === 'investment') categories[cat].invested += e.amount;
           if (e.subtype === 'profit') categories[cat].profit += e.amount;
