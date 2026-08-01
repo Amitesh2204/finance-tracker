@@ -52,15 +52,28 @@ function getMutualFundSummary(entries = []) {
 }
 
 async function fetchEntries() {
-  if (!db || typeof db.allDocs !== 'function') {
-    console.warn('PouchDB is not ready yet; returning no entries.');
-    return [];
-  }
+  const apiBase = window.__API_BASE__ || '';
+  const apiUrl = `${apiBase}/entries`.replace(/([^:]\/)\/{2,}/g, '$1/');
 
-  const localEntries = await db.allDocs({ include_docs: true })
-    .then(r => r.rows.map(r => r.doc));
-  console.debug("Fetched entries from local DB:", localEntries.map(e => ({ id: e._id, rev: e._rev })));
-  return localEntries;
+  try {
+    const response = await fetch(apiUrl, { headers: { Accept: 'application/json' } });
+    if (!response.ok) {
+      throw new Error(`API request failed: ${response.status}`);
+    }
+    const data = await response.json();
+    console.debug('Fetched entries from API:', data.length);
+    return Array.isArray(data) ? data : [];
+  } catch (err) {
+    console.warn('Falling back to local PouchDB:', err);
+    if (!db || typeof db.allDocs !== 'function') {
+      return [];
+    }
+
+    const localEntries = await db.allDocs({ include_docs: true })
+      .then(r => r.rows.map(r => r.doc));
+    console.debug('Fetched entries from local DB:', localEntries.map(e => ({ id: e._id, rev: e._rev })));
+    return localEntries;
+  }
 }
 
 async function saveLocalEntry(doc) {
@@ -93,18 +106,46 @@ async function saveLocalEntry(doc) {
 }
 
 async function addEntry(entry) {
+  const apiBase = window.__API_BASE__ || '';
+  const apiUrl = `${apiBase}/entries`.replace(/([^:]\/)\/{2,}/g, '$1/');
   const id = entry._id || `entry:${entry.type || 'txn'}:${entry.date || Date.now()}:${Math.random().toString(36).slice(2,9)}`;
   const doc = Object.assign({}, entry, { _id: id });
-  await saveLocalEntry(doc);
-  return doc; // replication will push it to CouchDB automatically
+
+  try {
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify(doc)
+    });
+    if (!response.ok) {
+      throw new Error(`API save failed: ${response.status}`);
+    }
+    return await response.json();
+  } catch (err) {
+    console.warn('Falling back to local PouchDB save:', err);
+    await saveLocalEntry(doc);
+    return doc;
+  }
 }
+
+window.fetchEntries = fetchEntries;
+window.addEntry = addEntry;
+window.getMutualFundSummary = getMutualFundSummary;
+window.isMutualFundEntry = isMutualFundEntry;
+
+window.addEventListener('load', async () => {
+  try {
+    const entries = await fetchEntries();
+    if (Array.isArray(entries) && entries.length) {
+      window.__LAST_ENTRIES__ = entries;
+    }
+  } catch (err) {
+    console.warn('Initial entry load failed', err);
+  }
+});
 
 // --- UI bindings ---
 document.addEventListener('DOMContentLoaded', async () => {
-  window.fetchEntries = fetchEntries;
-  window.addEntry = addEntry;
-  window.getMutualFundSummary = getMutualFundSummary;
-  window.isMutualFundEntry = isMutualFundEntry;
 
   const txTable = document.getElementById('recentTx');
   if (txTable) {

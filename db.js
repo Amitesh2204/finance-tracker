@@ -2,18 +2,26 @@
 const db = new PouchDB('finance');
 window.financeDB = db;
 
-// Read from config.js
-const { couchHost, couchDbName } = window.__CONFIG__;
+function safeInitRemoteSync() {
+  try {
+    const { couchHost, couchDbName } = window.__CONFIG__ || {};
+    if (!couchHost || !couchDbName) {
+      return;
+    }
 
-// Connect directly to CouchDB with credentials
-const remoteDB = new PouchDB(`https://${couchHost}/${couchDbName}`, {
-  auth: { username: "admin", password: "Winter_2026" },  // direct credentials
-  skip_setup: true
-});
+    const remoteDB = new PouchDB(`https://${couchHost}/${couchDbName}`, {
+      auth: { username: "admin", password: "Winter_2026" },
+      skip_setup: true
+    });
 
-// Live sync between local PouchDB and remote CouchDB
-db.sync(remoteDB, { live: true, retry: true })
-  .on('error', err => console.error("Sync error:", err));
+    db.sync(remoteDB, { live: true, retry: true })
+      .on('error', err => console.warn('Remote sync warning:', err));
+  } catch (err) {
+    console.warn('Remote sync skipped:', err);
+  }
+}
+
+safeInitRemoteSync();
 
 window.addEntry = async function(entry) {
   try {
