@@ -101,7 +101,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
 
     entries.forEach(e => {
-      if (e.category === "Mutual Fund") {
+      if (typeof window.isMutualFundEntry === 'function' ? window.isMutualFundEntry(e) : (e?.type === 'investment' && String(e?.category || '').toLowerCase().includes('mutual'))) {
         if (e.notes?.includes("WhiteOak")) fundValues.WhiteOak += e.amount;
         if (e.notes?.includes("Bajaj")) fundValues.Bajaj += e.amount;
         if (e.notes?.includes("Wealth")) fundValues.WealthCo += e.amount;
@@ -164,7 +164,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const categories = { Equity: { invested:0, profit:0 }, Hybrid: { invested:0, profit:0 } };
     filtered.forEach(e => {
-      if (e.category === 'Mutual Fund') {
+      if (typeof window.isMutualFundEntry === 'function' ? window.isMutualFundEntry(e) : (e?.type === 'investment' && String(e?.category || '').toLowerCase().includes('mutual'))) {
         const equityFunds = ["WhiteOak","Bajaj","WealthCo","Groww","JM","Abakkus"];
         const hybridFunds = ["Edelweiss","360 ONE"];
 
@@ -202,7 +202,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Load existing entries from DB
   async function loadEntries() {
     const entries = await window.fetchEntries().catch(() => []);
-    const mfEntries = entries.filter(e => e.type === 'investment' && e.category === 'Mutual Fund');
+    const mfEntries = entries.filter(entry => typeof window.isMutualFundEntry === 'function' ? window.isMutualFundEntry(entry) : (entry?.type === 'investment' && String(entry?.category || '').toLowerCase().includes('mutual')));
 
     const mutualFundSummary = window.getMutualFundSummary(mfEntries);
     totalInvested = mutualFundSummary.invested;
@@ -315,7 +315,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('portfolioMonthYear').addEventListener('change', e => {
     const selected = e.target.value;
     window.fetchEntries().then(entries => {
-      const mfEntries = entries.filter(en => en.type === 'investment' && en.category === 'Mutual Fund');
+      const mfEntries = entries.filter(entry => typeof window.isMutualFundEntry === 'function' ? window.isMutualFundEntry(entry) : (entry?.type === 'investment' && String(entry?.category || '').toLowerCase().includes('mutual')));
       renderPortfolioChart(mfEntries, selected);
     });
   });

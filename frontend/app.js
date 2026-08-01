@@ -2,11 +2,18 @@
 const db = window.financeDB || null;
 
 // --- Utility functions ---
+function isMutualFundEntry(entry) {
+  if (!entry || entry?.type !== 'investment') {
+    return false;
+  }
+
+  const category = String(entry?.category || '').toLowerCase();
+  const notes = String(entry?.notes || '').toLowerCase();
+  return category === 'mutual fund' || category.includes('mutual') || notes.includes('mutual fund') || notes.includes('mutual');
+}
+
 function getMutualFundSummary(entries = []) {
-  const mutualFundEntries = (entries || []).filter(entry =>
-    entry?.type === 'investment' &&
-    (entry?.category === 'Mutual Fund' || String(entry?.notes || '').toLowerCase().includes('mutual fund'))
-  );
+  const mutualFundEntries = (entries || []).filter(isMutualFundEntry);
 
   const summary = { invested: 0, growth: 0, combined: 0, byYear: {} };
 
@@ -97,6 +104,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   window.fetchEntries = fetchEntries;
   window.addEntry = addEntry;
   window.getMutualFundSummary = getMutualFundSummary;
+  window.isMutualFundEntry = isMutualFundEntry;
 
   const txTable = document.getElementById('recentTx');
   if (txTable) {
