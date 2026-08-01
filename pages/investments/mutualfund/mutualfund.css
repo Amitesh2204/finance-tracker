@@ -98,3 +98,7 @@
     min-width: auto;
   }
 }
+
+.chart.same-size {
+  height: 400px;
+}
