@@ -102,3 +102,21 @@
 .submenu .submenu-toggle.active {
   color: #1abc9c;
 }
+
+.chart-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr; /* two equal columns */
+  gap: 20px;
+  margin-bottom: 20px;
+}
+
+/* Ensure charts fill their column */
+.chart-row .chart.card {
+  width: 100%;
+}
+
+@media(max-width: 768px) {
+  .chart-row {
+    grid-template-columns: 1fr; /* stack on small screens */
+  }
+}
