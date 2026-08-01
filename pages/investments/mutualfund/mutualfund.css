@@ -25,3 +25,47 @@
 .investment-table th { background:#2c2c2c; }
 .investment-table tr:nth-child(even) { background:#2c2c2c; }
 .chart.same-size { height:400px; }
+
+.portfolio-card {
+  margin-top: 20px;
+}
+
+.portfolio-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.toggle-btn {
+  background: #2c2c2c;
+  color: #ecf0f1;
+  padding: 8px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  text-align: left;
+  font-weight: 600;
+}
+
+.toggle-btn:hover {
+  background: #1abc9c;
+}
+
+.fund-list {
+  list-style: none;
+  padding-left: 10px;
+  margin: 0;
+  display: none;
+}
+
+.fund-list li {
+  padding: 6px 0;
+  color: #ecf0f1;
+  display: flex;
+  justify-content: space-between;
+}
+
+.fund-value {
+  font-weight: 700;
+  color: #1abc9c;
+}
