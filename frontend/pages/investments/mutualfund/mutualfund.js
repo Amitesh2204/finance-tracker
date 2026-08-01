@@ -136,11 +136,12 @@ document.addEventListener('DOMContentLoaded', async () => {
       opt.textContent = m;
       select.appendChild(opt);
     });
-  }
 
   function renderPortfolioChart(entries, selectedMonthYear = null) {
     const ctx = document.getElementById('portfolioChart').getContext('2d');
-    if (window.portfolioChart) window.portfolioChart.destroy();
+    if (window.portfolioChart && typeof window.portfolioChart.destroy === 'function') {
+      window.portfolioChart.destroy();
+    }
 
     const filtered = selectedMonthYear
       ? entries.filter(e => {
