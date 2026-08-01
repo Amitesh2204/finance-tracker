@@ -7,14 +7,6 @@
 !deploy_frontend.ps1
 !index.html
 !sw.js
-!backend/
-!backend/**
-!caddy/
-!caddy/**
-!changelog/
-!changelog/**
-!docs/
-!docs/**
 !frontend/
 !frontend/**
 
@@ -29,3 +21,6 @@
 /var/lib/couchdb/
 **/__pycache__/
 .githooks/
+backend/**
+docs/**
+changelog/**
