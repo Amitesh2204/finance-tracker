@@ -65,13 +65,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     const months = ["Jul","Aug","Sep","Oct","Nov","Dec","Jan","Feb","Mar","Apr","May","Jun"];
-    const investedData = months.map(m => {
+    const combinedData = months.map(m => {
       const key = `${m}-${selectedYear}`;
-      return monthlyData[key]?.invested || 0;
-    });
-    const profitData = months.map(m => {
-      const key = `${m}-${selectedYear}`;
-      return monthlyData[key]?.profit || 0;
+      const monthData = monthlyData[key] || {};
+      return (monthData.invested || 0) + (monthData.profit || 0);
     });
 
     window.mfChart = new Chart(ctx, {
@@ -79,8 +76,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       data: {
         labels: months,
         datasets: [
-          { label: 'Invested', data: investedData, backgroundColor: '#3498db' },
-          { label: 'Profit', data: profitData, backgroundColor: '#1abc9c' }
+          { label: 'Combined Total', data: combinedData, backgroundColor: '#1abc9c' }
         ]
       },
       options: {
@@ -196,8 +192,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     const entries = await window.fetchEntries().catch(() => []);
     const mfEntries = entries.filter(e => e.type === 'investment' && e.category === 'Mutual Fund');
 
-    totalInvested = 0;
-    totalGrowth = 0;
+    const mutualFundSummary = window.getMutualFundSummary(mfEntries);
+    totalInvested = mutualFundSummary.invested;
+    totalGrowth = mutualFundSummary.growth;
     monthlyData = {};
 
     mfEntries.forEach(e => {
@@ -205,12 +202,14 @@ document.addEventListener('DOMContentLoaded', async () => {
       const month = d.toLocaleString('default',{month:'short'});
       const year = d.getFullYear();
       const key = `${month}-${year}`;
-      monthlyData[key] = monthlyData[key] || { invested:0, profit:0 };
+      monthlyData[key] = monthlyData[key] || { invested:0, profit:0, combined:0 };
       if (e.subtype === 'investment' || e.notes?.toLowerCase().includes('investment')) {
         monthlyData[key].invested += e.amount;
+        monthlyData[key].combined += e.amount;
         totalInvested += e.amount;
       } else if (e.subtype === 'profit' || e.notes?.toLowerCase().includes('profit')) {
         monthlyData[key].profit += e.amount;
+        monthlyData[key].combined += e.amount;
         totalGrowth += e.amount;
       }
     });
