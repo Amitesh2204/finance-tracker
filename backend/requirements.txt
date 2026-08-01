@@ -1,0 +1,7 @@
+fastapi==0.95.2
+uvicorn[standard]==0.23.1
+python-dotenv==1.0.0
+requests==2.31.0
+# Use python-couchdb (package name `couchdb`) - pin to a compatible 1.x release
+couchdb>=1.2.0,<2.0.0
+pydantic==1.10.11

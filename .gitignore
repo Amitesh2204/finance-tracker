@@ -1,18 +1,31 @@
-# Ignore everything by default
+# Ignore everything by default so only the real project sources are tracked
 *
 
-# But keep the frontend folder and this .gitignore
-!/.gitignore
-!/frontend/
-!/frontend/**
+# Keep the core application sources and documentation
+!.gitignore
+!README.md
+!deploy_frontend.ps1
 !index.html
+!sw.js
+!backend/
+!backend/**
+!caddy/
+!caddy/**
+!changelog/
+!changelog/**
+!docs/
+!docs/**
+!frontend/
+!frontend/**
 
-# Ignore backend, caddy, docs, changelog, and any local DB data/logs
-/backend/
-/caddy/
-/docs/
-/changelog/
-/var/lib/couchdb/
+# Ignore runtime and local artifacts
+.env
+.venv/
+.venv311/
+.vscode/
 *.log
 *.sqlite
-/.githooks/
+*.db
+/var/lib/couchdb/
+**/__pycache__/
+.githooks/

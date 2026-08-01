@@ -1,0 +1,3 @@
+personaltracker.duckdns.org {
+    reverse_proxy localhost:8000
+}
