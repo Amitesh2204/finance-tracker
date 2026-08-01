@@ -59,7 +59,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   function renderChart(selectedYear = "2026") {
-    const ctx = document.getElementById('mutualFundChart').getContext('2d');
+    const canvas = document.getElementById('mutualFundChart');
+    if (!canvas || typeof Chart === 'undefined') {
+      console.warn('Mutual fund chart canvas or Chart.js is unavailable.');
+      return;
+    }
+
+    const ctx = canvas.getContext('2d');
     if (window.mfChart && typeof window.mfChart.destroy === 'function') {
       window.mfChart.destroy();
     }
@@ -137,7 +143,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   function renderPortfolioChart(entries, selectedMonthYear = null) {
-    const ctx = document.getElementById('portfolioChart').getContext('2d');
+    const canvas = document.getElementById('portfolioChart');
+    if (!canvas || typeof Chart === 'undefined') {
+      console.warn('Portfolio chart canvas or Chart.js is unavailable.');
+      return;
+    }
+
+    const ctx = canvas.getContext('2d');
     if (window.portfolioChart && typeof window.portfolioChart.destroy === 'function') {
       window.portfolioChart.destroy();
     }
