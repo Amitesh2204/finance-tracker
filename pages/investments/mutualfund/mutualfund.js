@@ -129,7 +129,13 @@ document.addEventListener('DOMContentLoaded', async () => {
       opt.textContent = 'No data';
       select.appendChild(opt);
       return;
-}
+    }
+    months.forEach(m => {
+      const opt = document.createElement('option');
+      opt.value = m;
+      opt.textContent = m;
+      select.appendChild(opt);
+    });
   }
 
   function renderPortfolioChart(entries, selectedMonthYear = null) {
