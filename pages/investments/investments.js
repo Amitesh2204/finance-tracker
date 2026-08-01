@@ -3,7 +3,6 @@
 
 document.addEventListener('DOMContentLoaded', async () => {
   const investmentTableBody = document.querySelector('#investmentsTable tbody');
-  const yearSelect = document.getElementById('yearSelect');       // chart year selector
   const savedYearSelect = document.getElementById('savedYearSelect'); // table year selector
   const categoryDetail = document.getElementById('categoryDetail');
   const detailTitle = document.getElementById('detailTitle');
@@ -17,7 +16,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   function renderInvestments(entries, selectedYear) {
     if (!investmentTableBody) return;
 
-    // Include all Mutual Fund entries (invested + profit)
     const mfEntries = entries.filter(e => e.category === 'Mutual Fund');
 
     if (!mfEntries || mfEntries.length === 0) {
@@ -25,7 +23,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       return;
     }
 
-    // Group totals by year
     const yearlyTotals = {};
     mfEntries.forEach(entry => {
       const year = new Date(entry.date).getFullYear();
@@ -33,7 +30,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       yearlyTotals[year] += entry.amount || 0;
     });
 
-    // If year selected, filter
     const displayYears = selectedYear ? [parseInt(selectedYear)] : Object.keys(yearlyTotals);
 
     investmentTableBody.innerHTML = displayYears.map(y => `
@@ -49,24 +45,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     const entries = await window.fetchEntries().catch(() => []);
     const investments = entries.filter(e => e.type === 'investment');
 
-    // Populate year selectors dynamically
+    // Populate year selector dynamically
     const years = [...new Set(investments.map(e => new Date(e.date).getFullYear()))];
-    [yearSelect, savedYearSelect].forEach(sel => {
-      sel.innerHTML = '';
-      years.sort().forEach(y => {
-        const opt = document.createElement('option');
-        opt.value = y;
-        opt.textContent = y;
-        sel.appendChild(opt);
-      });
+    savedYearSelect.innerHTML = '';
+    years.sort().forEach(y => {
+      const opt = document.createElement('option');
+      opt.value = y;
+      opt.textContent = y;
+      savedYearSelect.appendChild(opt);
     });
 
-    const selectedYearChart = yearSelect.value || null;
     const selectedYearTable = savedYearSelect.value || null;
-
     renderInvestments(investments, selectedYearTable);
 
-    // Totals: include all amounts for each category
+    // Totals
     const totals = { 'Mutual Fund':0, 'LIC':0, 'PPF':0, 'Sukanya Yojana':0 };
     investments.forEach(e => {
       if (totals[e.category] !== undefined) {
@@ -74,7 +66,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     });
 
-    // Update summary cards
     document.getElementById('mutualFundTotal').textContent = formatINR(totals['Mutual Fund']);
     document.getElementById('licTotal').textContent = formatINR(totals['LIC']);
     document.getElementById('ppfTotal').textContent = formatINR(totals['PPF']);
@@ -88,11 +79,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         labels: years,
         datasets: [{
           label: 'Mutual Fund Growth',
-          data: years.map(y => {
-            return investments
-              .filter(e => e.category === 'Mutual Fund' && new Date(e.date).getFullYear() === y)
-              .reduce((sum, e) => sum + (e.amount || 0), 0);
-          }),
+          data: years.map(y => investments
+            .filter(e => e.category === 'Mutual Fund' && new Date(e.date).getFullYear() === y)
+            .reduce((sum, e) => sum + (e.amount || 0), 0)),
           borderColor: '#1abc9c',
           backgroundColor: 'rgba(26,188,156,0.2)',
           fill: true,
@@ -109,11 +98,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         labels: years,
         datasets: [{
           label: 'LIC Growth',
-          data: years.map(y => {
-            return investments
-              .filter(e => e.category === 'LIC' && new Date(e.date).getFullYear() === y)
-              .reduce((sum, e) => sum + (e.amount || 0), 0);
-          }),
+          data: years.map(y => investments
+            .filter(e => e.category === 'LIC' && new Date(e.date).getFullYear() === y)
+            .reduce((sum, e) => sum + (e.amount || 0), 0)),
           borderColor: '#3498db',
           backgroundColor: 'rgba(52,152,219,0.2)',
           fill: true,
@@ -130,11 +117,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         labels: years,
         datasets: [{
           label: 'PPF Growth',
-          data: years.map(y => {
-            return investments
-              .filter(e => e.category === 'PPF' && new Date(e.date).getFullYear() === y)
-              .reduce((sum, e) => sum + (e.amount || 0), 0);
-          }),
+          data: years.map(y => investments
+            .filter(e => e.category === 'PPF' && new Date(e.date).getFullYear() === y)
+            .reduce((sum, e) => sum + (e.amount || 0), 0)),
           borderColor: '#e67e22',
           backgroundColor: 'rgba(230,126,34,0.2)',
           fill: true,
@@ -151,11 +136,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         labels: years,
         datasets: [{
           label: 'Sukanya Yojana Growth',
-          data: years.map(y => {
-            return investments
-              .filter(e => e.category === 'Sukanya Yojana' && new Date(e.date).getFullYear() === y)
-              .reduce((sum, e) => sum + (e.amount || 0), 0);
-          }),
+          data: years.map(y => investments
+            .filter(e => e.category === 'Sukanya Yojana' && new Date(e.date).getFullYear() === y)
+            .reduce((sum, e) => sum + (e.amount || 0), 0)),
           borderColor: '#9b59b6',
           backgroundColor: 'rgba(155,89,182,0.2)',
           fill: true,
@@ -166,21 +149,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  // Handle card clicks
-  document.querySelectorAll('.cards .card').forEach(card => {
-    card.addEventListener('click', () => {
-      const category = card.getAttribute('data-category');
-      detailTitle.textContent = category + " Details";
-      detailContent.textContent = "This is a simple placeholder view for " + category + ".";
-      categoryDetail.classList.remove('hidden');
-      categoryDetail.scrollIntoView({ behavior: 'smooth' });
-    });
-  });
-
   // Year selector changes
-  if (yearSelect) {
-    yearSelect.addEventListener('change', () => loadInvestments());
-  }
   if (savedYearSelect) {
     savedYearSelect.addEventListener('change', () => loadInvestments());
   }
