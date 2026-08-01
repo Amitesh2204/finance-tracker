@@ -199,14 +199,58 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
+  function buildMutualFundSummary(entries) {
+    const mfEntries = (entries || []).filter(entry => {
+      if (!entry || entry.type !== 'investment') return false;
+      const category = String(entry.category || '').toLowerCase();
+      const notes = String(entry.notes || '').toLowerCase();
+      return category === 'mutual fund' || category.includes('mutual') || notes.includes('mutual fund') || notes.includes('mutual');
+    });
+
+    const summary = { invested: 0, growth: 0, combined: 0, byYear: {} };
+    mfEntries.forEach(entry => {
+      const amount = Number(entry.amount) || 0;
+      const notes = String(entry.notes || '').toLowerCase();
+      const isProfit = entry.subtype === 'profit' || notes.includes('profit');
+
+      if (isProfit) {
+        summary.growth += amount;
+      } else {
+        summary.invested += amount;
+      }
+
+      const date = new Date(entry.date);
+      if (Number.isNaN(date.getTime())) return;
+      const year = date.getFullYear();
+      if (!summary.byYear[year]) summary.byYear[year] = { invested: 0, growth: 0, combined: 0 };
+      if (isProfit) {
+        summary.byYear[year].growth += amount;
+      } else {
+        summary.byYear[year].invested += amount;
+      }
+      summary.byYear[year].combined = summary.byYear[year].invested + summary.byYear[year].growth;
+    });
+
+    summary.combined = summary.invested + summary.growth;
+    return summary;
+  }
+
   // Load existing entries from DB
   async function loadEntries() {
     const entries = await window.fetchEntries().catch(() => []);
-    const mfEntries = entries.filter(entry => typeof window.isMutualFundEntry === 'function' ? window.isMutualFundEntry(entry) : (entry?.type === 'investment' && String(entry?.category || '').toLowerCase().includes('mutual')));
+    const mfEntries = (entries || []).filter(entry => {
+      if (!entry || entry.type !== 'investment') return false;
+      const category = String(entry.category || '').toLowerCase();
+      const notes = String(entry.notes || '').toLowerCase();
+      return category === 'mutual fund' || category.includes('mutual') || notes.includes('mutual fund') || notes.includes('mutual');
+    });
 
-    const mutualFundSummary = window.getMutualFundSummary(mfEntries);
-    totalInvested = mutualFundSummary.invested;
-    totalGrowth = mutualFundSummary.growth;
+    const mutualFundSummary = typeof window.getMutualFundSummary === 'function'
+      ? window.getMutualFundSummary(entries)
+      : buildMutualFundSummary(entries);
+
+    totalInvested = mutualFundSummary.invested || 0;
+    totalGrowth = mutualFundSummary.growth || 0;
     monthlyData = {};
 
     mfEntries.forEach(e => {
@@ -215,14 +259,14 @@ document.addEventListener('DOMContentLoaded', async () => {
       const year = d.getFullYear();
       const key = `${month}-${year}`;
       monthlyData[key] = monthlyData[key] || { invested:0, profit:0, combined:0 };
-      if (e.subtype === 'investment' || e.notes?.toLowerCase().includes('investment')) {
-        monthlyData[key].invested += e.amount;
-        monthlyData[key].combined += e.amount;
-        totalInvested += e.amount;
-      } else if (e.subtype === 'profit' || e.notes?.toLowerCase().includes('profit')) {
-        monthlyData[key].profit += e.amount;
-        monthlyData[key].combined += e.amount;
-        totalGrowth += e.amount;
+      const notes = String(e.notes || '').toLowerCase();
+      const isProfit = e.subtype === 'profit' || notes.includes('profit');
+      if (isProfit) {
+        monthlyData[key].profit += Number(e.amount) || 0;
+        monthlyData[key].combined += Number(e.amount) || 0;
+      } else {
+        monthlyData[key].invested += Number(e.amount) || 0;
+        monthlyData[key].combined += Number(e.amount) || 0;
       }
     });
 
@@ -230,7 +274,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     populateMonthYearDropdown();
     renderTable(monthYearSelect.value || null);
     renderChart("2026");
-    // NEW: update portfolio section
     updatePortfolio(mfEntries);
     populatePortfolioMonthYear(mfEntries);
     renderPortfolioChart(mfEntries);
