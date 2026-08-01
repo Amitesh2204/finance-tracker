@@ -229,6 +229,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     monthlyData[key].invested += amt;
 
     // Save entry to DB
+    const fundName = document.getElementById('fundName').value;
     const entry = {
       type: 'investment',
       category: 'Mutual Fund',
@@ -236,7 +237,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       amount: amt,
       currency: 'INR',
       date: d.toISOString(),
-      notes: `Mutual Fund investment for ${key}`
+      notes: `${fundName} Mutual Fund investment for ${key}`
     };
     await window.addEntry(entry);
 
@@ -263,6 +264,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     monthlyData[key].profit += profit;
 
     // Save entry to DB
+    const fundNameProfit = document.getElementById('fundNameProfit').value;
     const entry = {
       type: 'investment',
       category: 'Mutual Fund',
@@ -270,7 +272,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       amount: profit,
       currency: 'INR',
       date: d.toISOString(),
-      notes: `Mutual Fund profit for ${key}`
+      notes: `${fundNameProfit} Mutual Fund profit for ${key}`
     };
     await window.addEntry(entry);
 

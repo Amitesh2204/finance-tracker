@@ -67,16 +67,39 @@
             <form id="investmentForm" class="investment-form">
               <label>Investment Type</label>
               <input type="text" value="Mutual Fund" readonly />
+              <label for="fundName">Fund Name</label>
+              <select id="fundName">
+                <option value="WhiteOak">WhiteOak</option>
+                <option value="Bajaj">Bajaj</option>
+                <option value="WealthCo">WealthCo</option>
+                <option value="Groww">Groww</option>
+                <option value="JM">JM</option>
+                <option value="Abakkus">Abakkus</option>
+                <option value="Edelweiss">Edelweiss</option>
+                <option value="360 ONE">360 ONE</option>
+              </select>
               <label for="monthlyAmount">Monthly Amount</label>
               <input id="monthlyAmount" type="number" min="0" step="0.01" required />
               <button type="submit">Add Investment</button>
             </form>
           </div>
 
+
           <!-- Profit form -->
           <div class="card">
             <h3>Update Monthly Profit</h3>
             <form id="profitForm" class="investment-form">
+              <label for="fundNameProfit">Fund Name</label>
+              <select id="fundNameProfit">
+                <option value="WhiteOak">WhiteOak</option>
+                <option value="Bajaj">Bajaj</option>
+                <option value="WealthCo">WealthCo</option>
+                <option value="Groww">Groww</option>
+                <option value="JM">JM</option>
+                <option value="Abakkus">Abakkus</option>
+                <option value="Edelweiss">Edelweiss</option>
+                <option value="360 ONE">360 ONE</option>
+              </select>
               <label for="monthlyProfit">Monthly Profit</label>
               <input id="monthlyProfit" type="number" min="0" step="0.01" required />
               <button type="submit">Update Profit</button>
