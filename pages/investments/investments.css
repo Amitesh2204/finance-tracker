@@ -31,37 +31,6 @@
 .card.ppf p { color:#e67e22; }
 .card.sukanya p { color:#9b59b6; }
 
-.investment-form {
-  display:flex;
-  flex-direction:column;
-  gap:12px;
-  margin-bottom:20px;
-}
-.investment-form label {
-  font-weight:600;
-  color:#ecf0f1;
-}
-.investment-form select,
-.investment-form input {
-  padding:10px;
-  border-radius:8px;
-  border:1px solid #444;
-  background:#1e1e1e;
-  color:#ecf0f1;
-}
-.investment-form button {
-  padding:12px;
-  border:none;
-  border-radius:8px;
-  background:#1abc9c;
-  color:#fff;
-  font-weight:700;
-  cursor:pointer;
-}
-.investment-form button:hover {
-  background:#16a085;
-}
-
 .investment-table {
   width:100%;
   border-collapse:collapse;
@@ -81,6 +50,13 @@
 /* Chart sizing */
 .chart.same-size {
   height:400px;
+}
+
+/* Layout fix: stack charts vertically */
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
 }
 
 /* Responsive */
