@@ -2,6 +2,48 @@
 const db = window.financeDB;
 
 // --- Utility functions ---
+function getMutualFundSummary(entries = []) {
+  const mutualFundEntries = (entries || []).filter(entry =>
+    entry?.type === 'investment' &&
+    (entry?.category === 'Mutual Fund' || String(entry?.notes || '').toLowerCase().includes('mutual fund'))
+  );
+
+  const summary = { invested: 0, growth: 0, combined: 0, byYear: {} };
+
+  mutualFundEntries.forEach(entry => {
+    const amount = Number(entry?.amount) || 0;
+    const notes = String(entry?.notes || '').toLowerCase();
+    const isProfit = entry?.subtype === 'profit' || notes.includes('profit');
+
+    if (isProfit) {
+      summary.growth += amount;
+    } else {
+      summary.invested += amount;
+    }
+
+    const date = new Date(entry?.date);
+    if (Number.isNaN(date.getTime())) {
+      return;
+    }
+
+    const year = date.getFullYear();
+    if (!summary.byYear[year]) {
+      summary.byYear[year] = { invested: 0, growth: 0, combined: 0 };
+    }
+
+    if (isProfit) {
+      summary.byYear[year].growth += amount;
+    } else {
+      summary.byYear[year].invested += amount;
+    }
+
+    summary.byYear[year].combined = summary.byYear[year].invested + summary.byYear[year].growth;
+  });
+
+  summary.combined = summary.invested + summary.growth;
+  return summary;
+}
+
 async function fetchEntries() {
   const localEntries = await db.allDocs({ include_docs: true })
     .then(r => r.rows.map(r => r.doc));
@@ -45,6 +87,7 @@ async function addEntry(entry) {
 document.addEventListener('DOMContentLoaded', async () => {
   window.fetchEntries = fetchEntries;
   window.addEntry = addEntry;
+  window.getMutualFundSummary = getMutualFundSummary;
 
   const txTable = document.getElementById('recentTx');
   if (txTable) {

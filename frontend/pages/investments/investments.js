@@ -23,19 +23,17 @@ document.addEventListener('DOMContentLoaded', async () => {
       return;
     }
 
-    const yearlyTotals = {};
-    mfEntries.forEach(entry => {
-      const year = new Date(entry.date).getFullYear();
-      if (!yearlyTotals[year]) yearlyTotals[year] = 0;
-      yearlyTotals[year] += entry.amount || 0;
-    });
+    const mutualFundSummary = window.getMutualFundSummary(mfEntries);
+    const yearlyTotals = Object.fromEntries(
+      Object.entries(mutualFundSummary.byYear).map(([year, values]) => [year, values.combined])
+    );
 
     const displayYears = selectedYear ? [parseInt(selectedYear)] : Object.keys(yearlyTotals);
 
     investmentTableBody.innerHTML = displayYears.map(y => `
       <tr>
         <td>Mutual Fund</td>
-        <td>${formatINR(yearlyTotals[y])}</td>
+        <td>${formatINR(yearlyTotals[y] || 0)}</td>
         <td>${y}</td>
       </tr>
     `).join('');
@@ -44,6 +42,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   async function loadInvestments() {
     const entries = await window.fetchEntries().catch(() => []);
     const investments = entries.filter(e => e.type === 'investment');
+    const mutualFundSummary = window.getMutualFundSummary(investments);
 
     // Populate year selector dynamically
     const years = [...new Set(investments.map(e => new Date(e.date).getFullYear()))];
@@ -66,22 +65,23 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     });
 
-    document.getElementById('mutualFundTotal').textContent = formatINR(totals['Mutual Fund']);
+    document.getElementById('mutualFundTotal').textContent = formatINR(mutualFundSummary.combined);
     document.getElementById('licTotal').textContent = formatINR(totals['LIC']);
     document.getElementById('ppfTotal').textContent = formatINR(totals['PPF']);
     document.getElementById('sukanyaTotal').textContent = formatINR(totals['Sukanya Yojana']);
 
     // Render charts for each category
     const ctxMF = document.getElementById('mutualFundGrowthChart').getContext('2d');
-    new Chart(ctxMF, {
+    if (window.mutualFundGrowthChartInstance) {
+      window.mutualFundGrowthChartInstance.destroy();
+    }
+    window.mutualFundGrowthChartInstance = new Chart(ctxMF, {
       type: 'line',
       data: {
         labels: years,
         datasets: [{
           label: 'Mutual Fund Growth',
-          data: years.map(y => investments
-            .filter(e => e.category === 'Mutual Fund' && new Date(e.date).getFullYear() === y)
-            .reduce((sum, e) => sum + (e.amount || 0), 0)),
+          data: years.map(y => mutualFundSummary.byYear[y]?.combined || 0),
           borderColor: '#1abc9c',
           backgroundColor: 'rgba(26,188,156,0.2)',
           fill: true,
@@ -92,7 +92,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     const ctxLIC = document.getElementById('licGrowthChart').getContext('2d');
-    new Chart(ctxLIC, {
+    if (window.licGrowthChartInstance) {
+      window.licGrowthChartInstance.destroy();
+    }
+    window.licGrowthChartInstance = new Chart(ctxLIC, {
       type: 'line',
       data: {
         labels: years,
@@ -111,7 +114,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     const ctxPPF = document.getElementById('ppfGrowthChart').getContext('2d');
-    new Chart(ctxPPF, {
+    if (window.ppfGrowthChartInstance) {
+      window.ppfGrowthChartInstance.destroy();
+    }
+    window.ppfGrowthChartInstance = new Chart(ctxPPF, {
       type: 'line',
       data: {
         labels: years,
@@ -130,7 +136,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     const ctxSukanya = document.getElementById('sukanyaGrowthChart').getContext('2d');
-    new Chart(ctxSukanya, {
+    if (window.sukanyaGrowthChartInstance) {
+      window.sukanyaGrowthChartInstance.destroy();
+    }
+    window.sukanyaGrowthChartInstance = new Chart(ctxSukanya, {
       type: 'line',
       data: {
         labels: years,

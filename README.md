@@ -6,7 +6,6 @@ Finance Tracker is a personal finance dashboard with an offline-first frontend a
 - backend/: FastAPI application, database integration, routes, services, and tests.
 - frontend/: Static web UI, pages, shared JavaScript, styles, and PWA assets.
 - docs/: Project documentation and architecture notes.
-- caddy/: Reverse proxy configuration for deployment.
 - deploy_frontend.ps1: Helper script for publishing the frontend to GitHub Pages.
 
 ## Documentation
