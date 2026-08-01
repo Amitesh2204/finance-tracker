@@ -155,9 +155,21 @@ document.addEventListener('DOMContentLoaded', async () => {
     const categories = { Equity: { invested:0, profit:0 }, Hybrid: { invested:0, profit:0 } };
     filtered.forEach(e => {
       if (e.category === 'Mutual Fund') {
-        const isEquity = ["WhiteOak","Bajaj","WealthCo","Groww","JM","Abakkus"]
-          .some(f => e.notes?.includes(f));
-        const cat = isEquity ? 'Equity' : 'Hybrid';
+        const equityFunds = ["WhiteOak","Bajaj","WealthCo","Groww","JM","Abakkus"];
+        const hybridFunds = ["Edelweiss","360 ONE"];
+
+        let cat = null;
+        if (equityFunds.some(f => e.notes?.includes(f))) {
+          cat = 'Equity';
+        } else if (hybridFunds.some(f => e.notes?.includes(f))) {
+          cat = 'Hybrid';
+        }
+
+        if (cat) {
+          if (e.subtype === 'investment') categories[cat].invested += e.amount;
+          if (e.subtype === 'profit') categories[cat].profit += e.amount;
+        }
+
         if (e.subtype === 'investment') categories[cat].invested += e.amount;
         if (e.subtype === 'profit') categories[cat].profit += e.amount;
       }
