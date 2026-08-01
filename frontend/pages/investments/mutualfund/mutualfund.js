@@ -123,12 +123,13 @@ document.addEventListener('DOMContentLoaded', async () => {
       return `${d.toLocaleString('default',{month:'short'})}-${d.getFullYear()}`;
     }))];
     select.innerHTML = '';
-    months.forEach(m => {
+    if (months.length === 0) {
       const opt = document.createElement('option');
-      opt.value = m;
-      opt.textContent = m;
+      opt.value = '';
+      opt.textContent = 'No data';
       select.appendChild(opt);
-    });
+      return;
+}
   }
 
   function renderPortfolioChart(entries, selectedMonthYear = null) {
