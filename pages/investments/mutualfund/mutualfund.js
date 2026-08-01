@@ -303,5 +303,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 
   // Initial load
+  updatePortfolio(mfEntries);
+  populatePortfolioMonthYear(mfEntries);
+  renderPortfolioChart(mfEntries);
   loadEntries();
 });
