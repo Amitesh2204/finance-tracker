@@ -88,6 +88,32 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     });
   }
+  
+    // --- Portfolio rendering ---
+  function updatePortfolio(entries) {
+    const fundValues = {
+      WhiteOak: 0, Bajaj: 0, WealthCo: 0, Groww: 0, JM: 0, Abakkus: 0,
+      Edelweiss: 0, "360One": 0
+    };
+
+    entries.forEach(e => {
+      if (e.category === "Mutual Fund") {
+        if (e.notes?.includes("WhiteOak")) fundValues.WhiteOak += e.amount;
+        if (e.notes?.includes("Bajaj")) fundValues.Bajaj += e.amount;
+        if (e.notes?.includes("Wealth")) fundValues.WealthCo += e.amount;
+        if (e.notes?.includes("Groww")) fundValues.Groww += e.amount;
+        if (e.notes?.includes("JM")) fundValues.JM += e.amount;
+        if (e.notes?.includes("Abakkus")) fundValues.Abakkus += e.amount;
+        if (e.notes?.includes("Edelweiss")) fundValues.Edelweiss += e.amount;
+        if (e.notes?.includes("360 ONE")) fundValues["360One"] += e.amount;
+      }
+    });
+
+    Object.keys(fundValues).forEach(key => {
+      const span = document.querySelector(`.fund-value[data-fund="${key}"]`);
+      if (span) span.textContent = fundValues[key] > 0 ? formatINR(fundValues[key]) : "₹0.00";
+    });
+  }
 
   // Load existing entries from DB
   async function loadEntries() {
@@ -117,6 +143,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     populateMonthYearDropdown();
     renderTable(monthYearSelect.value || null);
     renderChart("2026");
+    // NEW: update portfolio section
+    updatePortfolio(mfEntries);
   }
 
   // Handle investment form
@@ -149,6 +177,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     populateMonthYearDropdown();
     renderTable(monthYearSelect.value || null);
     renderChart(year.toString());
+    loadEntries(); // refresh portfolio too
     e.target.reset();
   });
 
@@ -182,6 +211,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     populateMonthYearDropdown();
     renderTable(monthYearSelect.value || null);
     renderChart(year.toString());
+    loadEntries(); // refresh portfolio too
     e.target.reset();
   });
 
@@ -189,6 +219,20 @@ document.addEventListener('DOMContentLoaded', async () => {
   monthYearSelect.addEventListener('change', () => {
     const selected = monthYearSelect.value;
     renderTable(selected);
+  });
+
+  // Toggle expand/collapse for portfolio lists
+  document.querySelectorAll(".toggle-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const target = document.getElementById(btn.dataset.target);
+      if (target.style.display === "block") {
+        target.style.display = "none";
+        btn.textContent = btn.textContent.replace("▾", "▸");
+      } else {
+        target.style.display = "block";
+        btn.textContent = btn.textContent.replace("▸", "▾");
+      }
+    });
   });
 
   // Initial load
