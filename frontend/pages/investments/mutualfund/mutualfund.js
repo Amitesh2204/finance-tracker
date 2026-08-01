@@ -235,10 +235,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const month = d.toLocaleString('default',{month:'short'});
     const year = d.getFullYear();
     const key = `${month}-${year}`;
-    totalInvested += amt;
-    monthlyData[key] = monthlyData[key] || { invested:0, profit:0 };
-    monthlyData[key].invested += amt;
-
+    
     // Save entry to DB
     const fundName = document.getElementById('fundName').value;
     const entry = {
@@ -253,11 +250,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     await window.addEntry(entry);
     await loadEntries(); // refresh portfolio and portfolio chart
 
-    updateCards();
-    populateMonthYearDropdown();
-    renderTable(monthYearSelect.value || null);
-    renderChart(year.toString());
-
     e.target.reset();
   });
 
@@ -271,10 +263,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const month = d.toLocaleString('default',{month:'short'});
     const year = d.getFullYear();
     const key = `${month}-${year}`;
-    totalGrowth += profit;
-    monthlyData[key] = monthlyData[key] || { invested:0, profit:0 };
-    monthlyData[key].profit += profit;
-
+ 
     // Save entry to DB
     const fundNameProfit = document.getElementById('fundNameProfit').value;
     const entry = {
@@ -288,11 +277,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
     await window.addEntry(entry);
     await loadEntries(); // refresh portfolio and portfolio chart
-
-    updateCards();
-    populateMonthYearDropdown();
-    renderTable(monthYearSelect.value || null);
-    renderChart(year.toString());
 
     e.target.reset();
   });
