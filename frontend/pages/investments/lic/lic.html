@@ -66,32 +66,36 @@
           </div>
 
           <!-- Add Monthly Investment form -->
-          <div class="card">
-            <h3>Add Monthly Investment</h3>
-            <form id="licInvestmentForm" class="investment-form">
-              <label>Investment Type</label>
-              <input type="text" value="LIC" readonly />
-              <label for="policyName">Policy Name</label>
-              <select id="policyName">
-                <option value="Jeevan Lakshya">LIC Jeevan Lakshya</option>
-                <option value="New Jeevan Labh">LIC New Jeevan Labh Plan</option>
-              </select>
-              <label for="licAmount">Monthly Amount</label>
-              <input id="licAmount" type="number" min="0" step="0.01" required />
-              <button type="submit">Add Investment</button>
-            </form>
+          <!-- Investment and Profit forms side by side -->
+          <div class="form-row">
+            <div class="card">
+              <h3>Add Monthly Investment</h3>
+              <form id="licInvestmentForm" class="investment-form">
+                <label>Investment Type</label>
+                <input type="text" value="LIC" readonly />
+                <label for="policyName">Policy Name</label>
+                <select id="policyName">
+                  <option value="Jeevan Lakshya">LIC Jeevan Lakshya</option>
+                  <option value="New Jeevan Labh">LIC New Jeevan Labh Plan</option>
+                </select>
+                <label for="licAmount">Monthly Amount</label>
+                <input id="licAmount" type="number" min="0" step="0.01" required />
+                <button type="submit">Add Investment</button>
+              </form>
+            </div>
+
+            <div class="card">
+              <h3>Update Yearly Profit</h3>
+              <form id="licProfitForm" class="investment-form">
+                <label>Investment Type</label>
+                <input type="text" value="LIC" readonly />
+                <label for="licProfitAmount">Yearly Profit</label>
+                <input id="licProfitAmount" type="number" min="0" step="0.01" required />
+                <button type="submit">Update Profit</button>
+              </form>
+            </div>
           </div>
 
-          <div class="card">
-            <h3>Update Yearly Profit</h3>
-            <form id="licProfitForm" class="investment-form">
-              <label>Investment Type</label>
-              <input type="text" value="LIC" readonly />
-              <label for="licProfitAmount">Yearly Profit</label>
-              <input id="licProfitAmount" type="number" min="0" step="0.01" required />
-              <button type="submit">Update Profit</button>
-            </form>
-          </div>
 
 
           <!-- Monthly LIC Summary table -->
