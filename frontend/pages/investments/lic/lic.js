@@ -44,19 +44,25 @@ document.addEventListener('DOMContentLoaded', async () => {
   function renderTable(selectedMonthYear = null) {
     const months = Object.keys(monthlyData);
     if (months.length === 0) {
-      tableBody.innerHTML = '<tr><td colspan="3">No data yet</td></tr>';
+      tableBody.innerHTML = '<tr><td colspan="5">No data yet</td></tr>';
       return;
     }
     const filtered = selectedMonthYear ? [selectedMonthYear] : months;
     tableBody.innerHTML = filtered.map(m => {
       const d = monthlyData[m];
+      const invested = d.invested || 0;
+      const profit = d.profit || 0;
+      const growthPct = invested > 0 ? ((profit / invested) * 100).toFixed(2) : "0.00";
       return `<tr>
         <td>${m}</td>
         <td>LIC</td>
-        <td>${formatINR(d.invested)}</td>
+        <td>${formatINR(invested)}</td>
+        <td>${formatINR(profit)}</td>
+        <td>${growthPct}%</td>
       </tr>`;
     }).join('');
   }
+
 
   function renderChart(selectedYear = "2026") {
     const canvas = document.getElementById('licGrowthChart');
