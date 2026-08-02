@@ -3,11 +3,13 @@
 
 document.addEventListener('DOMContentLoaded', async () => {
   const investedCard = document.getElementById('ppfTotalInvested');
+  const growthCard = document.getElementById('ppfTotalGrowth');
   const tableBody = document.querySelector('#ppfTable tbody');
   const monthYearSelect = document.getElementById('ppfMonthYearSelect');
   const yearSelect = document.getElementById('ppfYearSelect');
 
   let totalInvested = 0;
+  let totalGrowth = 0;
   let monthlyData = {}; // { "Aug-2026": { invested: X } }
 
   function formatINR(amount) {
@@ -16,6 +18,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   function updateCards() {
     investedCard.textContent = formatINR(totalInvested);
+    growthCard.textContent = formatINR(totalGrowth);
   }
 
   function populateMonthYearDropdown() {
@@ -39,19 +42,25 @@ document.addEventListener('DOMContentLoaded', async () => {
   function renderTable(selectedMonthYear = null) {
     const months = Object.keys(monthlyData);
     if (months.length === 0) {
-      tableBody.innerHTML = '<tr><td colspan="3">No data yet</td></tr>';
+      tableBody.innerHTML = '<tr><td colspan="5">No data yet</td></tr>';
       return;
     }
     const filtered = selectedMonthYear ? [selectedMonthYear] : months;
     tableBody.innerHTML = filtered.map(m => {
       const d = monthlyData[m];
+      const invested = d.invested || 0;
+      const profit = d.profit || 0;
+      const growthPct = invested > 0 ? ((profit / invested) * 100).toFixed(2) : "0.00";
       return `<tr>
         <td>${m}</td>
         <td>PPF</td>
-        <td>${formatINR(d.invested)}</td>
+        <td>${formatINR(invested)}</td>
+        <td>${formatINR(profit)}</td>
+        <td>${growthPct}%</td>
       </tr>`;
     }).join('');
   }
+
 
   function renderChart(selectedYear) {
     const canvas = document.getElementById('ppfGrowthChart');
@@ -111,9 +120,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         const month = d.toLocaleString('default',{month:'short'});
         const year = d.getFullYear();
         const key = `${month}-${year}`;
-        monthlyData[key] = monthlyData[key] || { invested:0 };
-        monthlyData[key].invested += Number(e.amount) || 0;
-        totalInvested += Number(e.amount) || 0;
+        monthlyData[key] = monthlyData[key] || { invested:0, profit:0 };
+        if (e.subtype === 'profit') {
+          monthlyData[key].profit += Number(e.amount) || 0;
+          totalGrowth += Number(e.amount) || 0;
+        } else {
+          monthlyData[key].invested += Number(e.amount) || 0;
+          totalInvested += Number(e.amount) || 0;
+        }
     });
 
     updateCards();
@@ -126,8 +140,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Then render chart using selected year or fallback to current year
     const selectedYear = yearSelect.value || new Date().getFullYear();
     renderChart(selectedYear);
-    }
-
+  }
 
   // Handle investment form
   document.getElementById('ppfInvestmentForm').addEventListener('submit', async e => {
@@ -154,6 +167,29 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     e.target.reset();
   });
+
+  document.getElementById('ppfProfitForm').addEventListener('submit', async e => {
+  e.preventDefault();
+    const amt = parseFloat(document.getElementById('ppfProfitAmount').value);
+    if (isNaN(amt) || amt <= 0) return;
+
+    const d = new Date();
+    const year = d.getFullYear();
+    const entry = {
+      type: 'investment',
+      category: 'PPF',
+      subtype: 'profit',
+      amount: amt,
+      currency: 'INR',
+      date: d.toISOString(),
+      notes: `PPF yearly profit for ${year}`
+    };
+    await window.addEntry(entry);
+    await loadEntries();
+
+    e.target.reset();
+  });
+
 
   // Month-year dropdown change for summary table
   monthYearSelect.addEventListener('change', () => {
