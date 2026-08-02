@@ -13,30 +13,36 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   // Render Saved Investments table (aggregated year-wise for Mutual Fund)
+  // Render Saved Investments table (aggregated year-wise for all categories)
   function renderInvestments(entries, selectedYear) {
     if (!investmentTableBody) return;
 
-    const mfEntries = entries.filter(e => e.category === 'Mutual Fund');
-
-    if (!mfEntries || mfEntries.length === 0) {
+    if (!entries || entries.length === 0) {
       investmentTableBody.innerHTML = '<tr><td colspan="3">No entries yet</td></tr>';
       return;
     }
 
-    const mutualFundSummary = window.getMutualFundSummary(mfEntries);
-    const yearlyTotals = Object.fromEntries(
-      Object.entries(mutualFundSummary.byYear).map(([year, values]) => [year, values.combined])
-    );
+    // Group by category and year
+    const grouped = {};
+    entries.forEach(e => {
+      const year = new Date(e.date).getFullYear();
+      const cat = e.category;
+      if (!grouped[cat]) grouped[cat] = {};
+      if (!grouped[cat][year]) grouped[cat][year] = 0;
+      grouped[cat][year] += e.amount || 0;
+    });
 
-    const displayYears = selectedYear ? [parseInt(selectedYear)] : Object.keys(yearlyTotals);
+    const displayYears = selectedYear ? [parseInt(selectedYear)] : [...new Set(entries.map(e => new Date(e.date).getFullYear()))];
 
-    investmentTableBody.innerHTML = displayYears.map(y => `
-      <tr>
-        <td>Mutual Fund</td>
-        <td>${formatINR(yearlyTotals[y] || 0)}</td>
-        <td>${y}</td>
-      </tr>
-    `).join('');
+    investmentTableBody.innerHTML = displayYears.map(y => {
+      return Object.keys(grouped).map(cat => `
+        <tr>
+          <td>${cat}</td>
+          <td>${formatINR(grouped[cat][y] || 0)}</td>
+          <td>${y}</td>
+        </tr>
+      `).join('');
+    }).join('');
   }
 
   async function loadInvestments() {
