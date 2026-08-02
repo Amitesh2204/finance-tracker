@@ -107,22 +107,27 @@ document.addEventListener('DOMContentLoaded', async () => {
     monthlyData = {};
 
     ppfEntries.forEach(e => {
-      const d = new Date(e.date);
-      const month = d.toLocaleString('default',{month:'short'});
-      const year = d.getFullYear();
-      const key = `${month}-${year}`;
-      monthlyData[key] = monthlyData[key] || { invested:0 };
-      monthlyData[key].invested += Number(e.amount) || 0;
-      totalInvested += Number(e.amount) || 0;
+        const d = new Date(e.date);
+        const month = d.toLocaleString('default',{month:'short'});
+        const year = d.getFullYear();
+        const key = `${month}-${year}`;
+        monthlyData[key] = monthlyData[key] || { invested:0 };
+        monthlyData[key].invested += Number(e.amount) || 0;
+        totalInvested += Number(e.amount) || 0;
     });
 
     updateCards();
     populateMonthYearDropdown();
     renderTable(monthYearSelect.value || null);
 
+    // Populate year dropdown first
     populatePpfYearDropdown(ppfEntries);
-    renderChart(yearSelect.value || new Date().getFullYear());
-  }
+
+    // Then render chart using selected year or fallback to current year
+    const selectedYear = yearSelect.value || new Date().getFullYear();
+    renderChart(selectedYear);
+    }
+
 
   // Handle investment form
   document.getElementById('ppfInvestmentForm').addEventListener('submit', async e => {
