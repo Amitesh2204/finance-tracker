@@ -5,42 +5,112 @@
   <title>LIC</title>
   <link rel="stylesheet" href="../../../style.css">
   <link rel="stylesheet" href="../investments.css">
+
+  <!-- Core libraries -->
+  <script src="https://unpkg.com/pouchdb@7.3.1/dist/pouchdb.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <!-- App + DB layer -->
+  <script src="../../../config.js" defer></script>
+  <script src="../../../db.js" defer></script>
+  <script src="../../../app.js" defer></script>
+
+  <!-- Page-specific logic -->
+  <script src="lic.js" defer></script>
 </head>
+
 <body>
   <div class="app">
     <aside class="sidebar">
-        <div class="brand"><h1>Wealty</h1></div>
-        <nav class="main-menu">
-            <a href="../../../../index.html">🏠 Home</a>
-            <a href="../budget/budget.html">📊 Budget</a>
-            <a href="../expense/expense.html">💸 Expense</a>
-
-            <!-- Expandable Investments section -->
-            <div class="submenu">
-            <a href="../investments.html" class="submenu-toggle">📈 Investments ▸</a>
-            <ul class="submenu-list hidden">
-                <li><a href="mutualfund/mutualfund.html">Mutual Fund</a></li>
-                <li><a href="lic/lic.html">LIC</a></li>
-                <li><a href="ppf/ppf.html">PPF</a></li>
-                <li><a href="sukanya/sukanya.html">Sukanya Yojana</a></li>
-            </ul>
-            </div>
-
-            <a href="../report.html">📑 Report</a>
-        </nav>
-        <div class="sidebar-footer">
-            <a href="../settings.html">⚙️ Settings</a>
-            <a href="../login.html">🚪 Logout</a>
+      <div class="brand"><h1>Wealty</h1></div>
+      <nav class="main-menu">
+        <a href="../../../../index.html">🏠 Home</a>
+        <a href="../budget/budget.html">📊 Budget</a>
+        <a href="../expense/expense.html">💸 Expense</a>
+        <div class="submenu">
+          <a href="../investments.html" class="submenu-toggle">📈 Investments ▾</a>
+          <ul class="submenu-list">
+            <li><a href="../mutualfund/mutualfund.html">Mutual Fund</a></li>
+            <li><a href="lic.html" class="active">LIC</a></li>
+            <li><a href="../ppf/ppf.html">PPF</a></li>
+            <li><a href="../sukanya/sukanya.html">Sukanya Yojana</a></li>
+          </ul>
         </div>
+        <a href="../report.html">📑 Report</a>
+      </nav>
+      <div class="sidebar-footer">
+        <a href="../settings.html">⚙️ Settings</a>
+        <a href="../login.html">🚪 Logout</a>
+      </div>
     </aside>
 
-
     <main class="main">
-      <header class="topbar"><h2>Mutual Fund Details</h2></header>
+      <header class="topbar"><h2>LIC Fund Details</h2></header>
       <section class="content">
-        <div class="card">
-          <h3>Overview</h3>
-          <p>This page is dedicated to Mutual Fund investments. You can expand this section with charts, tables, and analysis specific to Mutual Funds.</p>
+        <!-- Left side: LIC details -->
+        <div class="mf-section">
+          <!-- Summary cards -->
+          <div class="cards">
+            <div class="card"><h3>Total Investment</h3><p id="licTotalInvested">₹0.00</p></div>
+          </div>
+
+          <!-- LIC Growth chart -->
+          <div class="chart card same-size">
+            <h3>LIC Growth</h3>
+            <canvas id="licGrowthChart"></canvas>
+          </div>
+
+          <!-- Add Monthly Investment form -->
+          <div class="card">
+            <h3>Add Monthly Investment</h3>
+            <form id="licInvestmentForm" class="investment-form">
+              <label>Investment Type</label>
+              <input type="text" value="LIC" readonly />
+              <label for="policyName">Policy Name</label>
+              <select id="policyName">
+                <option value="Jeevan Lakshya">LIC Jeevan Lakshya</option>
+                <option value="New Jeevan Labh">LIC New Jeevan Labh Plan</option>
+              </select>
+              <label for="licAmount">Monthly Amount</label>
+              <input id="licAmount" type="number" min="0" step="0.01" required />
+              <button type="submit">Add Investment</button>
+            </form>
+          </div>
+
+          <!-- Monthly LIC Summary table -->
+          <div class="card">
+            <h3>Monthly LIC Summary</h3>
+            <label for="licMonthYearSelect">Select Month-Year:</label>
+            <select id="licMonthYearSelect"></select>
+            <table id="licTable" class="investment-table">
+              <thead>
+                <tr>
+                  <th>Month-Year</th>
+                  <th>Policy Name</th>
+                  <th>Monthly Invested</th>
+                </tr>
+              </thead>
+              <tbody><tr><td colspan="3">No data yet</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Right side: Policy Details -->
+        <div class="card portfolio-card">
+          <h3>Policy Details</h3>
+          <div class="portfolio-section">
+            <button class="toggle-btn" data-target="licPolicies">Policies ▾</button>
+            <ul id="licPolicies" class="fund-list">
+              <li>LIC Jeevan Lakshya <span class="fund-value" data-policy="Jeevan Lakshya"></span></li>
+              <li>LIC New Jeevan Labh Plan <span class="fund-value" data-policy="New Jeevan Labh"></span></li>
+            </ul>
+          </div>
+
+          <!-- Policy Chart -->
+          <div class="chart card same-size">
+            <h3>Policy Growth</h3>
+            <canvas id="policyChart"></canvas>
+          </div>
         </div>
       </section>
     </main>
