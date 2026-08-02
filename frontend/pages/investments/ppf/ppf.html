@@ -50,6 +50,7 @@
         <!-- Summary cards -->
         <div class="cards">
           <div class="card"><h3>Total Investment</h3><p id="ppfTotalInvested">₹0.00</p></div>
+          <div class="card"><h3>Total Growth</h3><p id="ppfTotalGrowth">₹0.00</p></div>
         </div>
 
         <!-- PPF Growth chart -->
@@ -63,15 +64,28 @@
         </div>
 
         <!-- Add Monthly Investment form -->
-        <div class="card">
-          <h3>Add Monthly Investment</h3>
-          <form id="ppfInvestmentForm" class="investment-form">
-            <label>Investment Type</label>
-            <input type="text" value="PPF" readonly />
-            <label for="ppfAmount">Monthly Amount</label>
-            <input id="ppfAmount" type="number" min="0" step="0.01" required />
-            <button type="submit">Add Investment</button>
-          </form>
+        <div class="form-row">
+          <div class="card">
+            <h3>Add Monthly Investment</h3>
+            <form id="ppfInvestmentForm" class="investment-form">
+              <label>Investment Type</label>
+              <input type="text" value="PPF" readonly />
+              <label for="ppfAmount">Monthly Amount</label>
+              <input id="ppfAmount" type="number" min="0" step="0.01" required />
+              <button type="submit">Add Investment</button>
+            </form>
+          </div>
+
+          <div class="card">
+            <h3>Update Yearly Profit</h3>
+            <form id="ppfProfitForm" class="investment-form">
+              <label>Investment Type</label>
+              <input type="text" value="PPF" readonly />
+              <label for="ppfProfitAmount">Yearly Profit</label>
+              <input id="ppfProfitAmount" type="number" min="0" step="0.01" required />
+              <button type="submit">Update Profit</button>
+            </form>
+          </div>
         </div>
 
         <!-- Monthly PPF Summary table -->
@@ -85,8 +99,11 @@
                 <th>Month-Year</th>
                 <th>Investment Name</th>
                 <th>Monthly Invested</th>
+                <th>Total Profit</th>
+                <th>Growth %</th>
               </tr>
             </thead>
+
             <tbody><tr><td colspan="3">No data yet</td></tr></tbody>
           </table>
         </div>
