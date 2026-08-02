@@ -52,6 +52,7 @@
           <!-- Summary cards -->
           <div class="cards">
             <div class="card"><h3>Total Investment</h3><p id="licTotalInvested">₹0.00</p></div>
+            <div class="card"><h3>Total Growth</h3><p id="licTotalGrowth">₹0.00</p></div>
           </div>
 
           <!-- LIC Growth chart with year selector -->
@@ -80,6 +81,18 @@
               <button type="submit">Add Investment</button>
             </form>
           </div>
+
+          <div class="card">
+            <h3>Update Yearly Profit</h3>
+            <form id="licProfitForm" class="investment-form">
+              <label>Investment Type</label>
+              <input type="text" value="LIC" readonly />
+              <label for="licProfitAmount">Yearly Profit</label>
+              <input id="licProfitAmount" type="number" min="0" step="0.01" required />
+              <button type="submit">Update Profit</button>
+            </form>
+          </div>
+
 
           <!-- Monthly LIC Summary table -->
           <div class="card">
