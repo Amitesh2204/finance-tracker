@@ -4,7 +4,7 @@
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <title>LIC</title>
   <link rel="stylesheet" href="../../../style.css">
-  <link rel="stylesheet" href="../investments.css">
+  <link rel="stylesheet" href="lic.css">
 
   <!-- Core libraries -->
   <script src="https://unpkg.com/pouchdb@7.3.1/dist/pouchdb.min.js"></script>
@@ -48,7 +48,7 @@
       <header class="topbar"><h2>LIC Fund Details</h2></header>
       <section class="content">
         <!-- Left side: LIC details -->
-        <div class="mf-section">
+        <div class="lic-section">
           <!-- Summary cards -->
           <div class="cards">
             <div class="card"><h3>Total Investment</h3><p id="licTotalInvested">₹0.00</p></div>
@@ -96,13 +96,13 @@
         </div>
 
         <!-- Right side: Policy Details -->
-        <div class="card portfolio-card">
+        <div class="card policy-card">
           <h3>Policy Details</h3>
-          <div class="portfolio-section">
+          <div class="policy-section">
             <button class="toggle-btn" data-target="licPolicies">Policies ▾</button>
-            <ul id="licPolicies" class="fund-list">
-              <li>LIC Jeevan Lakshya <span class="fund-value" data-policy="Jeevan Lakshya"></span></li>
-              <li>LIC New Jeevan Labh Plan <span class="fund-value" data-policy="New Jeevan Labh"></span></li>
+            <ul id="licPolicies" class="policy-list">
+              <li>LIC Jeevan Lakshya <span class="policy-value" data-policy="Jeevan Lakshya"></span></li>
+              <li>LIC New Jeevan Labh Plan <span class="policy-value" data-policy="New Jeevan Labh"></span></li>
             </ul>
           </div>
 
