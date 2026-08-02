@@ -3,6 +3,7 @@
 
 document.addEventListener('DOMContentLoaded', async () => {
   const investedCard = document.getElementById('licTotalInvested');
+  const growthCard = document.getElementById('licTotalGrowth');
   const tableBody = document.querySelector('#licTable tbody');
   const monthYearSelect = document.getElementById('licMonthYearSelect');
   const yearSelect = document.getElementById('licYearSelect');
@@ -10,6 +11,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 
   let totalInvested = 0;
+  let totalGrowth = 0;
   let monthlyData = {}; // { "Aug-2026": { invested: X } }
 
   function formatINR(amount) {
@@ -18,6 +20,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   function updateCards() {
     investedCard.textContent = formatINR(totalInvested);
+    growthCard.textContent = formatINR(totalGrowth);
   }
 
   function populateMonthYearDropdown() {
@@ -181,6 +184,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const licEntries = entries.filter(e => e.type === 'investment' && e.category === 'LIC');
 
     totalInvested = 0;
+    totalGrowth = 0;
     monthlyData = {};
 
     licEntries.forEach(e => {
@@ -188,9 +192,15 @@ document.addEventListener('DOMContentLoaded', async () => {
       const month = d.toLocaleString('default',{month:'short'});
       const year = d.getFullYear();
       const key = `${month}-${year}`;
-      monthlyData[key] = monthlyData[key] || { invested:0 };
-      monthlyData[key].invested += Number(e.amount) || 0;
-      totalInvested += Number(e.amount) || 0;
+      monthlyData[key] = monthlyData[key] || { invested:0, profit:0 };
+      
+      if (e.subtype === 'profit') {
+        monthlyData[key].profit += Number(e.amount) || 0;
+        totalGrowth += Number(e.amount) || 0;
+      } else {
+        monthlyData[key].invested += Number(e.amount) || 0;
+        totalInvested += Number(e.amount) || 0;
+      }
     });
 
     updateCards();
@@ -234,6 +244,30 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     e.target.reset();
   });
+
+  // Handle profit form
+  document.getElementById('licProfitForm').addEventListener('submit', async e => {
+    e.preventDefault();
+    const amt = parseFloat(document.getElementById('licProfitAmount').value);
+    if (isNaN(amt) || amt <= 0) return;
+
+    const d = new Date();
+    const year = d.getFullYear();
+    const entry = {
+      type: 'investment',
+      category: 'LIC',
+      subtype: 'profit',
+      amount: amt,
+      currency: 'INR',
+      date: d.toISOString(),
+      notes: `LIC yearly profit for ${year}`
+    };
+    await window.addEntry(entry);
+    await loadEntries();
+
+    e.target.reset();
+  }
+  );
 
   // Month-year dropdown change
   monthYearSelect.addEventListener('change', () => {
