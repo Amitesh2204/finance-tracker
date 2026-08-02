@@ -4,43 +4,91 @@
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <title>PPF</title>
   <link rel="stylesheet" href="../../../style.css">
-  <link rel="stylesheet" href="../investments.css">
+  <link rel="stylesheet" href="ppf.css">
+
+  <!-- Core libraries -->
+  <script src="https://unpkg.com/pouchdb@7.3.1/dist/pouchdb.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <!-- App + DB layer -->
+  <script src="../../../config.js" defer></script>
+  <script src="../../../db.js" defer></script>
+  <script src="../../../app.js" defer></script>
+
+  <!-- Page-specific logic -->
+  <script src="ppf.js" defer></script>
 </head>
+
 <body>
   <div class="app">
     <aside class="sidebar">
-        <div class="brand"><h1>Wealty</h1></div>
-        <nav class="main-menu">
-            <a href="../../../../index.html">🏠 Home</a>
-            <a href="../budget/budget.html">📊 Budget</a>
-            <a href="../expense/expense.html">💸 Expense</a>
-
-            <!-- Expandable Investments section -->
-            <div class="submenu">
-            <a href="../investments.html" class="submenu-toggle">📈 Investments ▸</a>
-            <ul class="submenu-list hidden">
-                <li><a href="mutualfund/mutualfund.html">Mutual Fund</a></li>
-                <li><a href="lic/lic.html">LIC</a></li>
-                <li><a href="ppf/ppf.html">PPF</a></li>
-                <li><a href="sukanya/sukanya.html">Sukanya Yojana</a></li>
-            </ul>
-            </div>
-
-            <a href="../report.html">📑 Report</a>
-        </nav>
-        <div class="sidebar-footer">
-            <a href="../settings.html">⚙️ Settings</a>
-            <a href="../login.html">🚪 Logout</a>
+      <div class="brand"><h1>Wealty</h1></div>
+      <nav class="main-menu">
+        <a href="../../../../index.html">🏠 Home</a>
+        <a href="../budget/budget.html">📊 Budget</a>
+        <a href="../expense/expense.html">💸 Expense</a>
+        <div class="submenu">
+          <a href="../investments.html" class="submenu-toggle">📈 Investments ▾</a>
+          <ul class="submenu-list">
+            <li><a href="../mutualfund/mutualfund.html">Mutual Fund</a></li>
+            <li><a href="../lic/lic.html">LIC</a></li>
+            <li><a href="ppf.html" class="active">PPF</a></li>
+            <li><a href="../sukanya/sukanya.html">Sukanya Yojana</a></li>
+          </ul>
         </div>
+        <a href="../report.html">📑 Report</a>
+      </nav>
+      <div class="sidebar-footer">
+        <a href="../settings.html">⚙️ Settings</a>
+        <a href="../login.html">🚪 Logout</a>
+      </div>
     </aside>
 
-
     <main class="main">
-      <header class="topbar"><h2>Mutual Fund Details</h2></header>
+      <header class="topbar"><h2>PPF Fund Details</h2></header>
       <section class="content">
+        <!-- Summary cards -->
+        <div class="cards">
+          <div class="card"><h3>Total Investment</h3><p id="ppfTotalInvested">₹0.00</p></div>
+        </div>
+
+        <!-- PPF Growth chart -->
         <div class="card">
-          <h3>Overview</h3>
-          <p>This page is dedicated to Mutual Fund investments. You can expand this section with charts, tables, and analysis specific to Mutual Funds.</p>
+          <h3>PPF Growth</h3>
+          <label for="ppfYearSelect">Select Year:</label>
+          <select id="ppfYearSelect"></select>
+          <div class="chart same-size">
+            <canvas id="ppfGrowthChart"></canvas>
+          </div>
+        </div>
+
+        <!-- Add Monthly Investment form -->
+        <div class="card">
+          <h3>Add Monthly Investment</h3>
+          <form id="ppfInvestmentForm" class="investment-form">
+            <label>Investment Type</label>
+            <input type="text" value="PPF" readonly />
+            <label for="ppfAmount">Monthly Amount</label>
+            <input id="ppfAmount" type="number" min="0" step="0.01" required />
+            <button type="submit">Add Investment</button>
+          </form>
+        </div>
+
+        <!-- Monthly PPF Summary table -->
+        <div class="card">
+          <h3>Monthly PPF Summary</h3>
+          <label for="ppfMonthYearSelect">Select Month-Year:</label>
+          <select id="ppfMonthYearSelect"></select>
+          <table id="ppfTable" class="investment-table">
+            <thead>
+              <tr>
+                <th>Month-Year</th>
+                <th>Investment Name</th>
+                <th>Monthly Invested</th>
+              </tr>
+            </thead>
+            <tbody><tr><td colspan="3">No data yet</td></tr></tbody>
+          </table>
         </div>
       </section>
     </main>
