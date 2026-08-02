@@ -5,6 +5,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   const investedCard = document.getElementById('licTotalInvested');
   const tableBody = document.querySelector('#licTable tbody');
   const monthYearSelect = document.getElementById('licMonthYearSelect');
+  const yearSelect = document.getElementById('licYearSelect');
+  const policyMonthYearSelect = document.getElementById('policyMonthYearSelect');
+
 
   let totalInvested = 0;
   let monthlyData = {}; // { "Aug-2026": { invested: X } }
@@ -78,6 +81,26 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
+    // Populate year selector for LIC Growth
+    function populateLicYearDropdown(entries) {
+    const years = [...new Set(entries.map(e => new Date(e.date).getFullYear()))];
+    yearSelect.innerHTML = '';
+    if (years.length === 0) {
+        const opt = document.createElement('option');
+        opt.value = '';
+        opt.textContent = 'No data';
+        yearSelect.appendChild(opt);
+        return;
+    }
+    years.sort().forEach(y => {
+        const opt = document.createElement('option');
+        opt.value = y;
+        opt.textContent = y;
+        yearSelect.appendChild(opt);
+    });
+    yearSelect.addEventListener('change', () => renderChart(yearSelect.value));
+    }
+
   function updatePolicies(entries) {
     const policyValues = { "Jeevan Lakshya": 0, "New Jeevan Labh": 0 };
     entries.forEach(e => {
@@ -91,32 +114,65 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (span) span.textContent = policyValues[key] > 0 ? formatINR(policyValues[key]) : "₹0.00";
     });
   }
+  
+  // Populate month-year selector for Policy Chart
+  function populatePolicyMonthYear(entries) {
+    const months = [...new Set(entries.map(e => {
+        const d = new Date(e.date);
+        return `${d.toLocaleString('default',{month:'short'})}-${d.getFullYear()}`;
+    }))];
+    policyMonthYearSelect.innerHTML = '';
+    if (months.length === 0) {
+        const opt = document.createElement('option');
+        opt.value = '';
+        opt.textContent = 'No data';
+        policyMonthYearSelect.appendChild(opt);
+        return;
+    }
+    months.sort().forEach(m => {
+        const opt = document.createElement('option');
+        opt.value = m;
+        opt.textContent = m;
+        policyMonthYearSelect.appendChild(opt);
+    });
+    policyMonthYearSelect.addEventListener('change', () => {
+        renderPolicyChart(entries, policyMonthYearSelect.value);
+    });
+  }
 
-  function renderPolicyChart(entries) {
+  function renderPolicyChart(entries, selectedMonthYear = null) {
     const canvas = document.getElementById('policyChart');
     if (!canvas || typeof Chart === 'undefined') return;
     const ctx = canvas.getContext('2d');
     if (window.policyChart && typeof window.policyChart.destroy === 'function') {
-      window.policyChart.destroy();
+        window.policyChart.destroy();
     }
 
+    const filtered = selectedMonthYear
+        ? entries.filter(e => {
+            const d = new Date(e.date);
+            const key = `${d.toLocaleString('default',{month:'short'})}-${d.getFullYear()}`;
+            return key === selectedMonthYear;
+        })
+        : entries;
+
     const categories = { "Jeevan Lakshya": 0, "New Jeevan Labh": 0 };
-    entries.forEach(e => {
-      if (e.category === 'LIC') {
+    filtered.forEach(e => {
+        if (e.category === 'LIC') {
         if (e.notes?.includes("Jeevan Lakshya")) categories["Jeevan Lakshya"] += e.amount;
         if (e.notes?.includes("New Jeevan Labh")) categories["New Jeevan Labh"] += e.amount;
-      }
+        }
     });
 
     window.policyChart = new Chart(ctx, {
-      type: 'bar',
-      data: {
+        type: 'bar',
+        data: {
         labels: Object.keys(categories),
         datasets: [
-          { label: 'Invested', data: Object.values(categories), backgroundColor: '#3498db' }
+            { label: 'Invested', data: Object.values(categories), backgroundColor: '#3498db' }
         ]
-      },
-      options: { responsive: true, scales: { y: { beginAtZero: true } } }
+        },
+        options: { responsive: true, scales: { y: { beginAtZero: true } } }
     });
   }
 
@@ -140,9 +196,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     updateCards();
     populateMonthYearDropdown();
     renderTable(monthYearSelect.value || null);
+    
+    populateLicYearDropdown(licEntries);
+    renderChart(yearSelect.value || new Date().getFullYear());
+
     renderChart("2026");
     updatePolicies(licEntries);
     renderPolicyChart(licEntries);
+
+    populatePolicyMonthYear(licEntries);
+    renderPolicyChart(licEntries, policyMonthYearSelect.value || null);
   }
 
   // Handle investment form

@@ -54,10 +54,14 @@
             <div class="card"><h3>Total Investment</h3><p id="licTotalInvested">₹0.00</p></div>
           </div>
 
-          <!-- LIC Growth chart -->
-          <div class="chart card same-size">
+          <!-- LIC Growth chart with year selector -->
+          <div class="card">
             <h3>LIC Growth</h3>
-            <canvas id="licGrowthChart"></canvas>
+            <label for="licYearSelect">Select Year:</label>
+            <select id="licYearSelect"></select>
+            <div class="chart same-size">
+              <canvas id="licGrowthChart"></canvas>
+            </div>
           </div>
 
           <!-- Add Monthly Investment form -->
@@ -99,6 +103,9 @@
         <div class="card policy-card">
           <h3>Policy Details</h3>
           <div class="policy-section">
+            <label for="policyMonthYearSelect">Select Month-Year:</label>
+            <select id="policyMonthYearSelect"></select>
+
             <button class="toggle-btn" data-target="licPolicies">Policies ▾</button>
             <ul id="licPolicies" class="policy-list">
               <li>LIC Jeevan Lakshya <span class="policy-value" data-policy="Jeevan Lakshya"></span></li>
