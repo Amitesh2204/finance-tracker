@@ -43,58 +43,62 @@
 
     <main class="main">
       <header class="topbar"><h2>Expense Dashboard</h2></header>
-      <section class="content two-column">
-        
-        <!-- Left section -->
-        <div class="left-section">
-          <!-- Summary cards -->
-          <div class="cards">
-            <div class="card"><h3>Total Balance</h3><p id="totalBalance">₹0.00</p></div>
-            <div class="card"><h3>Total Expense</h3><p id="totalExpense">₹0.00</p></div>
-            <div class="card"><h3>Total Saving</h3><p id="totalSaving">₹0.00</p></div>
+      <section class="content expense-layout">
+        <div class="content-panel left-panel">
+          <div class="cards summary-cards" aria-label="Expense summary cards">
+            <article class="card summary-card">
+              <h3>Total Balance</h3>
+              <p id="totalBalance">₹0.00</p>
+            </article>
+            <article class="card summary-card">
+              <h3>Total Expense</h3>
+              <p id="totalExpense">₹0.00</p>
+            </article>
+            <article class="card summary-card">
+              <h3>Total Saving</h3>
+              <p id="totalSaving">₹0.00</p>
+            </article>
           </div>
 
-          <!-- Forms -->
-          <div class="card">
+          <article class="card section-card">
             <h3>Add Monthly Balance</h3>
             <form id="balanceForm" class="investment-form">
               <label for="balanceAmount">Balance Amount</label>
               <input id="balanceAmount" type="number" min="0" step="0.01" required />
               <button type="submit">Add Balance</button>
             </form>
-          </div>
+          </article>
 
-          <div class="card">
+          <article class="card section-card">
             <h3>Add Trip Expense</h3>
             <form id="tripExpenseForm" class="investment-form">
               <label for="tripAmount">Trip Expense</label>
               <input id="tripAmount" type="number" min="0" step="0.01" required />
               <button type="submit">Add Expense</button>
             </form>
-          </div>
+          </article>
         </div>
 
-        <!-- Right section -->
-        <div class="right-section">
-          <div class="card">
+        <div class="content-panel right-panel">
+          <article class="card section-card">
             <h3>Monthly Expense Overview</h3>
             <label for="expenseYearSelect">Select Year:</label>
             <select id="expenseYearSelect"></select>
             <div class="chart same-size">
               <canvas id="monthlyExpenseChart"></canvas>
             </div>
-          </div>
+          </article>
 
-          <div class="card">
+          <article class="card section-card">
             <h3>Daily Expense Details</h3>
             <label for="dailyMonthYearSelect">Select Month-Year:</label>
             <select id="dailyMonthYearSelect"></select>
             <div class="chart same-size">
               <canvas id="dailyExpenseChart"></canvas>
             </div>
-          </div>
+          </article>
 
-          <div class="card">
+          <article class="card section-card">
             <h3>Yearly Expense Summary</h3>
             <label for="yearlyExpenseSelect">Select Year:</label>
             <select id="yearlyExpenseSelect"></select>
@@ -109,9 +113,8 @@
               </thead>
               <tbody><tr><td colspan="4">No data yet</td></tr></tbody>
             </table>
-          </div>
+          </article>
         </div>
-
       </section>
     </main>
   </div>
