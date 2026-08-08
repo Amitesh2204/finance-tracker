@@ -43,16 +43,18 @@
 
     <main class="main">
       <header class="topbar"><h2>Expense Dashboard</h2></header>
-      <section class="content">
-        <!-- Summary cards -->
-        <div class="cards">
-          <div class="card"><h3>Total Balance</h3><p id="totalBalance">₹0.00</p></div>
-          <div class="card"><h3>Total Expense</h3><p id="totalExpense">₹0.00</p></div>
-          <div class="card"><h3>Total Saving</h3><p id="totalSaving">₹0.00</p></div>
-        </div>
+      <section class="content two-column">
+        
+        <!-- Left section -->
+        <div class="left-section">
+          <!-- Summary cards -->
+          <div class="cards">
+            <div class="card"><h3>Total Balance</h3><p id="totalBalance">₹0.00</p></div>
+            <div class="card"><h3>Total Expense</h3><p id="totalExpense">₹0.00</p></div>
+            <div class="card"><h3>Total Saving</h3><p id="totalSaving">₹0.00</p></div>
+          </div>
 
-        <!-- Forms side by side -->
-        <div class="form-row">
+          <!-- Forms -->
           <div class="card">
             <h3>Add Monthly Balance</h3>
             <form id="balanceForm" class="investment-form">
@@ -72,8 +74,8 @@
           </div>
         </div>
 
-        <!-- Graphs side by side -->
-        <div class="form-row">
+        <!-- Right section -->
+        <div class="right-section">
           <div class="card">
             <h3>Monthly Expense Overview</h3>
             <label for="expenseYearSelect">Select Year:</label>
@@ -91,25 +93,25 @@
               <canvas id="dailyExpenseChart"></canvas>
             </div>
           </div>
+
+          <div class="card">
+            <h3>Yearly Expense Summary</h3>
+            <label for="yearlyExpenseSelect">Select Year:</label>
+            <select id="yearlyExpenseSelect"></select>
+            <table id="yearlyExpenseTable" class="investment-table">
+              <thead>
+                <tr>
+                  <th>Month</th>
+                  <th>Total Balance</th>
+                  <th>Total Expense</th>
+                  <th>Total Saving</th>
+                </tr>
+              </thead>
+              <tbody><tr><td colspan="4">No data yet</td></tr></tbody>
+            </table>
+          </div>
         </div>
 
-        <!-- Yearly Expense Table -->
-        <div class="card">
-          <h3>Yearly Expense Summary</h3>
-          <label for="yearlyExpenseSelect">Select Year:</label>
-          <select id="yearlyExpenseSelect"></select>
-          <table id="yearlyExpenseTable" class="investment-table">
-            <thead>
-              <tr>
-                <th>Month</th>
-                <th>Total Balance</th>
-                <th>Total Expense</th>
-                <th>Total Saving</th>
-              </tr>
-            </thead>
-            <tbody><tr><td colspan="4">No data yet</td></tr></tbody>
-          </table>
-        </div>
       </section>
     </main>
   </div>
