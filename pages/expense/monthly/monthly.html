@@ -61,7 +61,15 @@
             <h3>Add Monthly Expense</h3>
             <form id="monthlyExpenseForm" class="investment-form">
               <label for="monthlyExpenseCategory">Expense Category</label>
-              <input id="monthlyExpenseCategory" type="text" value="Monthly Expense" readonly>
+              <select id="monthlyExpenseCategory">
+                <option value="Monthly Expense" selected>Monthly Expense</option>
+                <option value="custom">Custom (enter manually)</option>
+              </select>
+
+              <div id="customCategoryWrapper" style="display:none;">
+                <label for="customCategoryInput">Custom Category</label>
+                <input id="customCategoryInput" type="text" placeholder="Enter category in words">
+              </div>
 
               <label for="monthlyExpenseAmount">Amount</label>
               <input id="monthlyExpenseAmount" type="number" min="0" step="0.01" required>
@@ -103,5 +111,20 @@
       </section>
     </main>
   </div>
+
+  <script>
+    // Small script to toggle custom category input visibility
+    document.addEventListener('DOMContentLoaded', () => {
+      const categorySelect = document.getElementById('monthlyExpenseCategory');
+      const customWrapper = document.getElementById('customCategoryWrapper');
+      categorySelect.addEventListener('change', () => {
+        if (categorySelect.value === 'custom') {
+          customWrapper.style.display = 'block';
+        } else {
+          customWrapper.style.display = 'none';
+        }
+      });
+    });
+  </script>
 </body>
 </html>
