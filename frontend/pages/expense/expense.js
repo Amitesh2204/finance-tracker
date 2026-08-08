@@ -81,18 +81,17 @@ document.addEventListener('DOMContentLoaded', async () => {
   function renderYearlyTable(selectedYear) {
     const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
     yearlyTableBody.innerHTML = months.map(m => {
-        const key = `${m}-${selectedYear}`;
-        const d = monthlyData[key] || { balance:0, expense:0 };
-        const saving = d.balance - d.expense;
-        return `<tr>
+      const key = `${m}-${selectedYear}`;
+      const d = monthlyData[key] || { balance:0, expense:0 };
+      const saving = d.balance - d.expense;
+      return `<tr>
         <td>${m}</td>
         <td>${formatINR(d.balance || 0)}</td>
         <td>${formatINR(d.expense || 0)}</td>
         <td>${formatINR(saving)}</td>
-        </tr>`;
+      </tr>`;
     }).join('');
- }
-
+  }
 
   // --- Load Entries ---
   async function loadEntries() {
@@ -204,19 +203,18 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const d = new Date();
     const entry = {
-        type: 'expense',
-        category: 'Trip',
-        amount: amt,
-        currency: 'INR',
-        date: d.toISOString(),
-        notes: `Trip expense for ${d.toLocaleString('default',{month:'short'})}-${d.getFullYear()}`
+      type: 'expense',
+      category: 'Trip',
+      amount: amt,
+      currency: 'INR',
+      date: d.toISOString(),
+      notes: `Trip expense for ${d.toLocaleString('default',{month:'short'})}-${d.getFullYear()}`
     };
     await window.addEntry(entry);
     await loadEntries();
 
     e.target.reset();
-});
-
+  });
 
   // --- Dropdown change events ---
   expenseYearSelect.addEventListener('change', () => {
