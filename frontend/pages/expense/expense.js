@@ -95,7 +95,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // --- Load Entries ---
   async function loadEntries() {
+    if (typeof window.fetchEntries !== 'function') {
+        console.error("fetchEntries is not defined. Ensure db.js is loaded before expense.js");
+        return;
+    }
     const entries = await window.fetchEntries().catch(() => []);
+
     const expenseEntries = entries.filter(e => e.type === 'expense');
     const balanceEntries = entries.filter(e => e.type === 'balance');
 
@@ -189,9 +194,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       date: d.toISOString(),
       notes: `Monthly balance for ${d.toLocaleString('default',{month:'short'})}-${d.getFullYear()}`
     };
-    await window.addEntry(entry);
-    await loadEntries();
-
+    if (typeof window.addEntry === 'function') {
+        await window.addEntry(entry);
+        await loadEntries();
+    }
     e.target.reset();
   });
 
@@ -210,8 +216,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       date: d.toISOString(),
       notes: `Trip expense for ${d.toLocaleString('default',{month:'short'})}-${d.getFullYear()}`
     };
-    await window.addEntry(entry);
-    await loadEntries();
+    if (typeof window.addEntry === 'function') {
+        await window.addEntry(entry);
+        await loadEntries();
+    }
 
     e.target.reset();
   });
