@@ -15,7 +15,7 @@
 }
 
 .card h3 { color: #ecf0f1; margin-bottom: 10px; }
-.card p { font-size: 1.5rem; font-weight: 700; color: #e74c3c; text-align: center; } /* Expense red */
+.card p { font-size: 1.5rem; font-weight: 700; color: #e74c3c; text-align: center; }
 
 .investment-form { display: flex; flex-direction: column; gap: 10px; }
 .investment-form input, .investment-form button {
@@ -33,24 +33,20 @@
 
 .chart.same-size { height: 400px; }
 
-.content {
+.content.two-column {
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  gap: 20px;
+}
+
+.left-section, .right-section {
   display: flex;
   flex-direction: column;
   gap: 20px;
 }
 
-.form-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 20px;
-  margin-bottom: 20px;
-}
-
-@media (max-width: 768px) {
-  .content {
-    flex-direction: column;
-  }
-  .form-row {
+@media (max-width: 1024px) {
+  .content.two-column {
     grid-template-columns: 1fr;
   }
 }
