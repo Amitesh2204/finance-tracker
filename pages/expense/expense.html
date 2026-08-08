@@ -51,32 +51,45 @@
           <div class="card"><h3>Total Saving</h3><p id="totalSaving">₹0.00</p></div>
         </div>
 
-        <!-- Add Balance form -->
-        <div class="card">
-          <h3>Add Monthly Balance</h3>
-          <form id="balanceForm" class="investment-form">
-            <label for="balanceAmount">Balance Amount</label>
-            <input id="balanceAmount" type="number" min="0" step="0.01" required />
-            <button type="submit">Add Balance</button>
-          </form>
-        </div>
+        <!-- Forms side by side -->
+        <div class="form-row">
+          <div class="card">
+            <h3>Add Monthly Balance</h3>
+            <form id="balanceForm" class="investment-form">
+              <label for="balanceAmount">Balance Amount</label>
+              <input id="balanceAmount" type="number" min="0" step="0.01" required />
+              <button type="submit">Add Balance</button>
+            </form>
+          </div>
 
-        <!-- Graphs -->
-        <div class="card">
-          <h3>Monthly Expense Overview</h3>
-          <label for="expenseYearSelect">Select Year:</label>
-          <select id="expenseYearSelect"></select>
-          <div class="chart same-size">
-            <canvas id="monthlyExpenseChart"></canvas>
+          <div class="card">
+            <h3>Add Trip Expense</h3>
+            <form id="tripExpenseForm" class="investment-form">
+              <label for="tripAmount">Trip Expense</label>
+              <input id="tripAmount" type="number" min="0" step="0.01" required />
+              <button type="submit">Add Expense</button>
+            </form>
           </div>
         </div>
 
-        <div class="card">
-          <h3>Daily Expense Details</h3>
-          <label for="dailyMonthYearSelect">Select Month-Year:</label>
-          <select id="dailyMonthYearSelect"></select>
-          <div class="chart same-size">
-            <canvas id="dailyExpenseChart"></canvas>
+        <!-- Graphs side by side -->
+        <div class="form-row">
+          <div class="card">
+            <h3>Monthly Expense Overview</h3>
+            <label for="expenseYearSelect">Select Year:</label>
+            <select id="expenseYearSelect"></select>
+            <div class="chart same-size">
+              <canvas id="monthlyExpenseChart"></canvas>
+            </div>
+          </div>
+
+          <div class="card">
+            <h3>Daily Expense Details</h3>
+            <label for="dailyMonthYearSelect">Select Month-Year:</label>
+            <select id="dailyMonthYearSelect"></select>
+            <div class="chart same-size">
+              <canvas id="dailyExpenseChart"></canvas>
+            </div>
           </div>
         </div>
 

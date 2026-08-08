@@ -39,8 +39,23 @@
   gap: 20px;
 }
 
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  margin-bottom: 20px;
+}
+
 @media (max-width: 768px) {
   .content {
     flex-direction: column;
   }
+  .form-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+#yearlyExpenseTable {
+  margin-top: 20px;
+  width: 100%;
 }
