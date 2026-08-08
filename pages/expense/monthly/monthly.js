@@ -2,10 +2,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   const totalExpenseEl = document.getElementById('totalMonthlyExpense');
   const highestMonthEl = document.getElementById('highestExpenseMonth');
   const averageExpenseEl = document.getElementById('averageExpense');
-  const yearSelect = document.getElementById('expenseYearSelect');
+  const monthSelect = document.getElementById('expenseMonthSelect'); // new month selector
   const tableBody = document.querySelector('#monthlyExpenseTable tbody');
 
-  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  let expenseEntries = [];
   let monthlyData = {};
 
   function formatINR(value) {
@@ -32,7 +32,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     averageExpenseEl.textContent = formatINR(total && values ? total / Object.keys(values).length : 0);
   }
 
-  function renderChart(selectedYear) {
+  function renderDailyChart(selectedMonthYear) {
     const canvas = document.getElementById('monthlyExpenseChart');
     if (!canvas || typeof Chart === 'undefined') return;
 
@@ -41,20 +41,39 @@ document.addEventListener('DOMContentLoaded', async () => {
       window.monthlyExpenseChart.destroy();
     }
 
-    const monthlyValues = monthNames.map(month => {
-      const key = `${month}-${selectedYear}`;
-      return monthlyData[key]?.total || 0;
+    // Filter entries for the selected month-year
+    const dailyEntries = expenseEntries.filter(entry => {
+      const key = getMonthYearKey(entry.date);
+      return key === selectedMonthYear;
+    });
+
+    // Group by day and category
+    const grouped = {};
+    dailyEntries.forEach(entry => {
+      const d = new Date(entry.date);
+      const day = d.getDate();
+      const category = entry.category || 'Expense';
+      grouped[day] = grouped[day] || {};
+      grouped[day][category] = (grouped[day][category] || 0) + (Number(entry.amount) || 0);
+    });
+
+    const days = Array.from({ length: 31 }, (_, i) => i + 1);
+    const categories = [...new Set(dailyEntries.map(e => e.category || 'Expense'))];
+
+    const datasets = categories.map(cat => {
+      return {
+        label: cat,
+        data: days.map(day => grouped[day]?.[cat] || 0),
+        borderWidth: 1,
+        backgroundColor: cat === 'Monthly Expense' ? '#e74c3c' : '#3498db'
+      };
     });
 
     window.monthlyExpenseChart = new Chart(ctx, {
       type: 'bar',
       data: {
-        labels: monthNames,
-        datasets: [{
-          label: 'Monthly Expense',
-          data: monthlyValues,
-          backgroundColor: '#e74c3c'
-        }]
+        labels: days,
+        datasets
       },
       options: {
         responsive: true,
@@ -65,6 +84,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   function renderTable(selectedYear) {
+    const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
     const rows = monthNames.map(month => {
       const key = `${month}-${selectedYear}`;
       const value = monthlyData[key] || { total: 0, days: 0 };
@@ -82,24 +102,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     tableBody.innerHTML = rows || '<tr><td colspan="3">No data yet</td></tr>';
   }
 
-  function populateYears(values) {
-    yearSelect.innerHTML = '';
-    if (!values.length) {
-      const option = document.createElement('option');
-      option.value = '';
-      option.textContent = 'No data';
-      yearSelect.appendChild(option);
-      return;
-    }
-
-    values.sort((a, b) => a - b).forEach(value => {
-      const option = document.createElement('option');
-      option.value = value;
-      option.textContent = value;
-      yearSelect.appendChild(option);
-    });
-  }
-
   async function loadEntries() {
     if (typeof window.fetchEntries !== 'function') {
       console.error('fetchEntries is not defined');
@@ -107,7 +109,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     const entries = await window.fetchEntries().catch(() => []);
-    const expenseEntries = entries.filter(entry => String(entry.type || '').toLowerCase() === 'expense');
+    expenseEntries = entries.filter(entry => String(entry.type || '').toLowerCase() === 'expense');
 
     monthlyData = {};
     expenseEntries.forEach(entry => {
@@ -119,14 +121,30 @@ document.addEventListener('DOMContentLoaded', async () => {
       monthlyData[key].days += 1;
     });
 
-    const years = [...new Set(expenseEntries.map(entry => new Date(entry.date).getFullYear()))].filter(Boolean);
-    populateYears(years);
+    const monthYears = [...new Set(expenseEntries.map(entry => getMonthYearKey(entry.date)))].filter(Boolean);
+    monthSelect.innerHTML = '';
+    if (!monthYears.length) {
+      const option = document.createElement('option');
+      option.value = '';
+      option.textContent = 'No data';
+      monthSelect.appendChild(option);
+    } else {
+      monthYears.forEach(m => {
+        const option = document.createElement('option');
+        option.value = m;
+        option.textContent = m;
+        monthSelect.appendChild(option);
+      });
+    }
 
-    const selectedYear = yearSelect.value || years[years.length - 1] || new Date().getFullYear();
-    yearSelect.value = selectedYear;
-    renderSummary(monthlyData);
-    renderChart(selectedYear);
-    renderTable(selectedYear);
+    const selectedMonthYear = monthSelect.value || monthYears[monthYears.length - 1] || null;
+    if (selectedMonthYear) {
+      monthSelect.value = selectedMonthYear;
+      renderSummary(monthlyData);
+      renderDailyChart(selectedMonthYear);
+      const year = selectedMonthYear.split('-')[1];
+      renderTable(year);
+    }
   }
 
   document.getElementById('monthlyExpenseForm').addEventListener('submit', async event => {
@@ -158,13 +176,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     event.target.reset();
-    // Hide custom category input after reset
     document.getElementById('customCategoryWrapper').style.display = 'none';
   });
 
-  yearSelect.addEventListener('change', () => {
-    renderChart(yearSelect.value);
-    renderTable(yearSelect.value);
+  monthSelect.addEventListener('change', () => {
+    renderDailyChart(monthSelect.value);
+    const year = monthSelect.value.split('-')[1];
+    renderTable(year);
   });
 
   loadEntries();
