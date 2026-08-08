@@ -136,9 +136,17 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     if (Number.isNaN(amount) || amount <= 0) return;
 
+    // Determine category: default or custom
+    const categorySelect = document.getElementById('monthlyExpenseCategory');
+    let category = categorySelect.value;
+    if (category === 'custom') {
+      const customValue = document.getElementById('customCategoryInput').value.trim();
+      category = customValue || 'Custom';
+    }
+
     const entry = {
       type: 'expense',
-      category: 'Monthly Expense',
+      category,
       amount,
       date,
       notes: 'Monthly expense'
@@ -150,6 +158,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     event.target.reset();
+    // Hide custom category input after reset
+    document.getElementById('customCategoryWrapper').style.display = 'none';
   });
 
   yearSelect.addEventListener('change', () => {
