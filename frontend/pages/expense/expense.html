@@ -1,30 +1,28 @@
 <!doctype html>
 <html>
 <head>
-  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Expense</title>
-  <link rel="stylesheet" href="../style.css">
+  <link rel="stylesheet" href="../../style.css">
   <link rel="stylesheet" href="expense.css">
 
-  <!-- Core libraries -->
   <script src="https://unpkg.com/pouchdb@7.3.1/dist/pouchdb.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-  <!-- App + DB layer -->
-  <script src="../config.js" defer></script>
-  <script src="../db.js" defer></script>
-  <script src="../app.js" defer></script>
-
-  <!-- Page-specific logic -->
+  <script src="../../config.js" defer></script>
+  <script src="../../db.js" defer></script>
+  <script src="../../app.js" defer></script>
   <script src="expense.js" defer></script>
 </head>
 <body>
   <div class="app">
-    <!-- Sidebar navigation -->
     <aside class="sidebar">
-      <div class="brand"><h1>Wealty</h1></div>
+      <div class="brand">
+        <h1>Wealty</h1>
+      </div>
       <nav class="main-menu">
-        <a href="../home.html">🏠 Home</a>
+        <a href="../../../index.html">🏠 Home</a>
         <a href="../budget/budget.html">📊 Budget</a>
         <div class="submenu">
           <a href="expense.html" class="active submenu-toggle">💸 Expense ▾</a>
@@ -42,18 +40,13 @@
       </div>
     </aside>
 
-    <!-- Main content -->
     <main class="main">
-      <header class="topbar"><h2>Expense Dashboard</h2></header>
-      <section class="content expense-layout">
-        
-        <!-- Left panel kept empty for layout symmetry -->
-        <div class="content-panel left-panel"></div>
+      <header class="topbar">
+        <h2>Expense Dashboard</h2>
+      </header>
 
-        <!-- Right panel with all dashboard elements -->
-        <div class="content-panel right-panel">
-          
-          <!-- Summary cards -->
+      <section class="content expense-layout" aria-label="Expense dashboard">
+        <aside class="content-panel left-panel">
           <div class="cards summary-cards" aria-label="Expense summary cards">
             <article class="card summary-card">
               <h3>Total Balance</h3>
@@ -69,38 +62,35 @@
             </article>
           </div>
 
-          <!-- Add Total Balance -->
           <article class="card section-card">
             <h3>Add Total Balance</h3>
             <form id="balanceForm" class="investment-form">
               <label for="balanceAmount">Balance Amount</label>
-              <input id="balanceAmount" type="number" min="0" step="0.01" required />
+              <input id="balanceAmount" type="number" min="0" step="0.01" required>
               <button type="submit">Add Balance</button>
             </form>
           </article>
+        </aside>
 
-          <!-- Graphs side by side -->
-          <div class="graphs-row">
-            <article class="card section-card">
-              <h3>Monthly Expense Overview</h3>
-              <label for="expenseYearSelect">Select Year:</label>
-              <select id="expenseYearSelect"></select>
-              <div class="chart same-size">
-                <canvas id="monthlyExpenseChart"></canvas>
-              </div>
-            </article>
+        <section class="content-panel right-panel">
+          <article class="card section-card">
+            <h3>Monthly Expense Overview</h3>
+            <label for="expenseYearSelect">Select Year:</label>
+            <select id="expenseYearSelect"></select>
+            <div class="chart same-size">
+              <canvas id="monthlyExpenseChart"></canvas>
+            </div>
+          </article>
 
-            <article class="card section-card">
-              <h3>Daily Expense Details</h3>
-              <label for="dailyMonthYearSelect">Select Month-Year:</label>
-              <select id="dailyMonthYearSelect"></select>
-              <div class="chart same-size">
-                <canvas id="dailyExpenseChart"></canvas>
-              </div>
-            </article>
-          </div>
+          <article class="card section-card">
+            <h3>Daily Expense Details</h3>
+            <label for="dailyMonthYearSelect">Select Month-Year:</label>
+            <select id="dailyMonthYearSelect"></select>
+            <div class="chart same-size">
+              <canvas id="dailyExpenseChart"></canvas>
+            </div>
+          </article>
 
-          <!-- Yearly Expense Summary -->
           <article class="card section-card">
             <h3>Yearly Expense Summary</h3>
             <label for="yearlyExpenseSelect">Select Year:</label>
@@ -114,11 +104,12 @@
                   <th>Total Saving</th>
                 </tr>
               </thead>
-              <tbody><tr><td colspan="4">No data yet</td></tr></tbody>
+              <tbody>
+                <tr><td colspan="4">No data yet</td></tr>
+              </tbody>
             </table>
           </article>
-        </div>
-
+        </section>
       </section>
     </main>
   </div>

@@ -1,0 +1,107 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Trip Expense</title>
+  <link rel="stylesheet" href="../../../style.css">
+  <link rel="stylesheet" href="trip.css">
+
+  <script src="https://unpkg.com/pouchdb@7.3.1/dist/pouchdb.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="../../../config.js" defer></script>
+  <script src="../../../db.js" defer></script>
+  <script src="../../../app.js" defer></script>
+  <script src="trip.js" defer></script>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand"><h1>Wealty</h1></div>
+      <nav class="main-menu">
+        <a href="../../../../index.html">🏠 Home</a>
+        <a href="../../budget/budget.html">📊 Budget</a>
+        <div class="submenu">
+          <a href="../expense.html" class="submenu-toggle">💸 Expense ▾</a>
+          <ul class="submenu-list">
+            <li><a href="../monthly/monthly.html">Monthly Expense</a></li>
+            <li><a href="trip.html" class="active">Trip Expense</a></li>
+          </ul>
+        </div>
+        <a href="../../investments/investments.html">📈 Investments</a>
+        <a href="../../report.html">📑 Report</a>
+      </nav>
+      <div class="sidebar-footer">
+        <a href="../../settings.html">⚙️ Settings</a>
+        <a href="../../login.html">🚪 Logout</a>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar"><h2>Trip Expense Details</h2></header>
+
+      <section class="content expense-subpage">
+        <aside class="content-panel left-panel">
+          <div class="cards summary-cards">
+            <article class="card summary-card">
+              <h3>Total Trip Expense</h3>
+              <p id="totalTripExpense">₹0.00</p>
+            </article>
+            <article class="card summary-card">
+              <h3>Trip Count</h3>
+              <p id="tripCount">0</p>
+            </article>
+            <article class="card summary-card">
+              <h3>Average / Trip</h3>
+              <p id="averageTripExpense">₹0.00</p>
+            </article>
+          </div>
+
+          <article class="card section-card">
+            <h3>Add Trip Expense</h3>
+            <form id="tripExpenseForm" class="investment-form">
+              <label for="tripExpenseName">Trip Name</label>
+              <input id="tripExpenseName" type="text" placeholder="Weekend Goa" required>
+
+              <label for="tripExpenseAmount">Amount</label>
+              <input id="tripExpenseAmount" type="number" min="0" step="0.01" required>
+
+              <label for="tripExpenseDate">Date</label>
+              <input id="tripExpenseDate" type="date" required>
+
+              <button type="submit">Add Trip Expense</button>
+            </form>
+          </article>
+        </aside>
+
+        <section class="content-panel right-panel">
+          <article class="card section-card">
+            <h3>Trip Expense by Month</h3>
+            <label for="tripYearSelect">Select Year:</label>
+            <select id="tripYearSelect"></select>
+            <div class="chart same-size">
+              <canvas id="tripExpenseChart"></canvas>
+            </div>
+          </article>
+
+          <article class="card section-card">
+            <h3>Trip Expense Summary</h3>
+            <table id="tripExpenseTable" class="investment-table">
+              <thead>
+                <tr>
+                  <th>Trip</th>
+                  <th>Date</th>
+                  <th>Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td colspan="3">No data yet</td></tr>
+              </tbody>
+            </table>
+          </article>
+        </section>
+      </section>
+    </main>
+  </div>
+</body>
+</html>

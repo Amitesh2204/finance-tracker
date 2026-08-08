@@ -1,0 +1,107 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Monthly Expense</title>
+  <link rel="stylesheet" href="../../../style.css">
+  <link rel="stylesheet" href="monthly.css">
+
+  <script src="https://unpkg.com/pouchdb@7.3.1/dist/pouchdb.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="../../../config.js" defer></script>
+  <script src="../../../db.js" defer></script>
+  <script src="../../../app.js" defer></script>
+  <script src="monthly.js" defer></script>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand"><h1>Wealty</h1></div>
+      <nav class="main-menu">
+        <a href="../../../../index.html">🏠 Home</a>
+        <a href="../../budget/budget.html">📊 Budget</a>
+        <div class="submenu">
+          <a href="../expense.html" class="submenu-toggle">💸 Expense ▾</a>
+          <ul class="submenu-list">
+            <li><a href="monthly.html" class="active">Monthly Expense</a></li>
+            <li><a href="../trip/trip.html">Trip Expense</a></li>
+          </ul>
+        </div>
+        <a href="../../investments/investments.html">📈 Investments</a>
+        <a href="../../report.html">📑 Report</a>
+      </nav>
+      <div class="sidebar-footer">
+        <a href="../../settings.html">⚙️ Settings</a>
+        <a href="../../login.html">🚪 Logout</a>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar"><h2>Monthly Expense Details</h2></header>
+
+      <section class="content expense-subpage">
+        <aside class="content-panel left-panel">
+          <div class="cards summary-cards">
+            <article class="card summary-card">
+              <h3>Total Monthly Expense</h3>
+              <p id="totalMonthlyExpense">₹0.00</p>
+            </article>
+            <article class="card summary-card">
+              <h3>Highest Month</h3>
+              <p id="highestExpenseMonth">—</p>
+            </article>
+            <article class="card summary-card">
+              <h3>Average / Month</h3>
+              <p id="averageExpense">₹0.00</p>
+            </article>
+          </div>
+
+          <article class="card section-card">
+            <h3>Add Monthly Expense</h3>
+            <form id="monthlyExpenseForm" class="investment-form">
+              <label for="monthlyExpenseCategory">Expense Category</label>
+              <input id="monthlyExpenseCategory" type="text" value="Monthly Expense" readonly>
+
+              <label for="monthlyExpenseAmount">Amount</label>
+              <input id="monthlyExpenseAmount" type="number" min="0" step="0.01" required>
+
+              <label for="monthlyExpenseDate">Date</label>
+              <input id="monthlyExpenseDate" type="date" required>
+
+              <button type="submit">Add Expense</button>
+            </form>
+          </article>
+        </aside>
+
+        <section class="content-panel right-panel">
+          <article class="card section-card">
+            <h3>Monthly Expense</h3>
+            <label for="expenseYearSelect">Select Year:</label>
+            <select id="expenseYearSelect"></select>
+            <div class="chart same-size">
+              <canvas id="monthlyExpenseChart"></canvas>
+            </div>
+          </article>
+
+          <article class="card section-card">
+            <h3>Monthly Expense Summary</h3>
+            <table id="monthlyExpenseTable" class="investment-table">
+              <thead>
+                <tr>
+                  <th>Month</th>
+                  <th>Total Expense</th>
+                  <th>Average/Day</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td colspan="3">No data yet</td></tr>
+              </tbody>
+            </table>
+          </article>
+        </section>
+      </section>
+    </main>
+  </div>
+</body>
+</html>
