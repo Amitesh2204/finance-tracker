@@ -4,26 +4,98 @@
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Expense</title>
   <link rel="stylesheet" href="../style.css">
+  <link rel="stylesheet" href="expense.css">
+
+  <!-- Core libraries -->
   <script src="https://unpkg.com/pouchdb@7.3.1/dist/pouchdb.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <!-- App + DB layer -->
+  <script src="../config.js" defer></script>
+  <script src="../db.js" defer></script>
   <script src="../app.js" defer></script>
+
+  <!-- Page-specific logic -->
+  <script src="expense.js" defer></script>
 </head>
 <body>
   <div class="app">
     <aside class="sidebar">
       <div class="brand"><h1>Wealty</h1></div>
-      <nav>
-        <a href="budget.html">Budget</a>
-        <a href="expense.html">Expense</a>
-        <a href="investments.html">Investments</a>
-        <a href="report.html">Report</a>
+      <nav class="main-menu">
+        <a href="../budget/budget.html">📊 Budget</a>
+        <a href="expense.html" class="active">💸 Expense</a>
+        <div class="submenu">
+          <a href="expense.html" class="submenu-toggle">📉 Expense ▾</a>
+          <ul class="submenu-list">
+            <li><a href="monthly/monthly.html">Monthly Expense</a></li>
+            <li><a href="trip/trip.html">Trip Expense</a></li>
+          </ul>
+        </div>
+        <a href="../investments/investments.html">📈 Investments</a>
+        <a href="../report.html">📑 Report</a>
       </nav>
+      <div class="sidebar-footer">
+        <a href="../settings.html">⚙️ Settings</a>
+        <a href="../login.html">🚪 Logout</a>
+      </div>
     </aside>
+
     <main class="main">
-      <header class="topbar"><h2>Expense</h2></header>
+      <header class="topbar"><h2>Expense Dashboard</h2></header>
       <section class="content">
+        <!-- Summary cards -->
+        <div class="cards">
+          <div class="card"><h3>Total Balance</h3><p id="totalBalance">₹0.00</p></div>
+          <div class="card"><h3>Total Expense</h3><p id="totalExpense">₹0.00</p></div>
+          <div class="card"><h3>Total Saving</h3><p id="totalSaving">₹0.00</p></div>
+        </div>
+
+        <!-- Add Balance form -->
         <div class="card">
-          <h3>Expenses</h3>
-          <p>Placeholder for expense page.</p>
+          <h3>Add Monthly Balance</h3>
+          <form id="balanceForm" class="investment-form">
+            <label for="balanceAmount">Balance Amount</label>
+            <input id="balanceAmount" type="number" min="0" step="0.01" required />
+            <button type="submit">Add Balance</button>
+          </form>
+        </div>
+
+        <!-- Graphs -->
+        <div class="card">
+          <h3>Monthly Expense Overview</h3>
+          <label for="expenseYearSelect">Select Year:</label>
+          <select id="expenseYearSelect"></select>
+          <div class="chart same-size">
+            <canvas id="monthlyExpenseChart"></canvas>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>Daily Expense Details</h3>
+          <label for="dailyMonthYearSelect">Select Month-Year:</label>
+          <select id="dailyMonthYearSelect"></select>
+          <div class="chart same-size">
+            <canvas id="dailyExpenseChart"></canvas>
+          </div>
+        </div>
+
+        <!-- Yearly Expense Table -->
+        <div class="card">
+          <h3>Yearly Expense Summary</h3>
+          <label for="yearlyExpenseSelect">Select Year:</label>
+          <select id="yearlyExpenseSelect"></select>
+          <table id="yearlyExpenseTable" class="investment-table">
+            <thead>
+              <tr>
+                <th>Month</th>
+                <th>Total Balance</th>
+                <th>Total Expense</th>
+                <th>Total Saving</th>
+              </tr>
+            </thead>
+            <tbody><tr><td colspan="4">No data yet</td></tr></tbody>
+          </table>
         </div>
       </section>
     </main>
