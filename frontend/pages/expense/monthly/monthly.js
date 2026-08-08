@@ -2,7 +2,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const totalExpenseEl = document.getElementById('totalMonthlyExpense');
   const highestMonthEl = document.getElementById('highestExpenseMonth');
   const averageExpenseEl = document.getElementById('averageExpense');
-  const monthSelect = document.getElementById('expenseMonthSelect'); // new month selector
+  const monthSelect = document.getElementById('expenseMonthSelect'); // month-year selector
   const tableBody = document.querySelector('#monthlyExpenseTable tbody');
 
   let expenseEntries = [];
@@ -121,30 +121,14 @@ document.addEventListener('DOMContentLoaded', async () => {
       monthlyData[key].days += 1;
     });
 
-    const monthYears = [...new Set(expenseEntries.map(entry => getMonthYearKey(entry.date)))].filter(Boolean);
-    monthSelect.innerHTML = '';
-    if (!monthYears.length) {
-      const option = document.createElement('option');
-      option.value = '';
-      option.textContent = 'No data';
-      monthSelect.appendChild(option);
-    } else {
-      monthYears.forEach(m => {
-        const option = document.createElement('option');
-        option.value = m;
-        option.textContent = m;
-        monthSelect.appendChild(option);
-      });
-    }
+    // Default to current month-year
+    const now = new Date();
+    const defaultMonthYear = `${now.toLocaleString('default',{month:'short'})}-${now.getFullYear()}`;
+    monthSelect.value = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
 
-    const selectedMonthYear = monthSelect.value || monthYears[monthYears.length - 1] || null;
-    if (selectedMonthYear) {
-      monthSelect.value = selectedMonthYear;
-      renderSummary(monthlyData);
-      renderDailyChart(selectedMonthYear);
-      const year = selectedMonthYear.split('-')[1];
-      renderTable(year);
-    }
+    renderSummary(monthlyData);
+    renderDailyChart(defaultMonthYear);
+    renderTable(now.getFullYear());
   }
 
   document.getElementById('monthlyExpenseForm').addEventListener('submit', async event => {
@@ -180,8 +164,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   monthSelect.addEventListener('change', () => {
-    renderDailyChart(monthSelect.value);
-    const year = monthSelect.value.split('-')[1];
+    if (!monthSelect.value) return;
+    const [year, month] = monthSelect.value.split('-');
+    const monthName = new Date(`${year}-${month}-01`).toLocaleString('default',{month:'short'});
+    const selectedMonthYear = `${monthName}-${year}`;
+    renderDailyChart(selectedMonthYear);
     renderTable(year);
   });
 

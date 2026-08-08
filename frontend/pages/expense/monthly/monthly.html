@@ -85,8 +85,8 @@
         <section class="content-panel right-panel">
           <article class="card section-card">
             <h3>Monthly Expense</h3>
-            <label for="expenseYearSelect">Select Year:</label>
-            <select id="expenseYearSelect"></select>
+            <label for="expenseMonthSelect">Select Month-Year:</label>
+            <input id="expenseMonthSelect" type="month" />
             <div class="chart same-size">
               <canvas id="monthlyExpenseChart"></canvas>
             </div>
@@ -113,7 +113,7 @@
   </div>
 
   <script>
-    // Small script to toggle custom category input visibility
+    // Toggle custom category input visibility
     document.addEventListener('DOMContentLoaded', () => {
       const categorySelect = document.getElementById('monthlyExpenseCategory');
       const customWrapper = document.getElementById('customCategoryWrapper');
