@@ -35,9 +35,11 @@
 
 .content.two-column {
   display: grid;
-  grid-template-columns: 1fr 2fr;
-  gap: 20px;
+  grid-template-columns: 1fr 1fr; /* equal width columns */
+  gap: 24px;                      /* slightly larger gap for clarity */
+  align-items: start;             /* align cards to top */
 }
+
 
 .left-section, .right-section {
   display: flex;
