@@ -20,13 +20,14 @@
 </head>
 <body>
   <div class="app">
+    <!-- Sidebar navigation -->
     <aside class="sidebar">
       <div class="brand"><h1>Wealty</h1></div>
       <nav class="main-menu">
+        <a href="../home.html">🏠 Home</a>
         <a href="../budget/budget.html">📊 Budget</a>
-        <a href="expense.html" class="active">💸 Expense</a>
         <div class="submenu">
-          <a href="expense.html" class="submenu-toggle">📉 Expense ▾</a>
+          <a href="expense.html" class="active submenu-toggle">💸 Expense ▾</a>
           <ul class="submenu-list">
             <li><a href="monthly/monthly.html">Monthly Expense</a></li>
             <li><a href="trip/trip.html">Trip Expense</a></li>
@@ -41,10 +42,14 @@
       </div>
     </aside>
 
+    <!-- Main content -->
     <main class="main">
       <header class="topbar"><h2>Expense Dashboard</h2></header>
       <section class="content expense-layout">
+        
+        <!-- Left panel -->
         <div class="content-panel left-panel">
+          <!-- Summary cards -->
           <div class="cards summary-cards" aria-label="Expense summary cards">
             <article class="card summary-card">
               <h3>Total Balance</h3>
@@ -60,6 +65,7 @@
             </article>
           </div>
 
+          <!-- Add Monthly Balance -->
           <article class="card section-card">
             <h3>Add Monthly Balance</h3>
             <form id="balanceForm" class="investment-form">
@@ -69,6 +75,7 @@
             </form>
           </article>
 
+          <!-- Add Trip Expense -->
           <article class="card section-card">
             <h3>Add Trip Expense</h3>
             <form id="tripExpenseForm" class="investment-form">
@@ -79,7 +86,9 @@
           </article>
         </div>
 
+        <!-- Right panel -->
         <div class="content-panel right-panel">
+          <!-- Monthly Expense Overview -->
           <article class="card section-card">
             <h3>Monthly Expense Overview</h3>
             <label for="expenseYearSelect">Select Year:</label>
@@ -89,6 +98,7 @@
             </div>
           </article>
 
+          <!-- Daily Expense Details -->
           <article class="card section-card">
             <h3>Daily Expense Details</h3>
             <label for="dailyMonthYearSelect">Select Month-Year:</label>
@@ -98,6 +108,7 @@
             </div>
           </article>
 
+          <!-- Yearly Expense Summary -->
           <article class="card section-card">
             <h3>Yearly Expense Summary</h3>
             <label for="yearlyExpenseSelect">Select Year:</label>
@@ -115,6 +126,7 @@
             </table>
           </article>
         </div>
+
       </section>
     </main>
   </div>
