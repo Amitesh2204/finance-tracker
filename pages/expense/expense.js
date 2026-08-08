@@ -201,29 +201,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     e.target.reset();
   });
 
-  // --- Handle Trip Expense Form ---
-  document.getElementById('tripExpenseForm').addEventListener('submit', async e => {
-    e.preventDefault();
-    const amt = parseFloat(document.getElementById('tripAmount').value);
-    if (isNaN(amt) || amt <= 0) return;
-
-    const d = new Date();
-    const entry = {
-      type: 'expense',
-      category: 'Trip',
-      amount: amt,
-      currency: 'INR',
-      date: d.toISOString(),
-      notes: `Trip expense for ${d.toLocaleString('default',{month:'short'})}-${d.getFullYear()}`
-    };
-    if (typeof window.addEntry === 'function') {
-        await window.addEntry(entry);
-        await loadEntries();
-    }
-
-    e.target.reset();
-  });
-
   // --- Dropdown change events ---
   expenseYearSelect.addEventListener('change', () => {
     renderMonthlyExpenseChart(expenseYearSelect.value);

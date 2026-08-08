@@ -6,9 +6,10 @@
   gap: 24px;
 }
 
+/* Main two-column layout */
 .expense-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 24px;
   align-items: start;
 }
@@ -19,6 +20,7 @@
   gap: 20px;
 }
 
+/* Summary cards at top */
 .summary-cards {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -56,6 +58,7 @@
   padding: 24px;
 }
 
+/* Form styling */
 .investment-form {
   display: flex;
   flex-direction: column;
@@ -84,6 +87,7 @@
   background: #c0392b;
 }
 
+/* Table styling */
 .investment-table {
   width: 100%;
   border-collapse: collapse;
@@ -106,9 +110,17 @@
   background: #2c2c2c;
 }
 
+/* Chart styling */
 .chart.same-size {
   height: 360px;
   margin-top: 12px;
+}
+
+/* Graphs side by side */
+.graphs-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
 }
 
 #yearlyExpenseTable {
@@ -116,8 +128,12 @@
   width: 100%;
 }
 
+/* Responsive adjustments */
 @media (max-width: 1024px) {
   .expense-layout {
+    grid-template-columns: 1fr;
+  }
+  .graphs-row {
     grid-template-columns: 1fr;
   }
 }
@@ -126,9 +142,7 @@
   .summary-cards {
     grid-template-columns: 1fr;
   }
-
   .card {
     padding: 18px;
   }
 }
-
