@@ -1,9 +1,11 @@
-// app.js - main application logic (updated to avoid overriding db.js PouchDB helpers)
+// app.js - main application logic (keeps existing finance logic intact)
+// Adds a lightweight authentication layer (email/password stored in PouchDB) and logout support.
 // Uses window.financeDB (from db.js) when available and falls back to remote API or localStorage.
-// Key change: do not overwrite existing window.fetchEntries or window.addEntry if db.js already provides them.
+// Key rule: do not overwrite db.js helpers if they already exist.
 
 const db = window.financeDB || null;
 const STORAGE_KEY = 'finance-tracker:last-entries';
+const AUTH_KEY = 'finance-tracker:auth-current-user';
 
 // --- Utility functions ---
 function normalizeEntryType(entry) {
@@ -47,10 +49,194 @@ function readStoredEntries() {
   }
 }
 
+// --- Authentication helpers ---
+// Password hashing using SubtleCrypto (SHA-256)
+async function hashPassword(password) {
+  if (!password) return '';
+  try {
+    const enc = new TextEncoder();
+    const data = enc.encode(password);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  } catch (e) {
+    // fallback: not secure, but ensures functionality if SubtleCrypto unavailable
+    return String(password).split('').reverse().join('') + '_fallback';
+  }
+}
+
+async function saveUserToDb(userDoc) {
+  if (!db || typeof db.put !== 'function') {
+    // fallback to localStorage user store
+    try {
+      const usersRaw = localStorage.getItem('finance-tracker:users') || '[]';
+      const users = JSON.parse(usersRaw);
+      const idx = users.findIndex(u => u.email === userDoc.email);
+      if (idx >= 0) users[idx] = userDoc;
+      else users.push(userDoc);
+      localStorage.setItem('finance-tracker:users', JSON.stringify(users));
+      return userDoc;
+    } catch (e) {
+      throw e;
+    }
+  }
+  const id = userDoc._id || `user:${userDoc.email}`;
+  const doc = Object.assign({}, userDoc, { _id: id, type: 'user' });
+  try {
+    const existing = await db.get(id).catch(() => null);
+    if (existing) doc._rev = existing._rev;
+    await db.put(doc);
+    return doc;
+  } catch (err) {
+    if (err && err.name === 'conflict') {
+      const existing = await db.get(id);
+      doc._rev = existing._rev;
+      await db.put(doc);
+      return doc;
+    }
+    throw err;
+  }
+}
+
+async function getUserFromDbByEmail(email) {
+  if (!email) return null;
+  if (db && typeof db.get === 'function') {
+    try {
+      const id = `user:${email}`;
+      const doc = await db.get(id).catch(() => null);
+      return doc || null;
+    } catch (e) {
+      console.warn('getUserFromDbByEmail pouch error', e);
+    }
+  }
+  // fallback to localStorage
+  try {
+    const usersRaw = localStorage.getItem('finance-tracker:users') || '[]';
+    const users = JSON.parse(usersRaw);
+    return users.find(u => u.email === email) || null;
+  } catch (e) {
+    return null;
+  }
+}
+
+function setCurrentUser(user) {
+  try {
+    if (!user) {
+      localStorage.removeItem(AUTH_KEY);
+      window.__CURRENT_USER__ = null;
+      return;
+    }
+    const safe = { email: user.email, name: user.name || '', _id: user._id || null };
+    localStorage.setItem(AUTH_KEY, JSON.stringify(safe));
+    window.__CURRENT_USER__ = safe;
+  } catch (e) {
+    console.warn('setCurrentUser failed', e);
+  }
+}
+
+function getCurrentUser() {
+  if (window.__CURRENT_USER__) return window.__CURRENT_USER__;
+  try {
+    const raw = localStorage.getItem(AUTH_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    window.__CURRENT_USER__ = parsed;
+    return parsed;
+  } catch (e) {
+    return null;
+  }
+}
+
+function clearCurrentUser() {
+  try {
+    localStorage.removeItem(AUTH_KEY);
+    window.__CURRENT_USER__ = null;
+  } catch (e) {
+    // ignore
+  }
+}
+
+// Public auth API
+const auth = {
+  getCurrentUser,
+  setCurrentUser,
+  clearCurrentUser,
+  // register with email/password (stored hashed)
+  async register({ email, password, name }) {
+    if (!email || !password) throw new Error('Email and password required');
+    const existing = await getUserFromDbByEmail(email);
+    if (existing) throw new Error('User already exists');
+    const pwdHash = await hashPassword(password);
+    const userDoc = { _id: `user:${email}`, email, name: name || '', passwordHash: pwdHash, createdAt: new Date().toISOString(), type: 'user' };
+    const saved = await saveUserToDb(userDoc);
+    setCurrentUser(saved);
+    return saved;
+  },
+  // login with email/password
+  async loginWithEmail({ email, password }) {
+    if (!email || !password) throw new Error('Email and password required');
+    const user = await getUserFromDbByEmail(email);
+    if (!user) throw new Error('User not found');
+    const pwdHash = await hashPassword(password);
+    if (!user.passwordHash || user.passwordHash !== pwdHash) throw new Error('Invalid credentials');
+    setCurrentUser(user);
+    return user;
+  },
+  // logout
+  logout() {
+    clearCurrentUser();
+    // if PouchDB remote sync uses auth, you may want to cancel it here (db.sync handles auth separately)
+    return true;
+  },
+  // Google OAuth placeholder: opens a new window to the configured OAuth endpoint if provided.
+  // NOTE: Full OAuth flow requires server-side support and redirect URIs; this is a client-side placeholder.
+  async loginWithGoogle() {
+    const oauthUrl = (window.__API_BASE__ && window.__API_BASE__ !== '/') ? `${window.__API_BASE__.replace(/\/$/, '')}/auth/google` : null;
+    if (!oauthUrl) {
+      throw new Error('Google OAuth not configured. Use email/password or configure server OAuth endpoint.');
+    }
+    // open popup for OAuth (server should redirect back and create user doc)
+    const popup = window.open(oauthUrl, 'oauth', 'width=600,height=700');
+    if (!popup) throw new Error('Unable to open OAuth window');
+    // The server must set user info in CouchDB/PouchDB or provide a postMessage; here we poll for a user doc created for the authenticated email.
+    // This is intentionally minimal: real OAuth requires server support.
+    return new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        reject(new Error('OAuth timed out'));
+      }, 120000); // 2 minutes
+
+      const interval = setInterval(async () => {
+        try {
+          // attempt to read last entries or a special user doc created by server
+          // server should create user:<email> doc in CouchDB which will sync to local PouchDB
+          if (db && typeof db.allDocs === 'function') {
+            const rows = await db.allDocs({ include_docs: true, startkey: 'user:', endkey: 'user:\ufff0' }).catch(() => null);
+            if (rows && rows.rows && rows.rows.length) {
+              // pick the most recent user doc
+              const doc = rows.rows[rows.rows.length - 1].doc;
+              if (doc && doc.email) {
+                clearInterval(interval);
+                clearTimeout(timeout);
+                setCurrentUser(doc);
+                resolve(doc);
+              }
+            }
+          }
+        } catch (e) {
+          // ignore and continue polling
+        }
+      }, 1500);
+    });
+  }
+};
+
+// Expose auth API globally
+window.auth = auth;
+
 // --- Helper to build API URL robustly (avoids absolute root 404 on GitHub Pages) ---
 function buildApiUrl(endpoint = 'entries') {
   const apiBase = typeof window.__API_BASE__ === 'string' ? window.__API_BASE__ : '';
-  if (!apiBase) {
+  if (!apiBase || apiBase === '/') {
     // relative path: "entries"
     return `${endpoint}`;
   }
@@ -90,7 +276,7 @@ async function fetchLocalEntries() {
 // --- Unified fetchEntries: prefer PouchDB (db.js) if it provides a function, otherwise remote then localStorage ---
 async function fetchEntries() {
   // If db.js already exposed a fetchEntries implementation, use it (do not override)
-  if (typeof window.fetchEntries === 'function' && window.fetchEntries !== fetchEntries) {
+  if (typeof window.fetchEntries === 'function' && window.fetchEntries !== fetchEntries && window.fetchEntries !== undefined) {
     try {
       const entries = await window.fetchEntries();
       if (Array.isArray(entries)) {
@@ -104,8 +290,8 @@ async function fetchEntries() {
     }
   }
 
-  // Try remote API first if __API_BASE__ is set (non-empty)
-  const apiBaseConfigured = typeof window.__API_BASE__ === 'string' && window.__API_BASE__.trim() !== '';
+  // Try remote API first if __API_BASE__ is set (non-empty and not '/')
+  const apiBaseConfigured = typeof window.__API_BASE__ === 'string' && window.__API_BASE__.trim() !== '' && window.__API_BASE__ !== '/';
   if (apiBaseConfigured) {
     try {
       const remote = await fetchRemoteEntries();
@@ -175,7 +361,7 @@ async function saveLocalEntry(doc) {
 // Important: do not override existing window.addEntry from db.js; if present, call it.
 async function addEntry(entry) {
   // If db.js already exposed addEntry and it's not this function, use it
-  if (typeof window.addEntry === 'function' && window.addEntry !== addEntry) {
+  if (typeof window.addEntry === 'function' && window.addEntry !== addEntry && window.addEntry !== undefined) {
     try {
       const saved = await window.addEntry(entry);
       // update in-memory cache and localStorage if possible
@@ -189,7 +375,7 @@ async function addEntry(entry) {
     }
   }
 
-  const apiBaseConfigured = typeof window.__API_BASE__ === 'string' && window.__API_BASE__.trim() !== '';
+  const apiBaseConfigured = typeof window.__API_BASE__ === 'string' && window.__API_BASE__.trim() !== '' && window.__API_BASE__ !== '/';
   const id = entry._id || `entry:${entry.type || 'txn'}:${entry.date || Date.now()}:${Math.random().toString(36).slice(2,9)}`;
   const doc = Object.assign({}, entry, { _id: id });
 
@@ -604,6 +790,29 @@ window.addEventListener('load', async () => {
     }
     await loadFinancialStats(window.__LAST_ENTRIES__ || []);
     initSelectorsAndUI(window.__LAST_ENTRIES__ || []);
+
+    // update topbar user UI if present
+    const user = getCurrentUser();
+    try {
+      const topUsername = document.getElementById('topUsername');
+      const topLoginBtn = document.getElementById('topLoginBtn');
+      const topLogoutBtn = document.getElementById('topLogoutBtn');
+      const sidebarLogout = document.getElementById('sidebarLogout');
+
+      if (user && user.email) {
+        if (topUsername) topUsername.textContent = user.name || user.email;
+        if (topLoginBtn) topLoginBtn.style.display = 'none';
+        if (topLogoutBtn) topLogoutBtn.style.display = 'inline-block';
+        if (sidebarLogout) sidebarLogout.style.display = 'flex';
+      } else {
+        if (topUsername) topUsername.textContent = 'Guest';
+        if (topLoginBtn) topLoginBtn.style.display = 'inline-block';
+        if (topLogoutBtn) topLogoutBtn.style.display = 'none';
+        if (sidebarLogout) sidebarLogout.style.display = 'none';
+      }
+    } catch (e) {
+      // ignore
+    }
   } catch (err) {
     console.warn('Initial load failed', err);
     const cached = readStoredEntries();

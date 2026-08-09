@@ -8,6 +8,7 @@
   <link rel="stylesheet" href="frontend/style.css">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
   <script src="https://unpkg.com/pouchdb@7.3.1/dist/pouchdb.min.js"></script>
+
   <style>
     /* small local styles to make Last Transaction scrollable and layout for activity/savings charts */
     .tx-scroll {
@@ -23,6 +24,13 @@
     .activity-card h4 { margin:0 0 8px; color:#ecf0f1; font-weight:700; }
     .selector-inline { display:flex; gap:8px; align-items:center; margin-bottom:8px; }
     .selector-inline label { color:#ecf0f1; font-weight:600; }
+
+    /* topbar user area */
+    .user-area { display:flex; align-items:center; gap:8px; color:#ecf0f1; }
+    .user-area .username { font-weight:600; }
+    .btn-ghost {
+      background:transparent; border:1px solid rgba(255,255,255,0.06); color:#ecf0f1; padding:6px 10px; border-radius:8px;
+    }
   </style>
 </head>
 <body>
@@ -41,7 +49,7 @@
       </nav>
       <div class="sidebar-footer">
         <a href="frontend/pages/settings.html"><span class="icon">⚙️</span> Settings</a>
-        <a href="frontend/pages/login.html"><span class="icon">🚪</span> Logout</a>
+        <a id="sidebarLogout" href="frontend/pages/logout.html"><span class="icon">🚪</span> Logout</a>
       </div>
     </aside>
 
@@ -52,7 +60,12 @@
         <div class="topbar-right">
           <input class="search" placeholder="Search" />
           <button class="icon">🔔</button>
-          <img class="avatar" src="frontend/assets/avatar.svg" alt="avatar" />
+          <div class="user-area" id="userArea">
+            <img class="avatar" id="topAvatar" src="frontend/assets/avatar.svg" alt="avatar" />
+            <span class="username" id="topUsername">Guest</span>
+            <a id="topLoginBtn" class="btn-ghost" href="frontend/pages/login.html">Login</a>
+            <a id="topLogoutBtn" class="btn-ghost" href="frontend/pages/logout.html" style="display:none">Logout</a>
+          </div>
         </div>
       </header>
 
@@ -134,8 +147,38 @@
   </div>
 
   <script>
+    // keep default API base if not set by config.js
     window.__API_BASE__ = window.__API_BASE__ || '/';
     window.__REMOTE_COUCH__ = window.__REMOTE_COUCH__ || null;
+
+    // small helper to update topbar user UI after app.js loads and sets current user
+    window.addEventListener('load', () => {
+      // app.js will expose auth helpers; wait a short time for it to initialize
+      setTimeout(() => {
+        try {
+          const user = (window.auth && window.auth.getCurrentUser) ? window.auth.getCurrentUser() : null;
+          const topUsername = document.getElementById('topUsername');
+          const topLoginBtn = document.getElementById('topLoginBtn');
+          const topLogoutBtn = document.getElementById('topLogoutBtn');
+          const sidebarLogout = document.getElementById('sidebarLogout');
+
+          if (user && user.email) {
+            if (topUsername) topUsername.textContent = user.name || user.email;
+            if (topLoginBtn) topLoginBtn.style.display = 'none';
+            if (topLogoutBtn) topLogoutBtn.style.display = 'inline-block';
+            if (sidebarLogout) sidebarLogout.style.display = 'flex';
+          } else {
+            if (topUsername) topUsername.textContent = 'Guest';
+            if (topLoginBtn) topLoginBtn.style.display = 'inline-block';
+            if (topLogoutBtn) topLogoutBtn.style.display = 'none';
+            if (sidebarLogout) sidebarLogout.style.display = 'none';
+          }
+        } catch (e) {
+          // ignore
+        }
+      }, 250);
+    });
+
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('/sw.js')
