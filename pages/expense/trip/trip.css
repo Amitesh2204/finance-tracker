@@ -21,8 +21,9 @@
 
 .summary-cards {
   display: grid;
-  grid-template-columns: repeat(3, minmax(120px, 1fr));
-  gap: 20px;
+  grid-template-columns: repeat(3, minmax(200px, 1fr)); /* wider blocks */
+  gap: 40px; /* reduce gap so they fill row evenly */
+  margin-bottom: 24px;
 }
 
 .card {
@@ -125,4 +126,8 @@ select {
   .card {
     padding: 18px;
   }
+}
+
+.right-panel {
+  margin-top: 180px; /* pushes charts down relative to summary cards */
 }
