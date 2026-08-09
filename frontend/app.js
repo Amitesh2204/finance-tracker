@@ -126,7 +126,6 @@ async function loadFinancialStats(optionalEntries) {
     const entries = Array.isArray(optionalEntries) ? optionalEntries : await fetchEntries();
     if (!entries || entries.length === 0) {
       console.warn('No entries found for financial stats');
-      // Update UI to show "No data" or keep existing values; here we set a friendly message
       const bEl = document.getElementById('totalBalance');
       const sEl = document.getElementById('savings');
       const eEl = document.getElementById('expenses');
