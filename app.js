@@ -204,7 +204,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 async function loadFinancialStats() {
   try {
     const entries = await fetchEntries();
-    if (!entries || !entries.length) {
+    if (!entries || entries.length === 0) {
       console.warn("No entries found for financial stats");
       return;
     }
@@ -218,7 +218,7 @@ async function loadFinancialStats() {
 
     const totalBalance = balanceEntries.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
     const totalExpense = expenseEntries.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
-    const totalSaving = Math.max(totalBalance - totalExpense, 0); // prevent negative display
+    const totalSaving = Math.max(totalBalance - totalExpense, 0); // prevent negative values
 
     // Investment totals (Mutual Fund + LIC + PPF + Sukanya Yojana)
     const investmentEntries = entries.filter(e => String(e.type || '').toLowerCase() === 'investment');
