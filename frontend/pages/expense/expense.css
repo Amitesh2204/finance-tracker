@@ -23,7 +23,7 @@
 .summary-cards {
   display: grid;
   grid-template-columns: repeat(3, minmax(120px, 1fr));
-  gap: 24px;
+  gap: 200px;
   margin-bottom: 24px; /* extra spacing below summary cards */
 }
 
@@ -136,5 +136,5 @@ select {
 }
 
 .right-panel {
-  margin-top: 40px; /* pushes the right-side charts down */
+  margin-top: 181px; /* pushes the right-side charts down */
 }
