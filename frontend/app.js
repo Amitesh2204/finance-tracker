@@ -1,4 +1,7 @@
-// --- Use shared PouchDB instance from db.js ---
+// app.js - main application logic (updated to avoid overriding db.js PouchDB helpers)
+// Uses window.financeDB (from db.js) when available and falls back to remote API or localStorage.
+// Key change: do not overwrite existing window.fetchEntries or window.addEntry if db.js already provides them.
+
 const db = window.financeDB || null;
 const STORAGE_KEY = 'finance-tracker:last-entries';
 
@@ -46,74 +49,111 @@ function readStoredEntries() {
 
 // --- Helper to build API URL robustly (avoids absolute root 404 on GitHub Pages) ---
 function buildApiUrl(endpoint = 'entries') {
-  // Allow callers to set window.__API_BASE__ explicitly (absolute or relative).
-  // If not set or empty, use a relative path (no leading slash) to avoid hitting site root.
   const apiBase = typeof window.__API_BASE__ === 'string' ? window.__API_BASE__ : '';
   if (!apiBase) {
     // relative path: "entries"
     return `${endpoint}`;
   }
-  // remove trailing slash if present
   const base = apiBase.replace(/\/$/, '');
-  // if base looks like an absolute URL (starts with http or /), keep it
   if (/^https?:\/\//i.test(base) || base.startsWith('/')) {
     return `${base}/${endpoint}`.replace(/([^:]\/)\/{2,}/g, '$1/');
   }
-  // otherwise treat as relative base
   return `${base}/${endpoint}`.replace(/([^:]\/)\/{2,}/g, '$1/');
 }
 
-// --- Fetch entries (remote first, fallback to local PouchDB and localStorage) ---
-async function fetchEntries() {
+// --- Remote fetch helper (FastAPI) ---
+async function fetchRemoteEntries() {
   const apiUrl = buildApiUrl('entries');
-
   try {
     const response = await fetch(apiUrl, { headers: { Accept: 'application/json' } });
     if (!response.ok) throw new Error(`API request failed: ${response.status}`);
     const data = await response.json();
-    const entries = Array.isArray(data) ? data : [];
-    if (entries.length) {
-      window.__LAST_ENTRIES__ = entries;
-      persistEntries(entries);
-      // attempt to sync to local PouchDB asynchronously if available
-      if (db && typeof db.bulkDocs === 'function') {
-        try {
-          const docs = entries.map(e => Object.assign({}, e, { _id: e._id || `entry:${e.type || 'txn'}:${e.date || Date.now()}:${Math.random().toString(36).slice(2,9)}` }));
-          await db.bulkDocs(docs).catch(() => null);
-        } catch (err) {
-          // ignore sync errors
-        }
-      }
-    }
-    return entries;
+    return Array.isArray(data) ? data : [];
   } catch (err) {
-    console.warn('Remote fetch failed, falling back to local:', err);
-    // try PouchDB
-    if (db && typeof db.allDocs === 'function') {
-      try {
-        const localEntries = await db.allDocs({ include_docs: true }).then(r => r.rows.map(r => r.doc).filter(Boolean));
-        if (localEntries.length) {
-          window.__LAST_ENTRIES__ = localEntries;
-          persistEntries(localEntries);
-          return localEntries;
-        }
-      } catch (e) {
-        console.warn('PouchDB read failed', e);
-      }
-    }
-    // fallback to localStorage
-    const cached = readStoredEntries();
-    if (cached.length) {
-      window.__LAST_ENTRIES__ = cached;
-      return cached;
-    }
+    console.warn('fetchRemoteEntries failed', err);
+    throw err;
+  }
+}
+
+// --- Local (PouchDB) fetch helper ---
+async function fetchLocalEntries() {
+  if (!db || typeof db.allDocs !== 'function') return [];
+  try {
+    const result = await db.allDocs({ include_docs: true });
+    return result.rows.map(r => r.doc).filter(Boolean);
+  } catch (err) {
+    console.warn('fetchLocalEntries failed', err);
     return [];
   }
 }
 
-// --- Save local entry (PouchDB) ---
+// --- Unified fetchEntries: prefer PouchDB (db.js) if it provides a function, otherwise remote then localStorage ---
+async function fetchEntries() {
+  // If db.js already exposed a fetchEntries implementation, use it (do not override)
+  if (typeof window.fetchEntries === 'function' && window.fetchEntries !== fetchEntries) {
+    try {
+      const entries = await window.fetchEntries();
+      if (Array.isArray(entries)) {
+        window.__LAST_ENTRIES__ = entries;
+        persistEntries(entries);
+      }
+      return Array.isArray(entries) ? entries : [];
+    } catch (err) {
+      console.warn('Existing window.fetchEntries failed, falling back to internal logic', err);
+      // continue to internal fallback
+    }
+  }
+
+  // Try remote API first if __API_BASE__ is set (non-empty)
+  const apiBaseConfigured = typeof window.__API_BASE__ === 'string' && window.__API_BASE__.trim() !== '';
+  if (apiBaseConfigured) {
+    try {
+      const remote = await fetchRemoteEntries();
+      if (remote && remote.length) {
+        window.__LAST_ENTRIES__ = remote;
+        persistEntries(remote);
+        // attempt to sync to local PouchDB asynchronously if available
+        if (db && typeof db.bulkDocs === 'function') {
+          try {
+            const docs = remote.map(e => Object.assign({}, e, { _id: e._id || `entry:${e.type || 'txn'}:${e.date || Date.now()}:${Math.random().toString(36).slice(2,9)}` }));
+            db.bulkDocs(docs).catch(() => null);
+          } catch (syncErr) {
+            console.warn('PouchDB bulkDocs sync failed', syncErr);
+          }
+        }
+        return remote;
+      }
+    } catch (err) {
+      console.warn('Remote fetch failed, will try local sources', err);
+    }
+  }
+
+  // Try PouchDB local DB if available
+  if (db && typeof db.allDocs === 'function') {
+    const local = await fetchLocalEntries();
+    if (local && local.length) {
+      window.__LAST_ENTRIES__ = local;
+      persistEntries(local);
+      return local;
+    }
+  }
+
+  // Fallback to localStorage cache
+  const cached = readStoredEntries();
+  if (cached && cached.length) {
+    window.__LAST_ENTRIES__ = cached;
+    return cached;
+  }
+
+  return [];
+}
+
+// --- Save to local PouchDB (used when remote save fails) ---
 async function saveLocalEntry(doc) {
-  if (!db || typeof db.put !== 'function') throw new Error('PouchDB not ready');
+  if (!db || typeof db.put !== 'function') {
+    throw new Error('PouchDB is not ready yet');
+  }
+
   try {
     const existing = await db.get(doc._id).catch(() => null);
     if (existing) doc._rev = existing._rev;
@@ -126,42 +166,95 @@ async function saveLocalEntry(doc) {
       await db.put(doc);
       return doc;
     }
+    console.error('saveLocalEntry error', err);
     throw err;
   }
 }
 
-// --- Add entry (remote then fallback local) ---
+// --- Unified addEntry: prefer PouchDB (db.js) if available, otherwise remote API, then local fallback ---
+// Important: do not override existing window.addEntry from db.js; if present, call it.
 async function addEntry(entry) {
-  const apiUrl = buildApiUrl('entries');
+  // If db.js already exposed addEntry and it's not this function, use it
+  if (typeof window.addEntry === 'function' && window.addEntry !== addEntry) {
+    try {
+      const saved = await window.addEntry(entry);
+      // update in-memory cache and localStorage if possible
+      const existing = Array.isArray(window.__LAST_ENTRIES__) ? [...window.__LAST_ENTRIES__] : [];
+      window.__LAST_ENTRIES__ = [saved, ...existing];
+      persistEntries(window.__LAST_ENTRIES__);
+      return saved;
+    } catch (err) {
+      console.warn('Existing window.addEntry failed, falling back to internal addEntry', err);
+      // continue to internal fallback
+    }
+  }
+
+  const apiBaseConfigured = typeof window.__API_BASE__ === 'string' && window.__API_BASE__.trim() !== '';
   const id = entry._id || `entry:${entry.type || 'txn'}:${entry.date || Date.now()}:${Math.random().toString(36).slice(2,9)}`;
   const doc = Object.assign({}, entry, { _id: id });
 
+  // If PouchDB is available, prefer saving locally (it will sync to CouchDB if remote sync is configured)
+  if (db && typeof db.put === 'function') {
+    try {
+      const savedLocal = await saveLocalEntry(doc);
+      const existing = Array.isArray(window.__LAST_ENTRIES__) ? [...window.__LAST_ENTRIES__] : [];
+      window.__LAST_ENTRIES__ = [savedLocal, ...existing];
+      persistEntries(window.__LAST_ENTRIES__);
+      return savedLocal;
+    } catch (err) {
+      console.warn('PouchDB save failed, will try remote API', err);
+      // fall through to remote attempt
+    }
+  }
+
+  // Try remote API if configured
+  if (apiBaseConfigured) {
+    const apiUrl = buildApiUrl('entries');
+    try {
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify(doc)
+      });
+      if (!response.ok) throw new Error(`API save failed: ${response.status}`);
+      const saved = await response.json();
+      const existing = Array.isArray(window.__LAST_ENTRIES__) ? [...window.__LAST_ENTRIES__] : [];
+      window.__LAST_ENTRIES__ = [saved, ...existing];
+      persistEntries(window.__LAST_ENTRIES__);
+      // attempt to persist to PouchDB as well
+      if (db && typeof db.put === 'function') {
+        saveLocalEntry(saved).catch(() => null);
+      }
+      return saved;
+    } catch (err) {
+      console.warn('Remote save failed, falling back to localStorage', err);
+    }
+  }
+
+  // Final fallback: store in local PouchDB if possible, otherwise localStorage
   try {
-    const response = await fetch(apiUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-      body: JSON.stringify(doc)
-    });
-    if (!response.ok) throw new Error(`API save failed: ${response.status}`);
-    const saved = await response.json();
-    // update cache
-    window.__LAST_ENTRIES__ = Array.isArray(window.__LAST_ENTRIES__) ? [saved, ...window.__LAST_ENTRIES__] : [saved];
-    persistEntries(window.__LAST_ENTRIES__);
-    // persist locally
-    if (db && typeof db.put === 'function') saveLocalEntry(saved).catch(() => null);
-    return saved;
-  } catch (err) {
-    // fallback to local
     const savedLocal = await saveLocalEntry(doc);
-    window.__LAST_ENTRIES__ = Array.isArray(window.__LAST_ENTRIES__) ? [savedLocal, ...window.__LAST_ENTRIES__] : [savedLocal];
+    const existing = Array.isArray(window.__LAST_ENTRIES__) ? [...window.__LAST_ENTRIES__] : [];
+    window.__LAST_ENTRIES__ = [savedLocal, ...existing];
     persistEntries(window.__LAST_ENTRIES__);
     return savedLocal;
+  } catch (err) {
+    // local PouchDB failed; persist to localStorage cache
+    const existing = Array.isArray(window.__LAST_ENTRIES__) ? [...window.__LAST_ENTRIES__] : [];
+    window.__LAST_ENTRIES__ = [doc, ...existing];
+    persistEntries(window.__LAST_ENTRIES__);
+    return doc;
   }
 }
 
-// expose
-window.fetchEntries = fetchEntries;
-window.addEntry = addEntry;
+// --- Expose helpers only if not already provided by db.js ---
+// This avoids overwriting db.js implementations and prevents duplicate declarations.
+if (!window.fetchEntries) {
+  window.fetchEntries = fetchEntries;
+}
+if (!window.addEntry) {
+  window.addEntry = addEntry;
+}
 window.formatCurrency = formatCurrency;
 
 // --- Summary cards (balance/savings/expenses) ---
@@ -252,7 +345,77 @@ async function loadFinancialStats(optionalEntries) {
 // make loadFinancialStats available globally for debugging or manual calls
 window.loadFinancialStats = loadFinancialStats;
 
-// --- Last Transaction rendering (date selector) ---
+// --- Charts and UI helpers (financeChart, recentActivityChart, savingsChart, last transactions) ---
+// The following functions implement chart rendering and UI wiring. They are unchanged in behavior
+// but rely on fetchEntries/addEntry implementations above. Keep these functions as-is to preserve logic.
+
+function buildYearOptions(entries = [], selectEl) {
+  if (!selectEl) return;
+  const years = new Set();
+  (entries || []).forEach(e => {
+    const d = new Date(e.date);
+    if (!Number.isNaN(d.getFullYear())) years.add(d.getFullYear());
+  });
+  const arr = Array.from(years).sort((a, b) => b - a);
+  if (!arr.length) {
+    const now = new Date().getFullYear();
+    arr.push(now);
+  }
+  selectEl.innerHTML = arr.map(y => `<option value="${y}">${y}</option>`).join('');
+}
+
+function updateFinanceChartYear(entries = [], year = (new Date()).getFullYear()) {
+  const canvas = document.getElementById('financeChart');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+
+  const incomeByMonth = new Array(12).fill(0);
+  const expenseByMonth = new Array(12).fill(0);
+
+  (entries || []).forEach(e => {
+    const d = new Date(e.date);
+    if (Number.isNaN(d.getTime())) return;
+    if (d.getFullYear() !== Number(year)) return;
+    const m = d.getMonth();
+    const amt = Number(e.amount) || 0;
+    const type = normalizeEntryType(e);
+    if (type === 'balance' || type === 'income') incomeByMonth[m] += amt;
+    if (type === 'expense' || type === 'trip') expenseByMonth[m] += Math.abs(amt);
+  });
+
+  const monthLabels = Array.from({ length: 12 }, (_, i) => new Date(0, i).toLocaleString('en-IN', { month: 'short' }));
+
+  if (window.financeChartInstance) {
+    try { window.financeChartInstance.destroy(); } catch (e) { /* ignore */ }
+  }
+
+  window.financeChartInstance = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: monthLabels,
+      datasets: [
+        {
+          label: 'Income',
+          data: incomeByMonth,
+          backgroundColor: '#1abc9c'
+        },
+        {
+          label: 'Expense',
+          data: expenseByMonth,
+          backgroundColor: '#e74c3c'
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        y: { beginAtZero: true }
+      }
+    }
+  });
+}
+
 function renderLastTransactionsForDate(entries = [], dateISO = null) {
   const txTable = getElementByAnyId('lastTx');
   if (!txTable) return;
@@ -285,7 +448,6 @@ function renderLastTransactionsForDate(entries = [], dateISO = null) {
   }).join('');
 }
 
-// --- Recent Activities (line chart of monthly expenses) ---
 function updateRecentActivityChart(entries = [], year = (new Date()).getFullYear()) {
   const canvas = document.getElementById('recentActivityChart');
   const totalEl = document.getElementById('monthlyExpenseTotal');
@@ -330,7 +492,6 @@ function updateRecentActivityChart(entries = [], year = (new Date()).getFullYear
   });
 }
 
-// --- Monthly savings bar chart (derived from balance - expense per month) ---
 function updateSavingsChart(entries = [], year = (new Date()).getFullYear()) {
   const canvas = document.getElementById('savingsChart');
   if (!canvas) return;
@@ -429,59 +590,6 @@ function initSelectorsAndUI(entries = []) {
 
   // initial render
   refreshAll();
-}
-
-// --- Finance chart (year-wise, each bar = month) ---
-function updateFinanceChartYear(entries = [], year = (new Date()).getFullYear()) {
-  const canvas = document.getElementById('financeChart');
-  if (!canvas) return;
-  const ctx = canvas.getContext('2d');
-
-  const incomeByMonth = new Array(12).fill(0);
-  const expenseByMonth = new Array(12).fill(0);
-
-  (entries || []).forEach(e => {
-    const d = new Date(e.date);
-    if (Number.isNaN(d.getTime())) return;
-    if (d.getFullYear() !== Number(year)) return;
-    const m = d.getMonth();
-    const amt = Number(e.amount) || 0;
-    const type = normalizeEntryType(e);
-    if (type === 'balance' || type === 'income') incomeByMonth[m] += amt;
-    if (type === 'expense' || type === 'trip') expenseByMonth[m] += Math.abs(amt);
-  });
-
-  const monthLabels = Array.from({ length: 12 }, (_, i) => new Date(0, i).toLocaleString('en-IN', { month: 'short' }));
-
-  if (window.financeChartInstance) {
-    try { window.financeChartInstance.destroy(); } catch (e) { /* ignore */ }
-  }
-
-  window.financeChartInstance = new Chart(ctx, {
-    type: 'bar',
-    data: {
-      labels: monthLabels,
-      datasets: [
-        {
-          label: 'Income',
-          data: incomeByMonth,
-          backgroundColor: '#1abc9c'
-        },
-        {
-          label: 'Expense',
-          data: expenseByMonth,
-          backgroundColor: '#e74c3c'
-        }
-      ]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      scales: {
-        y: { beginAtZero: true }
-      }
-    }
-  });
 }
 
 // --- Run once after window load ---
