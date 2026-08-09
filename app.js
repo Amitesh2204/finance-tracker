@@ -37,6 +37,7 @@ function getMutualFundSummary(entries = []) {
   return summary;
 }
 
+// --- Fetch entries (remote first, fallback to local PouchDB) ---
 async function fetchEntries() {
   const apiBase = window.__API_BASE__ || '';
   const apiUrl = `${apiBase}/entries`.replace(/([^:]\/)\/{2,}/g, '$1/');
@@ -46,6 +47,8 @@ async function fetchEntries() {
     if (!response.ok) throw new Error(`API request failed: ${response.status}`);
     const data = await response.json();
     console.debug('Fetched entries from API:', Array.isArray(data) ? data.length : 0);
+    // cache for reuse during this page lifecycle
+    if (Array.isArray(data)) window.__LAST_ENTRIES__ = data;
     return Array.isArray(data) ? data : [];
   } catch (err) {
     console.warn('Falling back to local PouchDB:', err);
@@ -53,6 +56,8 @@ async function fetchEntries() {
     try {
       const localEntries = await db.allDocs({ include_docs: true }).then(r => r.rows.map(r => r.doc));
       console.debug('Fetched entries from local DB:', localEntries.map(e => ({ id: e._id, rev: e._rev })));
+      // cache local entries as well
+      window.__LAST_ENTRIES__ = localEntries;
       return localEntries;
     } catch (localErr) {
       console.error('Error reading local PouchDB:', localErr);
@@ -61,6 +66,7 @@ async function fetchEntries() {
   }
 }
 
+// --- Save to local PouchDB (used when remote save fails) ---
 async function saveLocalEntry(doc) {
   if (!db || typeof db.get !== 'function' || typeof db.put !== 'function') {
     throw new Error('PouchDB is not ready yet');
@@ -90,6 +96,7 @@ async function saveLocalEntry(doc) {
   return doc;
 }
 
+// --- Add entry (try remote, fallback to local) ---
 async function addEntry(entry) {
   const apiBase = window.__API_BASE__ || '';
   const apiUrl = `${apiBase}/entries`.replace(/([^:]\/)\/{2,}/g, '$1/');
@@ -103,42 +110,57 @@ async function addEntry(entry) {
       body: JSON.stringify(doc)
     });
     if (!response.ok) throw new Error(`API save failed: ${response.status}`);
-    return await response.json();
+    const saved = await response.json();
+    // update in-memory cache
+    window.__LAST_ENTRIES__ = Array.isArray(window.__LAST_ENTRIES__) ? [saved, ...window.__LAST_ENTRIES__] : [saved];
+    return saved;
   } catch (err) {
     console.warn('Falling back to local PouchDB save:', err);
-    await saveLocalEntry(doc);
-    return doc;
+    const savedLocal = await saveLocalEntry(doc);
+    // update in-memory cache
+    window.__LAST_ENTRIES__ = Array.isArray(window.__LAST_ENTRIES__) ? [savedLocal, ...window.__LAST_ENTRIES__] : [savedLocal];
+    return savedLocal;
   }
 }
 
+// expose for debugging / other modules
 window.fetchEntries = fetchEntries;
 window.addEntry = addEntry;
 window.getMutualFundSummary = getMutualFundSummary;
 window.isMutualFundEntry = isMutualFundEntry;
 
-// --- Financial Statistics (global function, safe to call from anywhere) ---
-/**
- * loadFinancialStats(optionalEntries)
- * If optionalEntries is provided (array), it will be used instead of calling fetchEntries again.
- */
+// --- Helper: safe DOM query for multiple possible IDs ---
+function getElementByAnyId(...ids) {
+  for (const id of ids) {
+    const el = document.getElementById(id);
+    if (el) return el;
+  }
+  return null;
+}
+
+// --- Financial Statistics (global function) ---
+// Accepts optionalEntries to avoid duplicate network calls
 async function loadFinancialStats(optionalEntries) {
   try {
-    const entries = Array.isArray(optionalEntries) ? optionalEntries : await fetchEntries();
+    const entries = Array.isArray(optionalEntries) ? optionalEntries : (Array.isArray(window.__LAST_ENTRIES__) ? window.__LAST_ENTRIES__ : await fetchEntries());
+
+    // Query DOM elements here (ensure they exist at call time)
+    const balanceEl = getElementByAnyId('totalBalance', 'balanceValue');
+    const savingsEl = getElementByAnyId('savings', 'savingsValue');
+    const expensesEl = getElementByAnyId('expenses', 'expensesValue');
+
+    // Show loading placeholders if elements exist
+    if (balanceEl) balanceEl.textContent = 'Loading…';
+    if (savingsEl) savingsEl.textContent = 'Loading…';
+    if (expensesEl) expensesEl.textContent = 'Loading…';
+
     if (!entries || entries.length === 0) {
       console.warn('No entries found for financial stats');
-      const bEl = document.getElementById('totalBalance');
-      const sEl = document.getElementById('savings');
-      const eEl = document.getElementById('expenses');
-      if (bEl) bEl.textContent = 'No data';
-      if (sEl) sEl.textContent = 'No data';
-      if (eEl) eEl.textContent = 'No data';
+      if (balanceEl) balanceEl.textContent = 'No data';
+      if (savingsEl) savingsEl.textContent = 'No data';
+      if (expensesEl) expensesEl.textContent = 'No data';
       return;
     }
-
-    // Query DOM elements here to ensure they exist
-    const balanceEl = document.getElementById('totalBalance');
-    const savingsEl = document.getElementById('savings');
-    const expensesEl = document.getElementById('expenses');
 
     // --- Balance (sum of entries with type 'balance') ---
     const balanceEntries = entries.filter(e => String(e.type || '').toLowerCase() === 'balance');
@@ -159,12 +181,12 @@ async function loadFinancialStats(optionalEntries) {
     });
     const totalInvestments = relevantInvestments.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
 
-    // Format values (fallback to simple number if Intl not available)
+    // Format values (Intl with fallback)
     const fmt = (v) => {
       try {
         return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(v);
       } catch {
-        return `₹${v.toFixed(2)}`;
+        return `₹${Number(v).toFixed(2)}`;
       }
     };
 
@@ -175,34 +197,43 @@ async function loadFinancialStats(optionalEntries) {
     console.debug('Financial stats updated:', { totalBalance, totalExpense, totalInvestments });
   } catch (err) {
     console.error('Error loading financial stats:', err);
+    // If DOM elements exist, show an error state
+    const balanceEl = getElementByAnyId('totalBalance', 'balanceValue');
+    const savingsEl = getElementByAnyId('savings', 'savingsValue');
+    const expensesEl = getElementByAnyId('expenses', 'expensesValue');
+    if (balanceEl) balanceEl.textContent = 'Error';
+    if (savingsEl) savingsEl.textContent = 'Error';
+    if (expensesEl) expensesEl.textContent = 'Error';
   }
 }
 
-// --- Ensure stats update after window load (entries fetched once here) ---
+// --- Run once after window load: fetch entries and update stats ---
+// This ensures fetchEntries runs early and loadFinancialStats uses cached entries
 window.addEventListener('load', async () => {
   try {
+    // fetchEntries will populate window.__LAST_ENTRIES__ on success or fallback to local DB
     const entries = await fetchEntries();
     if (Array.isArray(entries) && entries.length) {
       window.__LAST_ENTRIES__ = entries;
     }
-    // Call stats update with fetched entries to avoid duplicate network calls
+    // Use cached entries to avoid duplicate network calls
     await loadFinancialStats(window.__LAST_ENTRIES__ || []);
   } catch (err) {
     console.warn('Initial entry load failed', err);
-    // Still attempt to run stats (will fallback to local DB inside fetchEntries)
+    // attempt to run stats anyway (fetchEntries inside will fallback)
     await loadFinancialStats();
   }
 });
 
-// --- UI bindings (DOM ready) ---
+// --- UI bindings (DOMContentLoaded) ---
 document.addEventListener('DOMContentLoaded', async () => {
-  // Recent transactions table (id: recentTx)
-  const txTable = document.getElementById('recentTx');
+  // Recent transactions table: support both possible IDs (recentTx or lastTx)
+  const txTable = getElementByAnyId('recentTx', 'lastTx');
   if (txTable) {
-    const entries = await fetchEntries().catch(() => []);
+    const entries = Array.isArray(window.__LAST_ENTRIES__) ? window.__LAST_ENTRIES__ : await fetchEntries().catch(() => []);
     if (entries && entries.length) {
       txTable.innerHTML = entries.slice(0, 6).map(e =>
-        `<tr><td>${e.notes || e.type || 'Entry'}</td><td>${e.date}</td><td>${e.amount < 0 ? '-' : ''}$${Math.abs(e.amount).toFixed(2)}</td></tr>`
+        `<tr><td>${e.notes || e.type || 'Entry'}</td><td>${e.date || ''}</td><td>${(Number(e.amount) < 0 ? '-' : '')}$${Math.abs(Number(e.amount) || 0).toFixed(2)}</td></tr>`
       ).join('');
     } else {
       txTable.innerHTML = '<tr><td colspan="3">No transactions</td></tr>';
@@ -226,13 +257,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   async function loadInvestments() {
-    const entries = await fetchEntries().catch(() => []);
+    const entries = Array.isArray(window.__LAST_ENTRIES__) ? window.__LAST_ENTRIES__ : await fetchEntries().catch(() => []);
     const investments = entries.filter(entry => String(entry.type || '').toLowerCase() === 'investment');
     console.log(`Loaded ${investments.length} investments`, investments);
     renderInvestments(investments);
   }
 
   if (investmentForm) {
+    // initial load
     loadInvestments();
     investmentForm.addEventListener('submit', async event => {
       event.preventDefault();
@@ -242,9 +274,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       const entry = { type: 'investment', category: type, amount, date: new Date().toISOString(), notes: `Investment: ${type}` };
       const saved = await addEntry(entry);
-      // refresh investments and stats after save
+      // refresh investments and stats after save using cached entries
       await loadInvestments();
-      await loadFinancialStats();
+      await loadFinancialStats(window.__LAST_ENTRIES__ || []);
       investmentForm.reset();
       console.log('Investment saved', saved);
     });
