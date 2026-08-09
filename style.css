@@ -1,13 +1,12 @@
 :root {
-  --bg:#121212;          /* dark background */
-  --accent:#1abc9c;      /* teal accent */
-  --muted:#95a5a6;       /* muted gray */
-  --sidebar:#0a3b36;     /* dark sidebar */
-  --card-bg:#1e1e1e;     /* dark card background */
+  --bg:#121212;
+  --accent:#1abc9c;
+  --muted:#95a5a6;
+  --sidebar:#0a3b36;
+  --card-bg:#1e1e1e;
   --rounded:18px;
 }
 
-/* Reset and base */
 * { box-sizing:border-box }
 body {
   margin:0;
@@ -17,12 +16,12 @@ body {
 }
 .app { display:flex; min-height:100vh }
 
-/* Sidebar */
 .sidebar {
   position:fixed; left:0; top:0; bottom:0;
   width:260px; padding:28px;
   background:var(--sidebar); color:#fff;
   display:flex; flex-direction:column;
+  z-index:3;
 }
 .sidebar .brand {
   display:flex; gap:12px; align-items:center;
@@ -46,15 +45,16 @@ body {
 .sidebar nav a .icon,
 .sidebar-footer a .icon { font-size:1.2rem }
 
-/* Sidebar footer pinned to bottom */
 .sidebar-footer {
   margin-top:auto; display:flex; flex-direction:column; gap:14px;
 }
 
-/* Main layout */
 .main { margin-left:260px; flex:1; padding:28px }
-.topbar { display:flex; justify-content:space-between; align-items:center }
+.topbar { display:flex; justify-content:space-between; align-items:center; gap:16px }
 .topbar h2 { font-size:1.6rem; font-weight:700; color:#ecf0f1 }
+.topbar-right {
+  display:flex; align-items:center; gap:12px; flex-wrap:wrap;
+}
 .topbar .search {
   padding:10px 14px; border-radius:999px;
   border:1px solid #444; background:#1e1e1e; color:#ecf0f1;
@@ -62,13 +62,16 @@ body {
 }
 .topbar .avatar { width:36px; height:36px; border-radius:50%; margin-left:8px }
 
-/* Cards */
-.cards { display:flex; gap:20px; margin-bottom:24px }
+.cards {
+  display:flex; gap:20px; margin-bottom:24px; flex-wrap:wrap;
+}
 .card {
   background:var(--card-bg);
-  padding:36px; /* larger padding for bigger cards */
+  padding:36px;
   border-radius:var(--rounded);
   box-shadow:0 6px 22px rgba(0,0,0,0.4);
+  flex:1 1 220px;
+  min-width:180px;
 }
 .card h3 { margin:0 0 16px; font-weight:700; color:#ecf0f1 }
 .card p { font-size:1.8rem; font-weight:800; margin:0 }
@@ -76,19 +79,19 @@ body {
 .card.savings p { color:#3498db }
 .card.expenses p { color:#e74c3c }
 
-/* Statistics + Last Transaction row */
 .stats-row {
   display:flex;
   gap:28px;
   margin-bottom:28px;
+  flex-wrap:wrap;
 }
 .stats-row .chart,
 .stats-row .transactions.large {
-  flex:1;
-  height:400px; /* equal height */
+  flex:1 1 300px;
+  min-width:0;
+  height:400px;
 }
 
-/* Chart sections */
 .chart {
   background:var(--card-bg);
   padding:24px;
@@ -100,29 +103,46 @@ body {
   color:#ecf0f1;
 }
 
-/* Ensure Recent Activities same size as Financial Statistics */
 .chart.same-size {
   height:400px;
 }
 
-/* Last Transaction card */
 .transactions h3 { margin-bottom:16px; font-weight:700; color:#ecf0f1 }
-.transactions table { width:100%; border-collapse:collapse; color:#ecf0f1 }
-.transactions td { padding:14px; border-bottom:1px solid #333 }
+.transactions table {
+  width:100%; border-collapse:collapse; color:#ecf0f1;
+  table-layout:fixed;
+}
+.transactions td {
+  padding:14px;
+  border-bottom:1px solid #333;
+  word-break:break-word;
+}
 .transactions tr:nth-child(even) { background:#2c2c2c }
 
-/* Limit transactions to max 10 rows */
 #lastTx tr:nth-child(n+11) { display:none; }
 
-/* Responsive */
 @media(max-width:1024px){
-  .stats-row { flex-direction:column; }
-  .stats-row .chart, .stats-row .transactions.large { flex:none; width:100%; }
+  .app { flex-direction:column; }
+  .sidebar {
+    position:static;
+    width:100%;
+    padding:18px 18px 12px;
+    border-bottom:1px solid rgba(255,255,255,0.08);
+  }
+  .main { margin-left:0; padding:18px; }
   .cards { flex-direction:column; }
+  .stats-row { flex-direction:column; }
+  .stats-row .chart, .stats-row .transactions.large { width:100%; }
 }
+
 @media(max-width:600px){
+  .topbar { align-items:flex-start; flex-direction:column; }
   .topbar h2 { font-size:1.2rem }
+  .topbar .search { min-width:0; width:100%; }
+  .topbar-right { width:100%; }
   .card p { font-size:1.4rem }
   .stats-row .chart, .stats-row .transactions.large,
   .chart.same-size { min-height:300px; height:auto; }
+  .transactions table { font-size:0.8rem; }
+  .transactions td { padding:10px 8px; }
 }
