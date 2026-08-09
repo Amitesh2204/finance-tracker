@@ -201,19 +201,27 @@ document.addEventListener('DOMContentLoaded', async () => {
   const savingsEl = document.getElementById('savings');
   const expensesEl = document.getElementById('expenses');
 
-  async function loadFinancialStats() {
-    const entries = await fetchEntries().catch(() => []);
+async function loadFinancialStats() {
+  try {
+    const entries = await fetchEntries();
+    if (!entries || !entries.length) {
+      console.warn("No entries found for financial stats");
+      return;
+    }
 
     // Expense totals
-    const balanceEntries = entries.filter(e => String(e.type).toLowerCase() === 'balance');
-    const expenseEntries = entries.filter(e => String(e.type).toLowerCase() === 'expense' || String(e.type).toLowerCase() === 'trip');
+    const balanceEntries = entries.filter(e => String(e.type || '').toLowerCase() === 'balance');
+    const expenseEntries = entries.filter(e => {
+      const type = String(e.type || '').toLowerCase();
+      return type === 'expense' || type === 'trip';
+    });
 
     const totalBalance = balanceEntries.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
     const totalExpense = expenseEntries.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
-    const totalSaving = totalBalance - totalExpense;
+    const totalSaving = Math.max(totalBalance - totalExpense, 0); // prevent negative display
 
     // Investment totals (Mutual Fund + LIC + PPF + Sukanya Yojana)
-    const investmentEntries = entries.filter(e => String(e.type).toLowerCase() === 'investment');
+    const investmentEntries = entries.filter(e => String(e.type || '').toLowerCase() === 'investment');
     const relevantInvestments = investmentEntries.filter(e => {
       const cat = String(e.category || '').toLowerCase();
       return cat.includes('mutual') || cat.includes('lic') || cat.includes('ppf') || cat.includes('sukanya');
@@ -222,9 +230,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Update UI
     if (balanceEl) balanceEl.textContent = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(totalBalance);
-    if (expensesEl) expensesEl.textContent = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(totalSaving);
+    if (expensesEl) expensesEl.textContent = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(totalExpense);
     if (savingsEl) savingsEl.textContent = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(totalInvestments);
+
+    console.debug("Financial stats updated:", { totalBalance, totalExpense, totalSaving, totalInvestments });
+  } catch (err) {
+    console.error("Error loading financial stats:", err);
   }
+}
 
   loadFinancialStats();
 
