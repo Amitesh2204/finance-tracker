@@ -8,6 +8,22 @@
   <link rel="stylesheet" href="frontend/style.css">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
   <script src="https://unpkg.com/pouchdb@7.3.1/dist/pouchdb.min.js"></script>
+  <style>
+    /* small local styles to make Last Transaction scrollable and layout for activity/savings charts */
+    .tx-scroll {
+      max-height: 260px;
+      overflow-y: auto;
+      border-top: 1px solid rgba(255,255,255,0.04);
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+    }
+    .tx-scroll table { width:100%; border-collapse:collapse; }
+    .tx-scroll td { padding:10px 12px; border-bottom:1px solid #2b2b2b; }
+    .activity-row { display:flex; gap:20px; align-items:flex-start; margin-top:18px; flex-wrap:wrap; }
+    .activity-card { flex:1 1 320px; min-height:260px; background:var(--card-bg); padding:16px; border-radius:12px; }
+    .activity-card h4 { margin:0 0 8px; color:#ecf0f1; font-weight:700; }
+    .selector-inline { display:flex; gap:8px; align-items:center; margin-bottom:8px; }
+    .selector-inline label { color:#ecf0f1; font-weight:600; }
+  </style>
 </head>
 <body>
   <div class="app">
@@ -23,7 +39,6 @@
         <a href="frontend/pages/investments/investments.html"><span class="icon">💹</span> Investments</a>
         <a href="frontend/pages/reports/report.html"><span class="icon">📑</span> Report</a>
       </nav>
-      <!-- Footer pinned to bottom -->
       <div class="sidebar-footer">
         <a href="frontend/pages/settings.html"><span class="icon">⚙️</span> Settings</a>
         <a href="frontend/pages/login.html"><span class="icon">🚪</span> Logout</a>
@@ -77,14 +92,42 @@
               <label for="lastTxDate" style="font-weight:600; color:#ecf0f1;">Date</label>
               <input id="lastTxDate" type="date" style="padding:6px 8px; border-radius:6px; background:#1e1e1e; color:#ecf0f1; border:1px solid #333;" />
             </div>
-            <table id="lastTx"></table>
+
+            <!-- scrollable container -->
+            <div class="tx-scroll">
+              <table id="lastTx"></table>
+            </div>
           </div>
         </div>
 
-        <!-- Recent Activities same size as Financial Statistics -->
-        <div class="chart card same-size">
-          <h3>Recent Activities (Last Month)</h3>
-          <canvas id="recentActivityChart"></canvas>
+        <!-- Recent Activities and Savings charts side by side -->
+        <div class="activity-row">
+          <div class="activity-card">
+            <div class="selector-inline">
+              <h4 style="margin:0">Recent Activities (Monthly Expense)</h4>
+              <div style="margin-left:auto; display:flex; gap:8px; align-items:center;">
+                <label for="activityYear">Year</label>
+                <select id="activityYear" style="padding:6px 8px; border-radius:6px; background:#1e1e1e; color:#ecf0f1; border:1px solid #333;"></select>
+              </div>
+            </div>
+            <div id="monthlyExpenseTotal" style="color:#ecf0f1; font-weight:700; margin-bottom:8px;">Total: ₹0.00</div>
+            <div style="height:220px;">
+              <canvas id="recentActivityChart"></canvas>
+            </div>
+          </div>
+
+          <div class="activity-card">
+            <div class="selector-inline">
+              <h4 style="margin:0">Monthly Savings</h4>
+              <div style="margin-left:auto; display:flex; gap:8px; align-items:center;">
+                <label for="savingsYear">Year</label>
+                <select id="savingsYear" style="padding:6px 8px; border-radius:6px; background:#1e1e1e; color:#ecf0f1; border:1px solid #333;"></select>
+              </div>
+            </div>
+            <div style="height:220px;">
+              <canvas id="savingsChart"></canvas>
+            </div>
+          </div>
         </div>
       </section>
     </main>

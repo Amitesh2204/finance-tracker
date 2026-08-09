@@ -3,41 +3,6 @@ const db = window.financeDB || null;
 const STORAGE_KEY = 'finance-tracker:last-entries';
 
 // --- Utility functions ---
-function isMutualFundEntry(entry) {
-  if (!entry || entry?.type !== 'investment') return false;
-  const category = String(entry?.category || '').toLowerCase();
-  const notes = String(entry?.notes || '').toLowerCase();
-  return category === 'mutual fund' || category.includes('mutual') || notes.includes('mutual fund') || notes.includes('mutual');
-}
-
-function getMutualFundSummary(entries = []) {
-  const mutualFundEntries = (entries || []).filter(isMutualFundEntry);
-  const summary = { invested: 0, growth: 0, combined: 0, byYear: {} };
-
-  mutualFundEntries.forEach(entry => {
-    const amount = Number(entry?.amount) || 0;
-    const notes = String(entry?.notes || '').toLowerCase();
-    const isProfit = entry?.subtype === 'profit' || notes.includes('profit');
-
-    if (isProfit) summary.growth += amount;
-    else summary.invested += amount;
-
-    const date = new Date(entry?.date);
-    if (Number.isNaN(date.getTime())) return;
-
-    const year = date.getFullYear();
-    if (!summary.byYear[year]) summary.byYear[year] = { invested: 0, growth: 0, combined: 0 };
-
-    if (isProfit) summary.byYear[year].growth += amount;
-    else summary.byYear[year].invested += amount;
-
-    summary.byYear[year].combined = summary.byYear[year].invested + summary.byYear[year].growth;
-  });
-
-  summary.combined = summary.invested + summary.growth;
-  return summary;
-}
-
 function normalizeEntryType(entry) {
   return String(entry?.type || '').trim().toLowerCase();
 }
@@ -51,13 +16,19 @@ function formatCurrency(amount) {
   }
 }
 
+function getElementByAnyId(...ids) {
+  for (const id of ids) {
+    const el = document.getElementById(id);
+    if (el) return el;
+  }
+  return null;
+}
+
 function persistEntries(entries) {
   try {
-    if (Array.isArray(entries)) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
-    }
-  } catch (err) {
-    console.warn('Unable to cache finance entries locally:', err);
+    if (Array.isArray(entries)) localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
+  } catch (e) {
+    console.warn('persistEntries failed', e);
   }
 }
 
@@ -67,92 +38,13 @@ function readStoredEntries() {
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     return Array.isArray(parsed) ? parsed : [];
-  } catch (err) {
-    console.warn('Unable to read cached finance entries:', err);
+  } catch (e) {
+    console.warn('readStoredEntries failed', e);
     return [];
   }
 }
 
-function getExpenseTotals(entries = []) {
-  const balanceEntries = entries.filter(e => normalizeEntryType(e) === 'balance');
-  const expenseEntries = entries.filter(e => ['expense', 'trip'].includes(normalizeEntryType(e)));
-
-  const totalBalance = balanceEntries.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
-  const totalExpense = expenseEntries.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
-
-  return {
-    totalBalance,
-    totalExpense,
-    totalSaving: totalBalance - totalExpense,
-  };
-}
-
-function getInvestmentTotals(entries = []) {
-  const investmentEntries = entries.filter(e => normalizeEntryType(e) === 'investment');
-  const totals = {
-    mutualFund: 0,
-    lic: 0,
-    ppf: 0,
-    sukanya: 0,
-  };
-
-  investmentEntries.forEach(e => {
-    const cat = String(e.category || '').trim().toLowerCase();
-    const amount = Number(e.amount) || 0;
-
-    if (cat.includes('mutual')) totals.mutualFund += amount;
-    else if (cat.includes('lic')) totals.lic += amount;
-    else if (cat.includes('ppf')) totals.ppf += amount;
-    else if (cat.includes('sukanya')) totals.sukanya += amount;
-  });
-
-  return {
-    total: Object.values(totals).reduce((sum, value) => sum + value, 0),
-    byCategory: totals,
-  };
-}
-
-// --- Helper: safe DOM query for multiple possible IDs ---
-function getElementByAnyId(...ids) {
-  for (const id of ids) {
-    const el = document.getElementById(id);
-    if (el) return el;
-  }
-  return null;
-}
-
-// --- Local sync helper: persist remote entries into local PouchDB for offline persistence ---
-async function syncEntriesToLocal(entries = []) {
-  if (!db || typeof db.bulkDocs !== 'function') return;
-  try {
-    const docs = entries.map(e => {
-      const doc = Object.assign({}, e);
-      if (!doc._id) {
-        doc._id = `entry:${doc.type || 'txn'}:${doc.date || Date.now()}:${Math.random().toString(36).slice(2, 9)}`;
-      }
-      return doc;
-    });
-
-    await db.bulkDocs(docs).catch(err => {
-      if (err && err.status === 409) {
-        return;
-      }
-      return Promise.all(docs.map(async d => {
-        try {
-          const existing = await db.get(d._id).catch(() => null);
-          if (existing) d._rev = existing._rev;
-          return db.put(d).catch(() => null);
-        } catch (e) {
-          return null;
-        }
-      }));
-    });
-  } catch (err) {
-    console.warn('syncEntriesToLocal failed', err);
-  }
-}
-
-// --- Fetch entries (remote first, fallback to local PouchDB and persisted cache) ---
+// --- Fetch entries (remote first, fallback to local PouchDB and localStorage) ---
 async function fetchEntries() {
   const apiBase = window.__API_BASE__ || '';
   const apiUrl = `${apiBase}/entries`.replace(/([^:]\/)\/{2,}/g, '$1/');
@@ -162,69 +54,69 @@ async function fetchEntries() {
     if (!response.ok) throw new Error(`API request failed: ${response.status}`);
     const data = await response.json();
     const entries = Array.isArray(data) ? data : [];
-
     if (entries.length) {
-      persistEntries(entries);
       window.__LAST_ENTRIES__ = entries;
-      syncEntriesToLocal(entries).catch(err => console.warn('syncEntriesToLocal error', err));
+      persistEntries(entries);
+      // attempt to sync to local PouchDB asynchronously if available
+      if (db && typeof db.bulkDocs === 'function') {
+        try {
+          const docs = entries.map(e => Object.assign({}, e, { _id: e._id || `entry:${e.type || 'txn'}:${e.date || Date.now()}:${Math.random().toString(36).slice(2,9)}` }));
+          await db.bulkDocs(docs).catch(() => null);
+        } catch (err) {
+          // ignore sync errors
+        }
+      }
     }
     return entries;
   } catch (err) {
-    let entries = [];
-
+    console.warn('Remote fetch failed, falling back to local:', err);
+    // try PouchDB
     if (db && typeof db.allDocs === 'function') {
       try {
-        entries = await db.allDocs({ include_docs: true }).then(r => r.rows.map(r => r.doc).filter(Boolean));
-      } catch (localErr) {
-        console.warn('Error reading local PouchDB:', localErr);
+        const localEntries = await db.allDocs({ include_docs: true }).then(r => r.rows.map(r => r.doc).filter(Boolean));
+        if (localEntries.length) {
+          window.__LAST_ENTRIES__ = localEntries;
+          persistEntries(localEntries);
+          return localEntries;
+        }
+      } catch (e) {
+        console.warn('PouchDB read failed', e);
       }
     }
-
-    if (!entries.length) {
-      entries = readStoredEntries();
+    // fallback to localStorage
+    const cached = readStoredEntries();
+    if (cached.length) {
+      window.__LAST_ENTRIES__ = cached;
+      return cached;
     }
-
-    if (entries.length) {
-      persistEntries(entries);
-      window.__LAST_ENTRIES__ = entries;
-    }
-
-    return entries;
+    return [];
   }
 }
 
-// --- Save to local PouchDB (used when remote save fails) ---
+// --- Save local entry (PouchDB) ---
 async function saveLocalEntry(doc) {
-  if (!db || typeof db.get !== 'function' || typeof db.put !== 'function') {
-    throw new Error('PouchDB is not ready yet');
-  }
-
+  if (!db || typeof db.put !== 'function') throw new Error('PouchDB not ready');
   try {
-    if (!doc._rev) {
-      const existing = await db.get(doc._id).catch(() => null);
-      if (existing) {
-        doc._rev = existing._rev;
-      }
-    }
+    const existing = await db.get(doc._id).catch(() => null);
+    if (existing) doc._rev = existing._rev;
     await db.put(doc);
+    return doc;
   } catch (err) {
     if (err && err.name === 'conflict') {
       const existing = await db.get(doc._id);
       doc._rev = existing._rev;
       await db.put(doc);
-    } else {
-      console.error(`Error saving doc ${doc._id}`, err);
-      throw err;
+      return doc;
     }
+    throw err;
   }
-  return doc;
 }
 
-// --- Add entry (try remote, fallback to local) ---
+// --- Add entry (remote then fallback local) ---
 async function addEntry(entry) {
   const apiBase = window.__API_BASE__ || '';
   const apiUrl = `${apiBase}/entries`.replace(/([^:]\/)\/{2,}/g, '$1/');
-  const id = entry._id || `entry:${entry.type || 'txn'}:${entry.date || Date.now()}:${Math.random().toString(36).slice(2, 9)}`;
+  const id = entry._id || `entry:${entry.type || 'txn'}:${entry.date || Date.now()}:${Math.random().toString(36).slice(2,9)}`;
   const doc = Object.assign({}, entry, { _id: id });
 
   try {
@@ -235,152 +127,80 @@ async function addEntry(entry) {
     });
     if (!response.ok) throw new Error(`API save failed: ${response.status}`);
     const saved = await response.json();
-    const existing = Array.isArray(window.__LAST_ENTRIES__) ? [...window.__LAST_ENTRIES__] : [];
-    window.__LAST_ENTRIES__ = [saved, ...existing];
+    // update cache
+    window.__LAST_ENTRIES__ = Array.isArray(window.__LAST_ENTRIES__) ? [saved, ...window.__LAST_ENTRIES__] : [saved];
     persistEntries(window.__LAST_ENTRIES__);
-
-    if (db && typeof db.put === 'function') {
-      saveLocalEntry(saved).catch(err => console.warn('saveLocalEntry after remote save failed', err));
-    }
+    // persist locally
+    if (db && typeof db.put === 'function') saveLocalEntry(saved).catch(() => null);
     return saved;
   } catch (err) {
+    // fallback to local
     const savedLocal = await saveLocalEntry(doc);
-    const existing = Array.isArray(window.__LAST_ENTRIES__) ? [...window.__LAST_ENTRIES__] : [];
-    window.__LAST_ENTRIES__ = [savedLocal, ...existing];
+    window.__LAST_ENTRIES__ = Array.isArray(window.__LAST_ENTRIES__) ? [savedLocal, ...window.__LAST_ENTRIES__] : [savedLocal];
     persistEntries(window.__LAST_ENTRIES__);
     return savedLocal;
   }
 }
 
-// expose for debugging / other modules
+// expose
 window.fetchEntries = fetchEntries;
 window.addEntry = addEntry;
-window.getMutualFundSummary = getMutualFundSummary;
-window.isMutualFundEntry = isMutualFundEntry;
 window.formatCurrency = formatCurrency;
-window.getExpenseTotals = getExpenseTotals;
-window.getInvestmentTotals = getInvestmentTotals;
 
-// --- Financial Statistics (global function) ---
-async function loadFinancialStats(optionalEntries) {
-  try {
-    const entries = Array.isArray(optionalEntries)
-      ? optionalEntries
-      : (Array.isArray(window.__LAST_ENTRIES__) ? window.__LAST_ENTRIES__ : await fetchEntries());
+// --- Summary cards (balance/savings/expenses) ---
+function getExpenseTotals(entries = []) {
+  const balanceEntries = entries.filter(e => normalizeEntryType(e) === 'balance');
+  const expenseEntries = entries.filter(e => ['expense', 'trip'].includes(normalizeEntryType(e)));
 
-    const balanceEl = getElementByAnyId('totalBalance', 'balanceValue');
-    const savingsEl = getElementByAnyId('savings', 'savingsValue');
-    const expensesEl = getElementByAnyId('expenses', 'expensesValue');
-
-    if (balanceEl) balanceEl.textContent = 'Loading…';
-    if (savingsEl) savingsEl.textContent = 'Loading…';
-    if (expensesEl) expensesEl.textContent = 'Loading…';
-
-    if (!entries || entries.length === 0) {
-      if (balanceEl) balanceEl.textContent = '₹0.00';
-      if (savingsEl) savingsEl.textContent = '₹0.00';
-      if (expensesEl) expensesEl.textContent = '₹0.00';
-      return;
-    }
-
-    const expenseTotals = getExpenseTotals(entries);
-    const investmentTotals = getInvestmentTotals(entries);
-    const fallbackSavings = expenseTotals.totalSaving || 0;
-    const savingsValue = investmentTotals.total > 0 ? investmentTotals.total : fallbackSavings;
-
-    if (balanceEl) balanceEl.textContent = formatCurrency(expenseTotals.totalBalance);
-    if (expensesEl) expensesEl.textContent = formatCurrency(expenseTotals.totalExpense);
-    if (savingsEl) savingsEl.textContent = formatCurrency(savingsValue);
-
-    console.debug('Financial stats updated:', {
-      totalBalance: expenseTotals.totalBalance,
-      totalExpense: expenseTotals.totalExpense,
-      totalSaving: expenseTotals.totalSaving,
-      investmentTotal: investmentTotals.total,
-    });
-  } catch (err) {
-    console.error('Error loading financial stats:', err);
-    const balanceEl = getElementByAnyId('totalBalance', 'balanceValue');
-    const savingsEl = getElementByAnyId('savings', 'savingsValue');
-    const expensesEl = getElementByAnyId('expenses', 'expensesValue');
-    if (balanceEl) balanceEl.textContent = 'Error';
-    if (savingsEl) savingsEl.textContent = 'Error';
-    if (expensesEl) expensesEl.textContent = 'Error';
-  }
+  const totalBalance = balanceEntries.reduce((s, e) => s + (Number(e.amount) || 0), 0);
+  const totalExpense = expenseEntries.reduce((s, e) => s + (Number(e.amount) || 0), 0);
+  return { totalBalance, totalExpense, totalSaving: totalBalance - totalExpense };
 }
 
-// --- Chart helpers: financeChart (year-wise, each bar = month) ---
-function buildYearOptions(entries = [], selectEl) {
-  const years = new Set();
-  (entries || []).forEach(e => {
-    const d = new Date(e.date);
-    if (!Number.isNaN(d.getFullYear())) years.add(d.getFullYear());
-  });
-  const arr = Array.from(years).sort((a, b) => b - a);
-  if (!arr.length) {
-    const now = new Date().getFullYear();
-    arr.push(now);
-  }
-  selectEl.innerHTML = arr.map(y => `<option value="${y}">${y}</option>`).join('');
-}
-
-function updateFinanceChartYear(entries = [], year = (new Date()).getFullYear()) {
-  const canvas = document.getElementById('financeChart');
-  if (!canvas) return;
-  const ctx = canvas.getContext('2d');
-
-  // Prepare 12 months
-  const incomeByMonth = new Array(12).fill(0);
-  const expenseByMonth = new Array(12).fill(0);
-
-  (entries || []).forEach(e => {
-    const d = new Date(e.date);
-    if (Number.isNaN(d.getTime())) return;
-    if (d.getFullYear() !== Number(year)) return;
-    const m = d.getMonth();
+function getInvestmentTotals(entries = []) {
+  const investmentEntries = entries.filter(e => normalizeEntryType(e) === 'investment');
+  const totals = { mutualFund: 0, lic: 0, ppf: 0, sukanya: 0 };
+  investmentEntries.forEach(e => {
+    const cat = String(e.category || '').toLowerCase();
     const amt = Number(e.amount) || 0;
-    const type = normalizeEntryType(e);
-    if (type === 'balance') incomeByMonth[m] += amt;
-    if (type === 'expense' || type === 'trip') expenseByMonth[m] += amt;
+    if (cat.includes('mutual')) totals.mutualFund += amt;
+    else if (cat.includes('lic')) totals.lic += amt;
+    else if (cat.includes('ppf')) totals.ppf += amt;
+    else if (cat.includes('sukanya')) totals.sukanya += amt;
   });
-
-  const monthLabels = Array.from({ length: 12 }, (_, i) => new Date(0, i).toLocaleString('en-IN', { month: 'short' }));
-
-  if (window.financeChartInstance) {
-    try { window.financeChartInstance.destroy(); } catch (e) { /* ignore */ }
-  }
-
-  window.financeChartInstance = new Chart(ctx, {
-    type: 'bar',
-    data: {
-      labels: monthLabels,
-      datasets: [
-        {
-          label: 'Income',
-          data: incomeByMonth,
-          backgroundColor: '#1abc9c'
-        },
-        {
-          label: 'Expense',
-          data: expenseByMonth,
-          backgroundColor: '#e74c3c'
-        }
-      ]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      scales: {
-        y: { beginAtZero: true }
-      }
-    }
-  });
+  return { total: Object.values(totals).reduce((a,b)=>a+b,0), byCategory: totals };
 }
 
-// --- Last Transaction rendering: date selector (YYYY-MM-DD) ---
-// Default shows current day's data
+async function loadFinancialStats(optionalEntries) {
+  const entries = Array.isArray(optionalEntries) ? optionalEntries : (Array.isArray(window.__LAST_ENTRIES__) ? window.__LAST_ENTRIES__ : await fetchEntries());
+  const balanceEl = getElementByAnyId('totalBalance');
+  const savingsEl = getElementByAnyId('savings');
+  const expensesEl = getElementByAnyId('expenses');
+
+  if (balanceEl) balanceEl.textContent = 'Loading…';
+  if (savingsEl) savingsEl.textContent = 'Loading…';
+  if (expensesEl) expensesEl.textContent = 'Loading…';
+
+  if (!entries || !entries.length) {
+    if (balanceEl) balanceEl.textContent = '₹0.00';
+    if (savingsEl) savingsEl.textContent = '₹0.00';
+    if (expensesEl) expensesEl.textContent = '₹0.00';
+    return;
+  }
+
+  const expenseTotals = getExpenseTotals(entries);
+  const investmentTotals = getInvestmentTotals(entries);
+  const savingsValue = investmentTotals.total > 0 ? investmentTotals.total : expenseTotals.totalSaving;
+
+  if (balanceEl) balanceEl.textContent = formatCurrency(expenseTotals.totalBalance);
+  if (expensesEl) expensesEl.textContent = formatCurrency(expenseTotals.totalExpense);
+  if (savingsEl) savingsEl.textContent = formatCurrency(savingsValue);
+}
+
+// --- Last Transaction rendering (date selector) ---
+// shows category (if present) in first column; table is placed inside a scrollable container in HTML
 function renderLastTransactionsForDate(entries = [], dateISO = null) {
-  const txTable = getElementByAnyId('recentTx', 'lastTx');
+  const txTable = getElementByAnyId('lastTx');
   if (!txTable) return;
 
   const targetDate = dateISO ? new Date(dateISO) : new Date();
@@ -388,16 +208,15 @@ function renderLastTransactionsForDate(entries = [], dateISO = null) {
     txTable.innerHTML = '<tr><td colspan="3">Invalid date</td></tr>';
     return;
   }
-
-  const targetY = targetDate.getFullYear();
-  const targetM = targetDate.getMonth();
-  const targetD = targetDate.getDate();
+  const y = targetDate.getFullYear();
+  const m = targetDate.getMonth();
+  const d = targetDate.getDate();
 
   const filtered = (entries || []).filter(e => {
-    const d = new Date(e.date);
-    if (Number.isNaN(d.getTime())) return false;
-    return d.getFullYear() === targetY && d.getMonth() === targetM && d.getDate() === targetD;
-  }).sort((a, b) => new Date(b.date) - new Date(a.date));
+    const ed = new Date(e.date);
+    if (Number.isNaN(ed.getTime())) return false;
+    return ed.getFullYear() === y && ed.getMonth() === m && ed.getDate() === d;
+  }).sort((a,b) => new Date(b.date) - new Date(a.date));
 
   if (!filtered.length) {
     txTable.innerHTML = '<tr><td colspan="3">No transactions</td></tr>';
@@ -406,49 +225,149 @@ function renderLastTransactionsForDate(entries = [], dateISO = null) {
 
   txTable.innerHTML = filtered.map(entry => {
     const amount = Number(entry.amount) || 0;
-    const label = entry.notes || entry.category || entry.type || 'Entry';
+    const label = entry.category || entry.notes || entry.type || 'Entry';
     const sign = amount < 0 ? '-' : '';
     return `<tr><td>${label}</td><td>${entry.date || ''}</td><td>${sign}${formatCurrency(Math.abs(amount))}</td></tr>`;
   }).join('');
 }
 
-// --- Initialize selectors and bind events (chart: year only; lastTx: date input) ---
-function initSelectorsAndUI(entries = []) {
-  const chartYearSelector = document.getElementById('chartYear');
-  const lastTxDateInput = document.getElementById('lastTxDate');
+// --- Recent Activities (line chart of monthly expenses) ---
+function updateRecentActivityChart(entries = [], year = (new Date()).getFullYear()) {
+  const canvas = document.getElementById('recentActivityChart');
+  const totalEl = document.getElementById('monthlyExpenseTotal');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
 
-  const allEntries = Array.isArray(entries) ? entries : (Array.isArray(window.__LAST_ENTRIES__) ? window.__LAST_ENTRIES__ : []);
-  const now = new Date();
-  const defaultYear = now.getFullYear();
-  const todayISO = now.toISOString().slice(0, 10); // YYYY-MM-DD
+  const expenseByMonth = new Array(12).fill(0);
+  (entries || []).forEach(e => {
+    const d = new Date(e.date);
+    if (Number.isNaN(d.getTime())) return;
+    if (d.getFullYear() !== Number(year)) return;
+    const t = normalizeEntryType(e);
+    if (t === 'expense' || t === 'trip') expenseByMonth[d.getMonth()] += Number(e.amount) || 0;
+  });
 
-  if (chartYearSelector) buildYearOptions(allEntries, chartYearSelector);
-  if (chartYearSelector && !chartYearSelector.value) chartYearSelector.value = defaultYear;
+  const monthLabels = Array.from({length:12}, (_,i) => new Date(0,i).toLocaleString('en-IN',{month:'short'}));
+  const totalExpense = expenseByMonth.reduce((a,b)=>a+b,0);
+  if (totalEl) totalEl.textContent = `Total monthly expense (year ${year}): ${formatCurrency(totalExpense)}`;
 
-  if (lastTxDateInput) {
-    lastTxDateInput.value = todayISO;
-    lastTxDateInput.max = todayISO; // optional: prevent future date selection
+  if (window.recentActivityChartInstance) {
+    try { window.recentActivityChartInstance.destroy(); } catch(e){/*ignore*/}
   }
 
-  function refreshChart() {
-    const y = chartYearSelector ? Number(chartYearSelector.value) : defaultYear;
-    updateFinanceChartYear(allEntries, y);
-  }
-
-  function refreshLastTx() {
-    const dateVal = lastTxDateInput ? lastTxDateInput.value : todayISO;
-    renderLastTransactionsForDate(allEntries, dateVal);
-  }
-
-  if (chartYearSelector) chartYearSelector.addEventListener('change', refreshChart);
-  if (lastTxDateInput) lastTxDateInput.addEventListener('change', refreshLastTx);
-
-  // initial render
-  refreshChart();
-  refreshLastTx();
+  window.recentActivityChartInstance = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: monthLabels,
+      datasets: [{
+        label: `Monthly Expense ${year}`,
+        data: expenseByMonth,
+        borderColor: '#e74c3c',
+        backgroundColor: 'rgba(231,76,60,0.15)',
+        fill: true,
+        tension: 0.3
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: { y: { beginAtZero: true } }
+    }
+  });
 }
 
-// --- Run once after window load: fetch entries and update stats ---
+// --- Monthly savings bar chart (derived from balance - expense per month) ---
+function updateSavingsChart(entries = [], year = (new Date()).getFullYear()) {
+  const canvas = document.getElementById('savingsChart');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+
+  const balanceByMonth = new Array(12).fill(0);
+  const expenseByMonth = new Array(12).fill(0);
+
+  (entries || []).forEach(e => {
+    const d = new Date(e.date);
+    if (Number.isNaN(d.getTime())) return;
+    if (d.getFullYear() !== Number(year)) return;
+    const t = normalizeEntryType(e);
+    if (t === 'balance') balanceByMonth[d.getMonth()] += Number(e.amount) || 0;
+    if (t === 'expense' || t === 'trip') expenseByMonth[d.getMonth()] += Number(e.amount) || 0;
+  });
+
+  const savingsByMonth = balanceByMonth.map((b,i) => b - expenseByMonth[i]);
+  const monthLabels = Array.from({length:12}, (_,i) => new Date(0,i).toLocaleString('en-IN',{month:'short'}));
+
+  if (window.savingsChartInstance) {
+    try { window.savingsChartInstance.destroy(); } catch(e){/*ignore*/}
+  }
+
+  window.savingsChartInstance = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: monthLabels,
+      datasets: [{
+        label: `Monthly Savings ${year}`,
+        data: savingsByMonth,
+        backgroundColor: '#3498db'
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: { y: { beginAtZero: true } }
+    }
+  });
+}
+
+// --- Initialize selectors and wire UI ---
+function initSelectorsAndUI(entries = []) {
+  const lastTxDateInput = document.getElementById('lastTxDate');
+  const activityYearSelector = document.getElementById('activityYear');
+  const savingsYearSelector = document.getElementById('savingsYear');
+
+  const now = new Date();
+  const todayISO = now.toISOString().slice(0,10);
+  if (lastTxDateInput) {
+    lastTxDateInput.value = todayISO;
+    lastTxDateInput.max = todayISO;
+  }
+
+  // build year options from entries
+  const yearsSet = new Set((entries || []).map(e => {
+    const d = new Date(e.date);
+    return Number.isNaN(d.getFullYear()) ? null : d.getFullYear();
+  }).filter(Boolean));
+  const years = Array.from(yearsSet).sort((a,b)=>b-a);
+  if (!years.length) years.push(now.getFullYear());
+
+  const yearOptionsHtml = years.map(y => `<option value="${y}">${y}</option>`).join('');
+  if (activityYearSelector) activityYearSelector.innerHTML = yearOptionsHtml;
+  if (savingsYearSelector) savingsYearSelector.innerHTML = yearOptionsHtml;
+
+  // defaults
+  if (activityYearSelector && !activityYearSelector.value) activityYearSelector.value = now.getFullYear();
+  if (savingsYearSelector && !savingsYearSelector.value) savingsYearSelector.value = now.getFullYear();
+
+  function refreshAll() {
+    const dateVal = lastTxDateInput ? lastTxDateInput.value : todayISO;
+    renderLastTransactionsForDate(entries, dateVal);
+
+    const actYear = activityYearSelector ? Number(activityYearSelector.value) : now.getFullYear();
+    updateRecentActivityChart(entries, actYear);
+
+    const savYear = savingsYearSelector ? Number(savingsYearSelector.value) : now.getFullYear();
+    updateSavingsChart(entries, savYear);
+  }
+
+  if (lastTxDateInput) lastTxDateInput.addEventListener('change', refreshAll);
+  if (activityYearSelector) activityYearSelector.addEventListener('change', refreshAll);
+  if (savingsYearSelector) savingsYearSelector.addEventListener('change', refreshAll);
+
+  // initial render
+  refreshAll();
+}
+
+// --- Run once after window load ---
 window.addEventListener('load', async () => {
   try {
     const entries = await fetchEntries();
@@ -461,7 +380,7 @@ window.addEventListener('load', async () => {
     await loadFinancialStats(window.__LAST_ENTRIES__ || []);
     initSelectorsAndUI(window.__LAST_ENTRIES__ || []);
   } catch (err) {
-    console.warn('Initial entry load failed', err);
+    console.warn('Initial load failed', err);
     const cached = readStoredEntries();
     window.__LAST_ENTRIES__ = cached;
     await loadFinancialStats(cached);
@@ -469,65 +388,24 @@ window.addEventListener('load', async () => {
   }
 });
 
-// --- UI bindings (DOMContentLoaded) ---
+// --- DOMContentLoaded: render a short preview of last transactions (keeps previous behavior) ---
 document.addEventListener('DOMContentLoaded', async () => {
-  // Recent transactions table: support both possible IDs (recentTx or lastTx)
-  const txTable = getElementByAnyId('recentTx', 'lastTx');
-  if (txTable) {
-    const entries = Array.isArray(window.__LAST_ENTRIES__) ? [...window.__LAST_ENTRIES__] : await fetchEntries().catch(() => []);
-    if (entries && entries.length) {
-      const validEntries = entries
-        .filter(entry => ['balance', 'expense', 'trip', 'investment'].includes(normalizeEntryType(entry)))
-        .sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0))
-        .slice(0, 6);
-
-      txTable.innerHTML = validEntries.map(entry => {
-        const amount = Number(entry.amount) || 0;
-        const label = entry.notes || entry.category || entry.type || 'Entry';
-        const sign = amount < 0 ? '-' : '';
-        return `<tr><td>${label}</td><td>${entry.date || ''}</td><td>${sign}${formatCurrency(Math.abs(amount))}</td></tr>`;
-      }).join('');
-    } else {
-      txTable.innerHTML = '<tr><td colspan="3">No transactions</td></tr>';
-    }
+  const txTable = getElementByAnyId('lastTx');
+  if (!txTable) return;
+  const entries = Array.isArray(window.__LAST_ENTRIES__) ? window.__LAST_ENTRIES__ : await fetchEntries().catch(() => []);
+  if (!entries || !entries.length) {
+    txTable.innerHTML = '<tr><td colspan="3">No transactions</td></tr>';
+    return;
   }
-
-  // Investments UI
-  const investmentForm = document.getElementById('investmentForm');
-  const investmentTableBody = document.querySelector('#investmentsTable tbody');
-
-  function renderInvestments(entries) {
-    if (!investmentTableBody) return;
-    if (!entries || entries.length === 0) {
-      investmentTableBody.innerHTML = '<tr><td colspan="3">No investments yet</td></tr>';
-      return;
-    }
-    investmentTableBody.innerHTML = entries.map(entry => {
-      const amount = typeof entry.amount === 'number' ? entry.amount.toFixed(2) : entry.amount;
-      return `<tr><td>${entry.category || entry.type || 'Investment'}</td><td>${amount}</td><td>${new Date(entry.date).toLocaleString()}</td></tr>`;
+  const preview = entries
+    .filter(e => ['balance','expense','trip','investment'].includes(normalizeEntryType(e)))
+    .sort((a,b) => new Date(b.date) - new Date(a.date))
+    .slice(0, 6)
+    .map(entry => {
+      const amount = Number(entry.amount) || 0;
+      const label = entry.category || entry.notes || entry.type || 'Entry';
+      const sign = amount < 0 ? '-' : '';
+      return `<tr><td>${label}</td><td>${entry.date || ''}</td><td>${sign}${formatCurrency(Math.abs(amount))}</td></tr>`;
     }).join('');
-  }
-
-  async function loadInvestments() {
-    const entries = Array.isArray(window.__LAST_ENTRIES__) ? [...window.__LAST_ENTRIES__] : await fetchEntries().catch(() => []);
-    const investments = entries.filter(entry => String(entry.type || '').toLowerCase() === 'investment');
-    renderInvestments(investments);
-  }
-
-  if (investmentForm) {
-    loadInvestments();
-    investmentForm.addEventListener('submit', async event => {
-      event.preventDefault();
-      const type = document.getElementById('investmentType').value;
-      const amount = parseFloat(document.getElementById('investmentAmount').value);
-      if (Number.isNaN(amount) || amount <= 0) return;
-
-      const entry = { type: 'investment', category: type, amount, date: new Date().toISOString(), notes: `Investment: ${type}` };
-      const saved = await addEntry(entry);
-      await loadInvestments();
-      await loadFinancialStats(window.__LAST_ENTRIES__ || []);
-      investmentForm.reset();
-      console.log('Investment saved', saved);
-    });
-  }
+  txTable.innerHTML = preview;
 });
