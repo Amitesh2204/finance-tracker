@@ -204,41 +204,41 @@ document.addEventListener('DOMContentLoaded', async () => {
   const savingsEl = document.getElementById('savings');
   const expensesEl = document.getElementById('expenses');
 
-async function loadFinancialStats() {
-  try {
-    const entries = await fetchEntries();
-    if (!entries || entries.length === 0) {
-      console.warn("No entries found for financial stats");
-      return;
+  async function loadFinancialStats() {
+    try {
+      const entries = await fetchEntries();
+      if (!entries || entries.length === 0) {
+        console.warn("No entries found for financial stats");
+        return;
+      }
+
+      // --- Balance (from Expense page) ---
+      const balanceEntries = entries.filter(e => String(e.type || '').toLowerCase() === 'balance');
+      const totalBalance = balanceEntries.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+
+      // --- Expenses (from Expense + Trip entries) ---
+      const expenseEntries = entries.filter(e => {
+        const type = String(e.type || '').toLowerCase();
+        return type === 'expense' || type === 'trip';
+      });
+      const totalExpense = expenseEntries.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+
+      // --- Savings (from Investments: Mutual Fund + LIC + PPF + Sukanya) ---
+      const investmentEntries = entries.filter(e => String(e.type || '').toLowerCase() === 'investment');
+      const relevantInvestments = investmentEntries.filter(e => {
+        const cat = String(e.category || '').toLowerCase();
+        return cat.includes('mutual') || cat.includes('lic') || cat.includes('ppf') || cat.includes('sukanya');
+      });
+      const totalInvestments = relevantInvestments.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+
+      // --- Update UI cards ---
+      if (balanceEl) balanceEl.textContent = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(totalBalance);
+      if (expensesEl) expensesEl.textContent = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(totalExpense);
+      if (savingsEl) savingsEl.textContent = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(totalInvestments);
+
+      console.debug("Financial stats updated:", { totalBalance, totalExpense, totalInvestments });
+    } catch (err) {
+      console.error("Error loading financial stats:", err);
     }
-
-    // --- Balance (from Expense page) ---
-    const balanceEntries = entries.filter(e => String(e.type || '').toLowerCase() === 'balance');
-    const totalBalance = balanceEntries.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
-
-    // --- Expenses (from Expense + Trip entries) ---
-    const expenseEntries = entries.filter(e => {
-      const type = String(e.type || '').toLowerCase();
-      return type === 'expense' || type === 'trip';
-    });
-    const totalExpense = expenseEntries.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
-
-    // --- Savings (from Investments: Mutual Fund + LIC + PPF + Sukanya) ---
-    const investmentEntries = entries.filter(e => String(e.type || '').toLowerCase() === 'investment');
-    const relevantInvestments = investmentEntries.filter(e => {
-      const cat = String(e.category || '').toLowerCase();
-      return cat.includes('mutual') || cat.includes('lic') || cat.includes('ppf') || cat.includes('sukanya');
-    });
-    const totalInvestments = relevantInvestments.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
-
-    // --- Update UI cards ---
-    if (balanceEl) balanceEl.textContent = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(totalBalance);
-    if (expensesEl) expensesEl.textContent = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(totalExpense);
-    if (savingsEl) savingsEl.textContent = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(totalInvestments);
-
-    console.debug("Financial stats updated:", { totalBalance, totalExpense, totalInvestments });
-  } catch (err) {
-    console.error("Error loading financial stats:", err);
   }
-}
 });
