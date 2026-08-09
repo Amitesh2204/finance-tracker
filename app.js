@@ -44,10 +44,28 @@ function readStoredEntries() {
   }
 }
 
+// --- Helper to build API URL robustly (avoids absolute root 404 on GitHub Pages) ---
+function buildApiUrl(endpoint = 'entries') {
+  // Allow callers to set window.__API_BASE__ explicitly (absolute or relative).
+  // If not set or empty, use a relative path (no leading slash) to avoid hitting site root.
+  const apiBase = typeof window.__API_BASE__ === 'string' ? window.__API_BASE__ : '';
+  if (!apiBase) {
+    // relative path: "entries"
+    return `${endpoint}`;
+  }
+  // remove trailing slash if present
+  const base = apiBase.replace(/\/$/, '');
+  // if base looks like an absolute URL (starts with http or /), keep it
+  if (/^https?:\/\//i.test(base) || base.startsWith('/')) {
+    return `${base}/${endpoint}`.replace(/([^:]\/)\/{2,}/g, '$1/');
+  }
+  // otherwise treat as relative base
+  return `${base}/${endpoint}`.replace(/([^:]\/)\/{2,}/g, '$1/');
+}
+
 // --- Fetch entries (remote first, fallback to local PouchDB and localStorage) ---
 async function fetchEntries() {
-  const apiBase = window.__API_BASE__ || '';
-  const apiUrl = `${apiBase}/entries`.replace(/([^:]\/)\/{2,}/g, '$1/');
+  const apiUrl = buildApiUrl('entries');
 
   try {
     const response = await fetch(apiUrl, { headers: { Accept: 'application/json' } });
@@ -114,8 +132,7 @@ async function saveLocalEntry(doc) {
 
 // --- Add entry (remote then fallback local) ---
 async function addEntry(entry) {
-  const apiBase = window.__API_BASE__ || '';
-  const apiUrl = `${apiBase}/entries`.replace(/([^:]\/)\/{2,}/g, '$1/');
+  const apiUrl = buildApiUrl('entries');
   const id = entry._id || `entry:${entry.type || 'txn'}:${entry.date || Date.now()}:${Math.random().toString(36).slice(2,9)}`;
   const doc = Object.assign({}, entry, { _id: id });
 
@@ -148,9 +165,7 @@ window.addEntry = addEntry;
 window.formatCurrency = formatCurrency;
 
 // --- Summary cards (balance/savings/expenses) ---
-// NOTE: made getExpenseTotals more robust to handle different entry shapes/labels
 function getExpenseTotals(entries = []) {
-  // Accept entries that are typed as 'balance' or 'income' or have notes/categories indicating balance
   const isBalanceEntry = (e) => {
     const type = normalizeEntryType(e);
     const cat = String(e.category || '').toLowerCase();
@@ -168,8 +183,6 @@ function getExpenseTotals(entries = []) {
   const balanceEntries = entries.filter(isBalanceEntry);
   const expenseEntries = entries.filter(isExpenseEntry);
 
-  // Some data sources store expenses as positive numbers, some as negative.
-  // We'll treat expense amounts as absolute values when summing.
   const totalBalance = balanceEntries.reduce((s, e) => s + (Number(e.amount) || 0), 0);
   const totalExpense = expenseEntries.reduce((s, e) => s + Math.abs(Number(e.amount) || 0), 0);
 
