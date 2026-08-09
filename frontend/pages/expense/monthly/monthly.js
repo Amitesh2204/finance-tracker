@@ -91,8 +91,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             return percentage;
           }
         }
-  }
       }
+    }
     });
   }
 
