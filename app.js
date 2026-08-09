@@ -309,7 +309,7 @@ async function loadFinancialStats(optionalEntries) {
   }
 }
 
-// --- Chart helpers: financeChart (income vs expense for selected month/year) ---
+// --- Chart helpers: financeChart (year-wise, each bar = month) ---
 function buildYearOptions(entries = [], selectEl) {
   const years = new Set();
   (entries || []).forEach(e => {
@@ -324,21 +324,27 @@ function buildYearOptions(entries = [], selectEl) {
   selectEl.innerHTML = arr.map(y => `<option value="${y}">${y}</option>`).join('');
 }
 
-function updateFinanceChart(entries = [], month = (new Date()).getMonth(), year = (new Date()).getFullYear()) {
+function updateFinanceChartYear(entries = [], year = (new Date()).getFullYear()) {
   const canvas = document.getElementById('financeChart');
   if (!canvas) return;
   const ctx = canvas.getContext('2d');
 
-  const filtered = (entries || []).filter(e => {
+  // Prepare 12 months
+  const incomeByMonth = new Array(12).fill(0);
+  const expenseByMonth = new Array(12).fill(0);
+
+  (entries || []).forEach(e => {
     const d = new Date(e.date);
-    return d.getMonth() === Number(month) && d.getFullYear() === Number(year);
+    if (Number.isNaN(d.getTime())) return;
+    if (d.getFullYear() !== Number(year)) return;
+    const m = d.getMonth();
+    const amt = Number(e.amount) || 0;
+    const type = normalizeEntryType(e);
+    if (type === 'balance') incomeByMonth[m] += amt;
+    if (type === 'expense' || type === 'trip') expenseByMonth[m] += amt;
   });
 
-  const income = filtered.filter(e => normalizeEntryType(e) === 'balance')
-    .reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
-
-  const expense = filtered.filter(e => ['expense', 'trip'].includes(normalizeEntryType(e)))
-    .reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+  const monthLabels = Array.from({ length: 12 }, (_, i) => new Date(0, i).toLocaleString('en-IN', { month: 'short' }));
 
   if (window.financeChartInstance) {
     try { window.financeChartInstance.destroy(); } catch (e) { /* ignore */ }
@@ -347,12 +353,19 @@ function updateFinanceChart(entries = [], month = (new Date()).getMonth(), year 
   window.financeChartInstance = new Chart(ctx, {
     type: 'bar',
     data: {
-      labels: ['Income', 'Expense'],
-      datasets: [{
-        label: `${year}-${String(Number(month) + 1).padStart(2, '0')}`,
-        data: [income, expense],
-        backgroundColor: ['#1abc9c', '#e74c3c']
-      }]
+      labels: monthLabels,
+      datasets: [
+        {
+          label: 'Income',
+          data: incomeByMonth,
+          backgroundColor: '#1abc9c'
+        },
+        {
+          label: 'Expense',
+          data: expenseByMonth,
+          backgroundColor: '#e74c3c'
+        }
+      ]
     },
     options: {
       responsive: true,
@@ -364,15 +377,26 @@ function updateFinanceChart(entries = [], month = (new Date()).getMonth(), year 
   });
 }
 
-// --- Last Transaction rendering: month/year selector and show only current day's data for that month ---
-function renderLastTransactions(entries = [], month = (new Date()).getMonth(), year = (new Date()).getFullYear()) {
+// --- Last Transaction rendering: date selector (YYYY-MM-DD) ---
+// Default shows current day's data
+function renderLastTransactionsForDate(entries = [], dateISO = null) {
   const txTable = getElementByAnyId('recentTx', 'lastTx');
   if (!txTable) return;
 
-  const todayDate = new Date().getDate();
+  const targetDate = dateISO ? new Date(dateISO) : new Date();
+  if (Number.isNaN(targetDate.getTime())) {
+    txTable.innerHTML = '<tr><td colspan="3">Invalid date</td></tr>';
+    return;
+  }
+
+  const targetY = targetDate.getFullYear();
+  const targetM = targetDate.getMonth();
+  const targetD = targetDate.getDate();
+
   const filtered = (entries || []).filter(e => {
     const d = new Date(e.date);
-    return d.getMonth() === Number(month) && d.getFullYear() === Number(year) && d.getDate() === todayDate;
+    if (Number.isNaN(d.getTime())) return false;
+    return d.getFullYear() === targetY && d.getMonth() === targetM && d.getDate() === targetD;
   }).sort((a, b) => new Date(b.date) - new Date(a.date));
 
   if (!filtered.length) {
@@ -388,57 +412,40 @@ function renderLastTransactions(entries = [], month = (new Date()).getMonth(), y
   }).join('');
 }
 
-// --- Initialize selectors and bind events ---
+// --- Initialize selectors and bind events (chart: year only; lastTx: date input) ---
 function initSelectorsAndUI(entries = []) {
-  // Last Transaction selectors
-  const monthSelector = document.getElementById('lastTxMonth');
-  const yearSelector = document.getElementById('lastTxYear');
-
-  // Chart selectors
-  const chartMonthSelector = document.getElementById('chartMonth');
   const chartYearSelector = document.getElementById('chartYear');
+  const lastTxDateInput = document.getElementById('lastTxDate');
 
-  // Populate month selectors (0-11)
-  const monthOptions = Array.from({ length: 12 }, (_, i) => `<option value="${i}">${new Date(0, i).toLocaleString('en-IN', { month: 'long' })}</option>`).join('');
-  if (monthSelector) monthSelector.innerHTML = monthOptions;
-  if (chartMonthSelector) chartMonthSelector.innerHTML = monthOptions;
-
-  // Populate year selectors based on entries
   const allEntries = Array.isArray(entries) ? entries : (Array.isArray(window.__LAST_ENTRIES__) ? window.__LAST_ENTRIES__ : []);
   const now = new Date();
-  const defaultMonth = now.getMonth();
   const defaultYear = now.getFullYear();
+  const todayISO = now.toISOString().slice(0, 10); // YYYY-MM-DD
 
-  if (yearSelector) buildYearOptions(allEntries, yearSelector);
   if (chartYearSelector) buildYearOptions(allEntries, chartYearSelector);
-
-  // Set defaults
-  if (monthSelector) monthSelector.value = defaultMonth;
-  if (chartMonthSelector) chartMonthSelector.value = defaultMonth;
-  if (yearSelector && !yearSelector.value) yearSelector.value = defaultYear;
   if (chartYearSelector && !chartYearSelector.value) chartYearSelector.value = defaultYear;
 
-  // Event handlers
-  function refreshLastTx() {
-    const m = monthSelector ? Number(monthSelector.value) : defaultMonth;
-    const y = yearSelector ? Number(yearSelector.value) : defaultYear;
-    renderLastTransactions(allEntries, m, y);
+  if (lastTxDateInput) {
+    lastTxDateInput.value = todayISO;
+    lastTxDateInput.max = todayISO; // optional: prevent future date selection
   }
 
   function refreshChart() {
-    const m = chartMonthSelector ? Number(chartMonthSelector.value) : defaultMonth;
     const y = chartYearSelector ? Number(chartYearSelector.value) : defaultYear;
-    updateFinanceChart(allEntries, m, y);
+    updateFinanceChartYear(allEntries, y);
   }
 
-  if (monthSelector) monthSelector.addEventListener('change', refreshLastTx);
-  if (yearSelector) yearSelector.addEventListener('change', refreshLastTx);
-  if (chartMonthSelector) chartMonthSelector.addEventListener('change', refreshChart);
-  if (chartYearSelector) chartYearSelector.addEventListener('change', refreshChart);
+  function refreshLastTx() {
+    const dateVal = lastTxDateInput ? lastTxDateInput.value : todayISO;
+    renderLastTransactionsForDate(allEntries, dateVal);
+  }
 
-  // Initial render
-  refreshLastTx();
+  if (chartYearSelector) chartYearSelector.addEventListener('change', refreshChart);
+  if (lastTxDateInput) lastTxDateInput.addEventListener('change', refreshLastTx);
+
+  // initial render
   refreshChart();
+  refreshLastTx();
 }
 
 // --- Run once after window load: fetch entries and update stats ---
