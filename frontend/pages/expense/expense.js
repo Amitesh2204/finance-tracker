@@ -66,52 +66,53 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Pie chart for category-wise monthly spending
   function renderDailyExpenseChart(selectedMonthYear) {
-    const canvas = document.getElementById('dailyExpenseChart');
-    if (!canvas || typeof Chart === 'undefined') return;
+  const canvas = document.getElementById('dailyExpenseChart');
+  if (!canvas || typeof Chart === 'undefined') return;
 
-    const ctx = canvas.getContext('2d');
-    if (window.dailyExpenseChart && typeof window.dailyExpenseChart.destroy === 'function') {
-      window.dailyExpenseChart.destroy();
-    }
+  const ctx = canvas.getContext('2d');
+  if (window.dailyExpenseChart && typeof window.dailyExpenseChart.destroy === 'function') {
+    window.dailyExpenseChart.destroy();
+  }
 
-    const dailyEntries = monthlyData[selectedMonthYear]?.daily || [];
+  const dailyEntries = monthlyData[selectedMonthYear]?.daily || [];
 
-    // Group by category
-    const categoryTotals = {};
-    dailyEntries.forEach(entry => {
-      const category = entry.category || 'Expense';
-      categoryTotals[category] = (categoryTotals[category] || 0) + (Number(entry.amount) || 0);
-    });
+  // Group by category (Monthly + Trip expenses)
+  const categoryTotals = {};
+  dailyEntries.forEach(entry => {
+    const category = entry.category || 'Expense';
+    categoryTotals[category] = (categoryTotals[category] || 0) + (Number(entry.amount) || 0);
+  });
 
-    const labels = Object.keys(categoryTotals);
-    const amounts = Object.values(categoryTotals);
+  const labels = Object.keys(categoryTotals);
+  const amounts = Object.values(categoryTotals);
 
-    window.dailyExpenseChart = new Chart(ctx, {
-      type: 'pie',
-      data: {
-        labels,
-        datasets: [{
-          data: amounts,
-          backgroundColor: ['#e74c3c','#3498db','#2ecc71','#9b59b6','#f1c40f']
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          datalabels: {
-            color: '#fff',
-            formatter: (value, context) => {
-              const dataset = context.chart.data.datasets[0].data;
-              const total = dataset.reduce((sum, v) => sum + v, 0);
-              const percentage = total ? (value / total * 100).toFixed(1) + '%' : '';
-              return percentage;
-            }
+  window.dailyExpenseChart = new Chart(ctx, {
+    type: 'pie',
+    data: {
+      labels,
+      datasets: [{
+        data: amounts,
+        backgroundColor: ['#e74c3c','#3498db','#2ecc71','#9b59b6','#f1c40f']
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        datalabels: {
+          color: '#fff',
+          formatter: (value, context) => {
+            const dataset = context.chart.data.datasets[0].data;
+            const total = dataset.reduce((sum, v) => sum + v, 0);
+            const percentage = total ? (value / total * 100).toFixed(1) + '%' : '';
+            return percentage;
           }
         }
       }
-    });
-  }
+    }
+  });
+}
+
 
   function renderYearlyTable(selectedYear) {
     const rows = monthNames.map(month => {
