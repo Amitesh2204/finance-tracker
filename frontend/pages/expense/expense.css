@@ -134,3 +134,7 @@ select {
     padding: 18px;
   }
 }
+
+.right-panel {
+  margin-top: 24px; /* pushes the right-side charts down */
+}
