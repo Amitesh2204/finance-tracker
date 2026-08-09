@@ -11,6 +11,17 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels"></script>
 
+  <!-- Ensure config/db/app are loaded in correct order.
+       Use relative paths from this file (frontend/pages/expense/expense.html)
+       to the shared scripts in frontend/ (../../) -->
+  <script>
+    // Prevent app-wide default of hitting site root which causes 404 on GitHub Pages.
+    // If you host an API, set window.__API_BASE__ explicitly (absolute or relative).
+    // By default we keep it empty so app.js will use relative "entries" path and fall back to local storage/PouchDB.
+    window.__API_BASE__ = window.__API_BASE__ || '';
+    window.__REMOTE_COUCH__ = window.__REMOTE_COUCH__ || null;
+  </script>
+
   <script src="../../config.js" defer></script>
   <script src="../../db.js" defer></script>
   <script src="../../app.js" defer></script>
