@@ -309,6 +309,139 @@ async function loadFinancialStats(optionalEntries) {
   }
 }
 
+// --- Chart helpers: financeChart (income vs expense for selected month/year) ---
+function buildYearOptions(entries = [], selectEl) {
+  const years = new Set();
+  (entries || []).forEach(e => {
+    const d = new Date(e.date);
+    if (!Number.isNaN(d.getFullYear())) years.add(d.getFullYear());
+  });
+  const arr = Array.from(years).sort((a, b) => b - a);
+  if (!arr.length) {
+    const now = new Date().getFullYear();
+    arr.push(now);
+  }
+  selectEl.innerHTML = arr.map(y => `<option value="${y}">${y}</option>`).join('');
+}
+
+function updateFinanceChart(entries = [], month = (new Date()).getMonth(), year = (new Date()).getFullYear()) {
+  const canvas = document.getElementById('financeChart');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+
+  const filtered = (entries || []).filter(e => {
+    const d = new Date(e.date);
+    return d.getMonth() === Number(month) && d.getFullYear() === Number(year);
+  });
+
+  const income = filtered.filter(e => normalizeEntryType(e) === 'balance')
+    .reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+
+  const expense = filtered.filter(e => ['expense', 'trip'].includes(normalizeEntryType(e)))
+    .reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+
+  if (window.financeChartInstance) {
+    try { window.financeChartInstance.destroy(); } catch (e) { /* ignore */ }
+  }
+
+  window.financeChartInstance = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: ['Income', 'Expense'],
+      datasets: [{
+        label: `${year}-${String(Number(month) + 1).padStart(2, '0')}`,
+        data: [income, expense],
+        backgroundColor: ['#1abc9c', '#e74c3c']
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        y: { beginAtZero: true }
+      }
+    }
+  });
+}
+
+// --- Last Transaction rendering: month/year selector and show only current day's data for that month ---
+function renderLastTransactions(entries = [], month = (new Date()).getMonth(), year = (new Date()).getFullYear()) {
+  const txTable = getElementByAnyId('recentTx', 'lastTx');
+  if (!txTable) return;
+
+  const todayDate = new Date().getDate();
+  const filtered = (entries || []).filter(e => {
+    const d = new Date(e.date);
+    return d.getMonth() === Number(month) && d.getFullYear() === Number(year) && d.getDate() === todayDate;
+  }).sort((a, b) => new Date(b.date) - new Date(a.date));
+
+  if (!filtered.length) {
+    txTable.innerHTML = '<tr><td colspan="3">No transactions</td></tr>';
+    return;
+  }
+
+  txTable.innerHTML = filtered.map(entry => {
+    const amount = Number(entry.amount) || 0;
+    const label = entry.notes || entry.category || entry.type || 'Entry';
+    const sign = amount < 0 ? '-' : '';
+    return `<tr><td>${label}</td><td>${entry.date || ''}</td><td>${sign}${formatCurrency(Math.abs(amount))}</td></tr>`;
+  }).join('');
+}
+
+// --- Initialize selectors and bind events ---
+function initSelectorsAndUI(entries = []) {
+  // Last Transaction selectors
+  const monthSelector = document.getElementById('lastTxMonth');
+  const yearSelector = document.getElementById('lastTxYear');
+
+  // Chart selectors
+  const chartMonthSelector = document.getElementById('chartMonth');
+  const chartYearSelector = document.getElementById('chartYear');
+
+  // Populate month selectors (0-11)
+  const monthOptions = Array.from({ length: 12 }, (_, i) => `<option value="${i}">${new Date(0, i).toLocaleString('en-IN', { month: 'long' })}</option>`).join('');
+  if (monthSelector) monthSelector.innerHTML = monthOptions;
+  if (chartMonthSelector) chartMonthSelector.innerHTML = monthOptions;
+
+  // Populate year selectors based on entries
+  const allEntries = Array.isArray(entries) ? entries : (Array.isArray(window.__LAST_ENTRIES__) ? window.__LAST_ENTRIES__ : []);
+  const now = new Date();
+  const defaultMonth = now.getMonth();
+  const defaultYear = now.getFullYear();
+
+  if (yearSelector) buildYearOptions(allEntries, yearSelector);
+  if (chartYearSelector) buildYearOptions(allEntries, chartYearSelector);
+
+  // Set defaults
+  if (monthSelector) monthSelector.value = defaultMonth;
+  if (chartMonthSelector) chartMonthSelector.value = defaultMonth;
+  if (yearSelector && !yearSelector.value) yearSelector.value = defaultYear;
+  if (chartYearSelector && !chartYearSelector.value) chartYearSelector.value = defaultYear;
+
+  // Event handlers
+  function refreshLastTx() {
+    const m = monthSelector ? Number(monthSelector.value) : defaultMonth;
+    const y = yearSelector ? Number(yearSelector.value) : defaultYear;
+    renderLastTransactions(allEntries, m, y);
+  }
+
+  function refreshChart() {
+    const m = chartMonthSelector ? Number(chartMonthSelector.value) : defaultMonth;
+    const y = chartYearSelector ? Number(chartYearSelector.value) : defaultYear;
+    updateFinanceChart(allEntries, m, y);
+  }
+
+  if (monthSelector) monthSelector.addEventListener('change', refreshLastTx);
+  if (yearSelector) yearSelector.addEventListener('change', refreshLastTx);
+  if (chartMonthSelector) chartMonthSelector.addEventListener('change', refreshChart);
+  if (chartYearSelector) chartYearSelector.addEventListener('change', refreshChart);
+
+  // Initial render
+  refreshLastTx();
+  refreshChart();
+}
+
+// --- Run once after window load: fetch entries and update stats ---
 window.addEventListener('load', async () => {
   try {
     const entries = await fetchEntries();
@@ -319,17 +452,22 @@ window.addEventListener('load', async () => {
       window.__LAST_ENTRIES__ = readStoredEntries();
     }
     await loadFinancialStats(window.__LAST_ENTRIES__ || []);
+    initSelectorsAndUI(window.__LAST_ENTRIES__ || []);
   } catch (err) {
     console.warn('Initial entry load failed', err);
-    await loadFinancialStats(readStoredEntries());
+    const cached = readStoredEntries();
+    window.__LAST_ENTRIES__ = cached;
+    await loadFinancialStats(cached);
+    initSelectorsAndUI(cached);
   }
 });
 
+// --- UI bindings (DOMContentLoaded) ---
 document.addEventListener('DOMContentLoaded', async () => {
+  // Recent transactions table: support both possible IDs (recentTx or lastTx)
   const txTable = getElementByAnyId('recentTx', 'lastTx');
   if (txTable) {
     const entries = Array.isArray(window.__LAST_ENTRIES__) ? [...window.__LAST_ENTRIES__] : await fetchEntries().catch(() => []);
-
     if (entries && entries.length) {
       const validEntries = entries
         .filter(entry => ['balance', 'expense', 'trip', 'investment'].includes(normalizeEntryType(entry)))
@@ -347,6 +485,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
+  // Investments UI
   const investmentForm = document.getElementById('investmentForm');
   const investmentTableBody = document.querySelector('#investmentsTable tbody');
 

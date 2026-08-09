@@ -46,15 +46,15 @@
         <div class="cards">
           <div class="card balance">
             <h3>Balance</h3>
-            <p id="totalBalance">$0.00</p>
+            <p id="totalBalance">₹0.00</p>
           </div>
           <div class="card savings">
             <h3>Savings</h3>
-            <p id="savings">$0.00</p>
+            <p id="savings">₹0.00</p>
           </div>
           <div class="card expenses">
             <h3>Expenses</h3>
-            <p id="expenses">$0.00</p>
+            <p id="expenses">₹0.00</p>
           </div>
         </div>
 
@@ -62,10 +62,25 @@
         <div class="stats-row">
           <div class="chart card same-size">
             <h3>Financial Statistics</h3>
-            <canvas id="financeChart"></canvas>
+            <div style="display:flex; gap:12px; align-items:center; margin-bottom:12px;">
+              <label for="chartMonth" style="font-weight:600; color:#ecf0f1;">Month</label>
+              <select id="chartMonth" style="padding:6px 8px; border-radius:6px; background:#1e1e1e; color:#ecf0f1; border:1px solid #333;"></select>
+              <label for="chartYear" style="font-weight:600; color:#ecf0f1;">Year</label>
+              <select id="chartYear" style="padding:6px 8px; border-radius:6px; background:#1e1e1e; color:#ecf0f1; border:1px solid #333;"></select>
+            </div>
+            <div style="height:320px;">
+              <canvas id="financeChart"></canvas>
+            </div>
           </div>
+
           <div class="transactions card large same-size">
             <h3>Last Transaction</h3>
+            <div style="display:flex; gap:12px; align-items:center; margin-bottom:12px;">
+              <label for="lastTxMonth" style="font-weight:600; color:#ecf0f1;">Month</label>
+              <select id="lastTxMonth" style="padding:6px 8px; border-radius:6px; background:#1e1e1e; color:#ecf0f1; border:1px solid #333;"></select>
+              <label for="lastTxYear" style="font-weight:600; color:#ecf0f1;">Year</label>
+              <select id="lastTxYear" style="padding:6px 8px; border-radius:6px; background:#1e1e1e; color:#ecf0f1; border:1px solid #333;"></select>
+            </div>
             <table id="lastTx"></table>
           </div>
         </div>
@@ -101,4 +116,3 @@
   <script type="module" src="frontend/app.js" defer></script>
 </body>
 </html>
-
