@@ -21,14 +21,15 @@
 
 .summary-cards {
   display: grid;
-  grid-template-columns: repeat(3, minmax(120px, 1fr));
-  gap: 20px;
+  grid-template-columns: repeat(3, minmax(200px, 1fr)); /* wider blocks */
+  gap: 40px; /* reduce gap so they fill row evenly */
+  margin-bottom: 24px;
 }
 
 .card {
   background: #1e1e1e;
-  padding: 20px;
-  border-radius: 18px;
+  padding: 24px;
+  border-radius: 28px;
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.28);
 }
 
@@ -126,3 +127,8 @@ select {
     padding: 18px;
   }
 }
+
+.right-panel {
+  margin-top: 40px; /* pushes charts down relative to summary cards */
+}
+
