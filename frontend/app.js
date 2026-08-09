@@ -1,5 +1,6 @@
 // --- Use shared PouchDB instance from db.js ---
 const db = window.financeDB || null;
+const STORAGE_KEY = 'finance-tracker:last-entries';
 
 // --- Utility functions ---
 function isMutualFundEntry(entry) {
@@ -37,6 +38,80 @@ function getMutualFundSummary(entries = []) {
   return summary;
 }
 
+function normalizeEntryType(entry) {
+  return String(entry?.type || '').trim().toLowerCase();
+}
+
+function formatCurrency(amount) {
+  const val = Number(amount) || 0;
+  try {
+    return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(val);
+  } catch {
+    return `₹${val.toFixed(2)}`;
+  }
+}
+
+function persistEntries(entries) {
+  try {
+    if (Array.isArray(entries)) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
+    }
+  } catch (err) {
+    console.warn('Unable to cache finance entries locally:', err);
+  }
+}
+
+function readStoredEntries() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (err) {
+    console.warn('Unable to read cached finance entries:', err);
+    return [];
+  }
+}
+
+function getExpenseTotals(entries = []) {
+  const balanceEntries = entries.filter(e => normalizeEntryType(e) === 'balance');
+  const expenseEntries = entries.filter(e => ['expense', 'trip'].includes(normalizeEntryType(e)));
+
+  const totalBalance = balanceEntries.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+  const totalExpense = expenseEntries.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+
+  return {
+    totalBalance,
+    totalExpense,
+    totalSaving: totalBalance - totalExpense,
+  };
+}
+
+function getInvestmentTotals(entries = []) {
+  const investmentEntries = entries.filter(e => normalizeEntryType(e) === 'investment');
+  const totals = {
+    mutualFund: 0,
+    lic: 0,
+    ppf: 0,
+    sukanya: 0,
+  };
+
+  investmentEntries.forEach(e => {
+    const cat = String(e.category || '').trim().toLowerCase();
+    const amount = Number(e.amount) || 0;
+
+    if (cat.includes('mutual')) totals.mutualFund += amount;
+    else if (cat.includes('lic')) totals.lic += amount;
+    else if (cat.includes('ppf')) totals.ppf += amount;
+    else if (cat.includes('sukanya')) totals.sukanya += amount;
+  });
+
+  return {
+    total: Object.values(totals).reduce((sum, value) => sum + value, 0),
+    byCategory: totals,
+  };
+}
+
 // --- Helper: safe DOM query for multiple possible IDs ---
 function getElementByAnyId(...ids) {
   for (const id of ids) {
@@ -50,33 +125,22 @@ function getElementByAnyId(...ids) {
 async function syncEntriesToLocal(entries = []) {
   if (!db || typeof db.bulkDocs !== 'function') return;
   try {
-    // Normalize docs: ensure _id exists and avoid overwriting _rev
     const docs = entries.map(e => {
       const doc = Object.assign({}, e);
       if (!doc._id) {
-        // create stable id if not present
-        doc._id = doc._id || `entry:${doc.type || 'txn'}:${doc.date || Date.now()}:${Math.random().toString(36).slice(2,9)}`;
+        doc._id = `entry:${doc.type || 'txn'}:${doc.date || Date.now()}:${Math.random().toString(36).slice(2, 9)}`;
       }
-      // Remove any transient fields that PouchDB may not accept (optional)
       return doc;
     });
 
-    // Use bulkDocs with new_edits=false to preserve remote _rev if present, but only if _rev exists.
-    // If _rev not present, allow new_edits true (default).
-    // We'll attempt bulkDocs and ignore conflicts.
     await db.bulkDocs(docs).catch(err => {
-      // If conflict or other error, try upserting individually
       if (err && err.status === 409) {
-        // ignore; conflicts expected if docs already exist
         return;
       }
-      // fallback: upsert each doc
       return Promise.all(docs.map(async d => {
         try {
           const existing = await db.get(d._id).catch(() => null);
-          if (existing) {
-            d._rev = existing._rev;
-          }
+          if (existing) d._rev = existing._rev;
           return db.put(d).catch(() => null);
         } catch (e) {
           return null;
@@ -88,7 +152,7 @@ async function syncEntriesToLocal(entries = []) {
   }
 }
 
-// --- Fetch entries (remote first, fallback to local PouchDB) ---
+// --- Fetch entries (remote first, fallback to local PouchDB and persisted cache) ---
 async function fetchEntries() {
   const apiBase = window.__API_BASE__ || '';
   const apiUrl = `${apiBase}/entries`.replace(/([^:]\/)\/{2,}/g, '$1/');
@@ -98,29 +162,34 @@ async function fetchEntries() {
     if (!response.ok) throw new Error(`API request failed: ${response.status}`);
     const data = await response.json();
     const entries = Array.isArray(data) ? data : [];
-    console.debug('Fetched entries from API:', entries.length);
 
-    // cache for reuse during this page lifecycle
     if (entries.length) {
+      persistEntries(entries);
       window.__LAST_ENTRIES__ = entries;
-      // Persist remote entries into local PouchDB so data remains available after refresh
-      // Do this asynchronously but don't block returning entries
       syncEntriesToLocal(entries).catch(err => console.warn('syncEntriesToLocal error', err));
     }
     return entries;
   } catch (err) {
-    console.warn('Falling back to local PouchDB:', err);
-    if (!db || typeof db.allDocs !== 'function') return [];
-    try {
-      const localEntries = await db.allDocs({ include_docs: true }).then(r => r.rows.map(r => r.doc));
-      console.debug('Fetched entries from local DB:', localEntries.map(e => ({ id: e._id, rev: e._rev })));
-      // cache local entries as well
-      window.__LAST_ENTRIES__ = localEntries;
-      return localEntries;
-    } catch (localErr) {
-      console.error('Error reading local PouchDB:', localErr);
-      return [];
+    let entries = [];
+
+    if (db && typeof db.allDocs === 'function') {
+      try {
+        entries = await db.allDocs({ include_docs: true }).then(r => r.rows.map(r => r.doc).filter(Boolean));
+      } catch (localErr) {
+        console.warn('Error reading local PouchDB:', localErr);
+      }
     }
+
+    if (!entries.length) {
+      entries = readStoredEntries();
+    }
+
+    if (entries.length) {
+      persistEntries(entries);
+      window.__LAST_ENTRIES__ = entries;
+    }
+
+    return entries;
   }
 }
 
@@ -135,17 +204,14 @@ async function saveLocalEntry(doc) {
       const existing = await db.get(doc._id).catch(() => null);
       if (existing) {
         doc._rev = existing._rev;
-        console.debug(`Merged remote doc ${doc._id} with local rev ${doc._rev}`);
       }
     }
     await db.put(doc);
-    console.debug('Saved doc successfully:', doc._id);
   } catch (err) {
     if (err && err.name === 'conflict') {
       const existing = await db.get(doc._id);
       doc._rev = existing._rev;
       await db.put(doc);
-      console.debug(`Conflict resolved for ${doc._id}`);
     } else {
       console.error(`Error saving doc ${doc._id}`, err);
       throw err;
@@ -158,7 +224,7 @@ async function saveLocalEntry(doc) {
 async function addEntry(entry) {
   const apiBase = window.__API_BASE__ || '';
   const apiUrl = `${apiBase}/entries`.replace(/([^:]\/)\/{2,}/g, '$1/');
-  const id = entry._id || `entry:${entry.type || 'txn'}:${entry.date || Date.now()}:${Math.random().toString(36).slice(2,9)}`;
+  const id = entry._id || `entry:${entry.type || 'txn'}:${entry.date || Date.now()}:${Math.random().toString(36).slice(2, 9)}`;
   const doc = Object.assign({}, entry, { _id: id });
 
   try {
@@ -169,18 +235,19 @@ async function addEntry(entry) {
     });
     if (!response.ok) throw new Error(`API save failed: ${response.status}`);
     const saved = await response.json();
-    // update in-memory cache
-    window.__LAST_ENTRIES__ = Array.isArray(window.__LAST_ENTRIES__) ? [saved, ...window.__LAST_ENTRIES__] : [saved];
-    // persist saved remote entry locally
+    const existing = Array.isArray(window.__LAST_ENTRIES__) ? [...window.__LAST_ENTRIES__] : [];
+    window.__LAST_ENTRIES__ = [saved, ...existing];
+    persistEntries(window.__LAST_ENTRIES__);
+
     if (db && typeof db.put === 'function') {
       saveLocalEntry(saved).catch(err => console.warn('saveLocalEntry after remote save failed', err));
     }
     return saved;
   } catch (err) {
-    console.warn('Falling back to local PouchDB save:', err);
     const savedLocal = await saveLocalEntry(doc);
-    // update in-memory cache
-    window.__LAST_ENTRIES__ = Array.isArray(window.__LAST_ENTRIES__) ? [savedLocal, ...window.__LAST_ENTRIES__] : [savedLocal];
+    const existing = Array.isArray(window.__LAST_ENTRIES__) ? [...window.__LAST_ENTRIES__] : [];
+    window.__LAST_ENTRIES__ = [savedLocal, ...existing];
+    persistEntries(window.__LAST_ENTRIES__);
     return savedLocal;
   }
 }
@@ -190,69 +257,49 @@ window.fetchEntries = fetchEntries;
 window.addEntry = addEntry;
 window.getMutualFundSummary = getMutualFundSummary;
 window.isMutualFundEntry = isMutualFundEntry;
+window.formatCurrency = formatCurrency;
+window.getExpenseTotals = getExpenseTotals;
+window.getInvestmentTotals = getInvestmentTotals;
 
 // --- Financial Statistics (global function) ---
-// Accepts optionalEntries to avoid duplicate network calls
 async function loadFinancialStats(optionalEntries) {
   try {
     const entries = Array.isArray(optionalEntries)
       ? optionalEntries
       : (Array.isArray(window.__LAST_ENTRIES__) ? window.__LAST_ENTRIES__ : await fetchEntries());
 
-    // Query DOM elements here (ensure they exist at call time)
     const balanceEl = getElementByAnyId('totalBalance', 'balanceValue');
     const savingsEl = getElementByAnyId('savings', 'savingsValue');
     const expensesEl = getElementByAnyId('expenses', 'expensesValue');
 
-    // Show loading placeholders if elements exist
     if (balanceEl) balanceEl.textContent = 'Loading…';
     if (savingsEl) savingsEl.textContent = 'Loading…';
     if (expensesEl) expensesEl.textContent = 'Loading…';
 
     if (!entries || entries.length === 0) {
-      console.warn('No entries found for financial stats');
-      if (balanceEl) balanceEl.textContent = 'No data';
-      if (savingsEl) savingsEl.textContent = 'No data';
-      if (expensesEl) expensesEl.textContent = 'No data';
+      if (balanceEl) balanceEl.textContent = '₹0.00';
+      if (savingsEl) savingsEl.textContent = '₹0.00';
+      if (expensesEl) expensesEl.textContent = '₹0.00';
       return;
     }
 
-    // --- Balance (sum of entries with type 'balance') ---
-    const balanceEntries = entries.filter(e => String(e.type || '').toLowerCase() === 'balance');
-    const totalBalance = balanceEntries.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+    const expenseTotals = getExpenseTotals(entries);
+    const investmentTotals = getInvestmentTotals(entries);
+    const fallbackSavings = expenseTotals.totalSaving || 0;
+    const savingsValue = investmentTotals.total > 0 ? investmentTotals.total : fallbackSavings;
 
-    // --- Expenses (sum of entries with type 'expense' or 'trip') ---
-    const expenseEntries = entries.filter(e => {
-      const type = String(e.type || '').toLowerCase();
-      return type === 'expense' || type === 'trip';
+    if (balanceEl) balanceEl.textContent = formatCurrency(expenseTotals.totalBalance);
+    if (expensesEl) expensesEl.textContent = formatCurrency(expenseTotals.totalExpense);
+    if (savingsEl) savingsEl.textContent = formatCurrency(savingsValue);
+
+    console.debug('Financial stats updated:', {
+      totalBalance: expenseTotals.totalBalance,
+      totalExpense: expenseTotals.totalExpense,
+      totalSaving: expenseTotals.totalSaving,
+      investmentTotal: investmentTotals.total,
     });
-    const totalExpense = expenseEntries.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
-
-    // --- Savings (sum of investment entries for Mutual Fund, LIC, PPF, Sukanya) ---
-    const investmentEntries = entries.filter(e => String(e.type || '').toLowerCase() === 'investment');
-    const relevantInvestments = investmentEntries.filter(e => {
-      const cat = String(e.category || '').toLowerCase();
-      return cat.includes('mutual') || cat.includes('lic') || cat.includes('ppf') || cat.includes('sukanya');
-    });
-    const totalInvestments = relevantInvestments.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
-
-    // Format values (Intl with fallback)
-    const fmt = (v) => {
-      try {
-        return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(v);
-      } catch {
-        return `₹${Number(v).toFixed(2)}`;
-      }
-    };
-
-    if (balanceEl) balanceEl.textContent = fmt(totalBalance);
-    if (expensesEl) expensesEl.textContent = fmt(totalExpense);
-    if (savingsEl) savingsEl.textContent = fmt(totalInvestments);
-
-    console.debug('Financial stats updated:', { totalBalance, totalExpense, totalInvestments });
   } catch (err) {
     console.error('Error loading financial stats:', err);
-    // If DOM elements exist, show an error state
     const balanceEl = getElementByAnyId('totalBalance', 'balanceValue');
     const savingsEl = getElementByAnyId('savings', 'savingsValue');
     const expensesEl = getElementByAnyId('expenses', 'expensesValue');
@@ -262,40 +309,44 @@ async function loadFinancialStats(optionalEntries) {
   }
 }
 
-// --- Run once after window load: fetch entries and update stats ---
-// This ensures fetchEntries runs early and loadFinancialStats uses cached entries
 window.addEventListener('load', async () => {
   try {
-    // fetchEntries will populate window.__LAST_ENTRIES__ on success or fallback to local DB
     const entries = await fetchEntries();
     if (Array.isArray(entries) && entries.length) {
       window.__LAST_ENTRIES__ = entries;
+      persistEntries(entries);
+    } else {
+      window.__LAST_ENTRIES__ = readStoredEntries();
     }
-    // Use cached entries to avoid duplicate network calls
     await loadFinancialStats(window.__LAST_ENTRIES__ || []);
   } catch (err) {
     console.warn('Initial entry load failed', err);
-    // attempt to run stats anyway (fetchEntries inside will fallback)
-    await loadFinancialStats();
+    await loadFinancialStats(readStoredEntries());
   }
 });
 
-// --- UI bindings (DOMContentLoaded) ---
 document.addEventListener('DOMContentLoaded', async () => {
-  // Recent transactions table: support both possible IDs (recentTx or lastTx)
   const txTable = getElementByAnyId('recentTx', 'lastTx');
   if (txTable) {
-    const entries = Array.isArray(window.__LAST_ENTRIES__) ? window.__LAST_ENTRIES__ : await fetchEntries().catch(() => []);
+    const entries = Array.isArray(window.__LAST_ENTRIES__) ? [...window.__LAST_ENTRIES__] : await fetchEntries().catch(() => []);
+
     if (entries && entries.length) {
-      txTable.innerHTML = entries.slice(0, 6).map(e =>
-        `<tr><td>${e.notes || e.type || 'Entry'}</td><td>${e.date || ''}</td><td>${(Number(e.amount) < 0 ? '-' : '')}$${Math.abs(Number(e.amount) || 0).toFixed(2)}</td></tr>`
-      ).join('');
+      const validEntries = entries
+        .filter(entry => ['balance', 'expense', 'trip', 'investment'].includes(normalizeEntryType(entry)))
+        .sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0))
+        .slice(0, 6);
+
+      txTable.innerHTML = validEntries.map(entry => {
+        const amount = Number(entry.amount) || 0;
+        const label = entry.notes || entry.category || entry.type || 'Entry';
+        const sign = amount < 0 ? '-' : '';
+        return `<tr><td>${label}</td><td>${entry.date || ''}</td><td>${sign}${formatCurrency(Math.abs(amount))}</td></tr>`;
+      }).join('');
     } else {
       txTable.innerHTML = '<tr><td colspan="3">No transactions</td></tr>';
     }
   }
 
-  // Investments UI
   const investmentForm = document.getElementById('investmentForm');
   const investmentTableBody = document.querySelector('#investmentsTable tbody');
 
@@ -312,14 +363,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   async function loadInvestments() {
-    const entries = Array.isArray(window.__LAST_ENTRIES__) ? window.__LAST_ENTRIES__ : await fetchEntries().catch(() => []);
+    const entries = Array.isArray(window.__LAST_ENTRIES__) ? [...window.__LAST_ENTRIES__] : await fetchEntries().catch(() => []);
     const investments = entries.filter(entry => String(entry.type || '').toLowerCase() === 'investment');
-    console.log(`Loaded ${investments.length} investments`, investments);
     renderInvestments(investments);
   }
 
   if (investmentForm) {
-    // initial load
     loadInvestments();
     investmentForm.addEventListener('submit', async event => {
       event.preventDefault();
@@ -329,7 +378,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       const entry = { type: 'investment', category: type, amount, date: new Date().toISOString(), notes: `Investment: ${type}` };
       const saved = await addEntry(entry);
-      // refresh investments and stats after save using cached entries
       await loadInvestments();
       await loadFinancialStats(window.__LAST_ENTRIES__ || []);
       investmentForm.reset();
