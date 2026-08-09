@@ -196,4 +196,36 @@ document.addEventListener('DOMContentLoaded', async () => {
       console.log('Investment saved', saved);
     });
   }
+   // --- Financial Statistics summary cards ---
+  const balanceEl = document.getElementById('totalBalance');
+  const savingsEl = document.getElementById('savings');
+  const expensesEl = document.getElementById('expenses');
+
+  async function loadFinancialStats() {
+    const entries = await fetchEntries().catch(() => []);
+
+    // Expense totals
+    const balanceEntries = entries.filter(e => String(e.type).toLowerCase() === 'balance');
+    const expenseEntries = entries.filter(e => String(e.type).toLowerCase() === 'expense' || String(e.type).toLowerCase() === 'trip');
+
+    const totalBalance = balanceEntries.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+    const totalExpense = expenseEntries.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+    const totalSaving = totalBalance - totalExpense;
+
+    // Investment totals (Mutual Fund + LIC + PPF + Sukanya Yojana)
+    const investmentEntries = entries.filter(e => String(e.type).toLowerCase() === 'investment');
+    const relevantInvestments = investmentEntries.filter(e => {
+      const cat = String(e.category || '').toLowerCase();
+      return cat.includes('mutual') || cat.includes('lic') || cat.includes('ppf') || cat.includes('sukanya');
+    });
+    const totalInvestments = relevantInvestments.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+
+    // Update UI
+    if (balanceEl) balanceEl.textContent = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(totalBalance);
+    if (expensesEl) expensesEl.textContent = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(totalSaving);
+    if (savingsEl) savingsEl.textContent = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(totalInvestments);
+  }
+
+  loadFinancialStats();
+
 });
