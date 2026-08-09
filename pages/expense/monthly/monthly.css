@@ -129,6 +129,6 @@ select {
 }
 
 .right-panel {
-  margin-top: 40px; /* pushes charts down relative to summary cards */
+  margin-top: 180px; /* pushes charts down relative to summary cards */
 }
 
