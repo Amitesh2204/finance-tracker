@@ -6,126 +6,330 @@
   <title>Login - Finance Tracker</title>
   <link rel="stylesheet" href="../../style.css">
   <style>
-    body { background:var(--bg); }
-    .login-wrap { max-width:420px; margin:60px auto; }
-    .oauth-note { color:var(--muted); font-size:0.9rem; margin-bottom:8px; }
-    .small { font-size:0.9rem; color:var(--muted); }
+    :root {
+      --bg-gradient-start: #0f2027;
+      --bg-gradient-mid: #203a43;
+      --bg-gradient-end: #2c5364;
+      --card-bg: #121212;
+      --accent: #1abc9c;
+      --muted: #95a5a6;
+      --danger: #e74c3c;
+    }
+
+    html,body {
+      height:100%;
+      margin:0;
+      font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+      background: linear-gradient(135deg, var(--bg-gradient-start), var(--bg-gradient-mid), var(--bg-gradient-end));
+      -webkit-font-smoothing:antialiased;
+      -moz-osx-font-smoothing:grayscale;
+      color:#ecf0f1;
+    }
+
+    .center-wrap {
+      min-height:100vh;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:24px;
+    }
+
+    .login-wrap {
+      width:100%;
+      max-width:480px;
+      background: rgba(18,18,18,0.96);
+      border-radius:14px;
+      padding:28px;
+      box-shadow: 0 18px 50px rgba(0,0,0,0.6);
+      border: 1px solid rgba(255,255,255,0.03);
+      overflow:hidden;
+    }
+
+    .brand {
+      display:flex;
+      align-items:center;
+      gap:12px;
+      margin-bottom:18px;
+    }
+    .brand .logo {
+      width:44px; height:44px; border-radius:10px;
+      background: linear-gradient(135deg,#1abc9c,#3498db);
+      display:flex; align-items:center; justify-content:center; font-weight:800; color:#042;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.5);
+    }
+    .brand h1 { margin:0; font-size:1.2rem; letter-spacing:0.2px; color:#ecf0f1; }
+
+    h3 {
+      margin:0 0 12px 0;
+      font-size:1.1rem;
+      color:#ecf0f1;
+      text-align:left;
+    }
+
+    .form-row { margin-bottom:12px; }
+    label {
+      display:block;
+      font-size:0.85rem;
+      color:var(--muted);
+      margin-bottom:6px;
+      font-weight:600;
+    }
+
+    input[type="text"], input[type="password"], input[type="email"] {
+      width:100%;
+      padding:12px 14px;
+      border-radius:10px;
+      border:1px solid rgba(255,255,255,0.06);
+      background:#0f0f0f;
+      color:#ecf0f1;
+      font-size:0.95rem;
+      transition: box-shadow .18s, border-color .18s;
+    }
+    input::placeholder { color: rgba(255,255,255,0.35); }
+
+    input:focus {
+      outline:none;
+      border-color: rgba(26,188,156,0.9);
+      box-shadow: 0 6px 18px rgba(26,188,156,0.08);
+    }
+
+    .login-actions {
+      display:flex;
+      gap:10px;
+      margin-top:6px;
+    }
+
+    .btn {
+      flex:1;
+      padding:11px 14px;
+      border-radius:10px;
+      border:0;
+      cursor:pointer;
+      font-weight:700;
+      font-size:0.95rem;
+      transition: transform .12s ease, box-shadow .12s ease;
+    }
+    .btn:active { transform: translateY(1px); }
+
+    .btn-primary {
+      background: linear-gradient(90deg,var(--accent),#16a085);
+      color:#042;
+      box-shadow: 0 8px 20px rgba(26,188,156,0.12);
+    }
+    .btn-secondary {
+      background:#3498db;
+      color:#fff;
+    }
+    .btn-muted {
+      background:#95a5a6;
+      color:#042;
+    }
+
+    .small {
+      font-size:0.9rem;
+      color:var(--muted);
+      margin-top:10px;
+      text-align:center;
+    }
+
+    .oauth-note {
+      color:var(--muted);
+      font-size:0.85rem;
+      margin-top:12px;
+      text-align:center;
+    }
+
+    .error {
+      color:var(--danger);
+      font-size:0.9rem;
+      margin-bottom:8px;
+      display:none;
+    }
+
+    #registerBox {
+      margin-top:18px;
+      display:none;
+    }
+
+    @media (max-width:520px) {
+      .login-wrap { padding:18px; border-radius:12px; }
+      .brand h1 { font-size:1rem; }
+    }
   </style>
   <script src="https://unpkg.com/pouchdb@7.3.1/dist/pouchdb.min.js"></script>
 </head>
 <body>
-  <div class="login-wrap">
-    <div class="login-container">
-      <h3>Sign in to Wealty</h3>
-
-      <div id="error" class="small" style="color:#e74c3c; display:none"></div>
-
-      <label for="username">Username or Email</label>
-      <input id="username" type="text" placeholder="username or email" />
-
-      <label for="password">Password</label>
-      <input id="password" type="password" placeholder="password" />
-
-      <div class="login-actions">
-        <button id="loginBtn">Login</button>
-        <button id="toRegister" style="background:#3498db">Register</button>
+  <div class="center-wrap">
+    <div class="login-wrap" role="main" aria-labelledby="loginTitle">
+      <div class="brand" aria-hidden="true">
+        <div class="logo">W</div>
+        <h1>Wealty — Finance Tracker</h1>
       </div>
 
-      <div style="margin-top:8px;">
-        <div class="oauth-note">Google sign-in is not enabled by default in this build. To enable OAuth, configure a server-side flow and set window.__GOOGLE_OAUTH__ in config.js.</div>
+      <!-- Login Box -->
+      <div id="loginBox" aria-live="polite">
+        <h3 id="loginTitle">Sign in to Wealty</h3>
+        <div id="error" class="error" role="alert"></div>
+
+        <div class="form-row">
+          <label for="username">Username or Email</label>
+          <input id="username" type="text" autocomplete="username" placeholder="username or email" />
+        </div>
+
+        <div class="form-row">
+          <label for="password">Password</label>
+          <input id="password" type="password" autocomplete="current-password" placeholder="password" />
+        </div>
+
+        <div class="login-actions" role="group" aria-label="Login actions">
+          <button id="loginBtn" class="btn btn-primary">Login</button>
+          <button id="toRegister" class="btn btn-secondary">Register</button>
+        </div>
+
+        <div class="oauth-note">Google sign-in is not enabled by default. Configure OAuth in <code>config.js</code> to enable.</div>
       </div>
-    </div>
 
-    <div id="registerBox" class="login-container" style="display:none; margin-top:12px;">
-      <h3>Create an account</h3>
-      <div id="regError" class="small" style="color:#e74c3c; display:none"></div>
+      <!-- Register Box -->
+      <div id="registerBox" aria-live="polite">
+        <h3>Create an account</h3>
+        <div id="regError" class="error" role="alert"></div>
 
-      <label for="regUsername">Username</label>
-      <input id="regUsername" type="text" placeholder="username" />
+        <div class="form-row">
+          <label for="regUsername">Username</label>
+          <input id="regUsername" type="text" autocomplete="username" placeholder="username" />
+        </div>
 
-      <label for="regEmail">Email (optional)</label>
-      <input id="regEmail" type="email" placeholder="you@example.com" />
+        <div class="form-row">
+          <label for="regEmail">Email (optional)</label>
+          <input id="regEmail" type="email" autocomplete="email" placeholder="you@example.com" />
+        </div>
 
-      <label for="regPassword">Password</label>
-      <input id="regPassword" type="password" placeholder="password" />
+        <div class="form-row">
+          <label for="regPassword">Password</label>
+          <input id="regPassword" type="password" autocomplete="new-password" placeholder="password" />
+        </div>
 
-      <div class="login-actions">
-        <button id="registerBtn">Create account</button>
-        <button id="toLogin" style="background:#95a5a6">Back to login</button>
+        <div class="login-actions" role="group" aria-label="Register actions">
+          <button id="registerBtn" class="btn btn-primary">Create account</button>
+          <button id="toLogin" class="btn btn-muted">Back to login</button>
+        </div>
+
+        <div class="small">By creating an account you agree to store credentials locally. For Google sign-in, enable OAuth on the server.</div>
       </div>
     </div>
   </div>
 
   <script>
-    // Ensure app.js is loaded (db.js should be loaded before this page in your app)
-    // If db.js isn't loaded, we still can use PouchDB directly for users DB.
-    (function(){
-      // helper to show errors
+    (function () {
+      // Utility: show/hide error
       function showError(id, msg) {
         const el = document.getElementById(id);
         if (!el) return;
-        el.style.display = msg ? 'block' : 'none';
-        el.textContent = msg || '';
+        if (msg) {
+          el.style.display = 'block';
+          el.textContent = msg;
+        } else {
+          el.style.display = 'none';
+          el.textContent = '';
+        }
       }
 
-      // register / login wiring
+      // Elements
       const loginBtn = document.getElementById('loginBtn');
       const toRegister = document.getElementById('toRegister');
       const registerBtn = document.getElementById('registerBtn');
       const toLogin = document.getElementById('toLogin');
 
+      const loginBox = document.getElementById('loginBox');
+      const registerBox = document.getElementById('registerBox');
+
+      // Toggle views
       toRegister.addEventListener('click', () => {
-        document.getElementById('registerBox').style.display = 'block';
-      });
-      toLogin.addEventListener('click', () => {
-        document.getElementById('registerBox').style.display = 'none';
+        showError('error', '');
+        showError('regError', '');
+        loginBox.style.display = 'none';
+        registerBox.style.display = 'block';
+        document.getElementById('regUsername').focus();
       });
 
+      toLogin.addEventListener('click', () => {
+        showError('error', '');
+        showError('regError', '');
+        registerBox.style.display = 'none';
+        loginBox.style.display = 'block';
+        document.getElementById('username').focus();
+      });
+
+      // Helper: fallback simple hash (same as app.js)
+      function fallbackHash(s) {
+        let h = 2166136261 >>> 0;
+        for (let i = 0; i < s.length; i++) {
+          h ^= s.charCodeAt(i);
+          h = Math.imul(h, 16777619);
+        }
+        return (h >>> 0).toString(16);
+      }
+
+      // Login handler
       loginBtn.addEventListener('click', async () => {
         showError('error', '');
-        const username = document.getElementById('username').value.trim();
-        const password = document.getElementById('password').value;
+        const username = (document.getElementById('username').value || '').trim();
+        const password = document.getElementById('password').value || '';
         if (!username || !password) {
           showError('error', 'Please enter username/email and password.');
           return;
         }
+
         try {
-          // prefer app-provided loginUser if available
+          // Prefer app-provided loginUser if available
           if (window.loginUser && typeof window.loginUser === 'function') {
             await window.loginUser({ usernameOrEmail: username, password });
           } else {
-            // fallback: use local users DB directly
+            // Fallback: use local users DB directly
             const usersDb = new PouchDB('finance-users');
-            // try username id
             let doc = null;
-            try { doc = await usersDb.get('user:' + username.toLowerCase()); } catch {}
+            try {
+              doc = await usersDb.get('user:' + username.toLowerCase());
+            } catch (e) {
+              // not found by id
+            }
             if (!doc) {
-              // scan for email
-              const all = await usersDb.allDocs({ include_docs: true });
-              doc = all.rows.map(r => r.doc).find(d => d.email === username) || null;
+              // scan by email
+              try {
+                const all = await usersDb.allDocs({ include_docs: true });
+                doc = all.rows.map(r => r.doc).find(d => d.email === username) || null;
+              } catch (e) {
+                // ignore
+              }
             }
             if (!doc) throw new Error('User not found');
-            const hash = (window.simpleHash ? window.simpleHash(password) : (function(s){ let h=2166136261>>>0; for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619);} return (h>>>0).toString(16); })(password));
+            const hash = (window.simpleHash && typeof window.simpleHash === 'function') ? window.simpleHash(password) : fallbackHash(password);
             if (doc.passwordHash !== hash) throw new Error('Invalid credentials');
-            localStorage.setItem('finance-tracker:current-user', JSON.stringify({ username: doc.username, email: doc.email, id: doc._id }));
-            window.__CURRENT_USER__ = { username: doc.username, email: doc.email, id: doc._id };
+            const user = { username: doc.username, email: doc.email, id: doc._id };
+            localStorage.setItem('finance-tracker:current-user', JSON.stringify(user));
+            window.__CURRENT_USER__ = user;
           }
-          // redirect to home
+
+          // Redirect to home (preserve origin)
+          const base = (window.location.pathname || '').replace(/\/[^/]*$/, '/../../').replace(/\/\/+/g, '/');
+          // Simpler redirect to root index
           window.location.href = '../../index.html';
         } catch (err) {
-          showError('error', err.message || 'Login failed');
+          showError('error', err && err.message ? err.message : 'Login failed');
         }
       });
 
+      // Register handler
       registerBtn.addEventListener('click', async () => {
         showError('regError', '');
-        const username = document.getElementById('regUsername').value.trim();
-        const email = document.getElementById('regEmail').value.trim();
-        const password = document.getElementById('regPassword').value;
+        const username = (document.getElementById('regUsername').value || '').trim();
+        const email = (document.getElementById('regEmail').value || '').trim();
+        const password = document.getElementById('regPassword').value || '';
         if (!username || !password) {
           showError('regError', 'Please enter username and password.');
           return;
         }
+
         try {
           if (window.registerUser && typeof window.registerUser === 'function') {
             await window.registerUser({ username, email, password });
@@ -134,12 +338,25 @@
             const id = 'user:' + username.toLowerCase();
             const existing = await usersDb.get(id).catch(() => null);
             if (existing) throw new Error('User already exists');
-            await usersDb.put({ _id: id, username, email, passwordHash: (window.simpleHash ? window.simpleHash(password) : (function(s){ let h=2166136261>>>0; for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619);} return (h>>>0).toString(16); })(password)), createdAt: new Date().toISOString() });
+            const passwordHash = (window.simpleHash && typeof window.simpleHash === 'function') ? window.simpleHash(password) : fallbackHash(password);
+            await usersDb.put({
+              _id: id,
+              username,
+              email: email || '',
+              passwordHash,
+              createdAt: new Date().toISOString()
+            });
           }
-          alert('Account created. You can now login.');
-          document.getElementById('registerBox').style.display = 'none';
+
+          // Success feedback and switch to login
+          alert('Account created successfully. You can now sign in.');
+          registerBox.style.display = 'none';
+          loginBox.style.display = 'block';
+          document.getElementById('username').value = username;
+          document.getElementById('password').value = '';
+          document.getElementById('username').focus();
         } catch (err) {
-          showError('regError', err.message || 'Registration failed');
+          showError('regError', err && err.message ? err.message : 'Registration failed');
         }
       });
 
@@ -149,7 +366,17 @@
         if (cur) {
           window.location.href = '../../index.html';
         }
-      } catch (e) { /* ignore */ }
+      } catch (e) {
+        // ignore parse errors
+      }
+
+      // Accessibility: allow Enter key to submit on login form
+      document.getElementById('password').addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') loginBtn.click();
+      });
+      document.getElementById('regPassword').addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') registerBtn.click();
+      });
     })();
   </script>
 </body>
