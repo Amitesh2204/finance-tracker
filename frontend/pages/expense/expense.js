@@ -97,7 +97,18 @@ document.addEventListener('DOMContentLoaded', async () => {
       },
       options: {
         responsive: true,
-        maintainAspectRatio: false
+        maintainAspectRatio: false,
+        plugins: {
+          datalabels: {
+            color: '#fff',
+            formatter: (value, context) => {
+              const dataset = context.chart.data.datasets[0].data;
+              const total = dataset.reduce((sum, v) => sum + v, 0);
+              const percentage = total ? (value / total * 100).toFixed(1) + '%' : '';
+              return percentage;
+            }
+          }
+        }
       }
     });
   }
