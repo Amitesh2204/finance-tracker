@@ -1,4 +1,5 @@
 // expense.js - Expense dashboard totals, charts, and yearly summary
+Chart.register(ChartDataLabels);
 
 document.addEventListener('DOMContentLoaded', async () => {
   const balanceCard = document.getElementById('totalBalance');
