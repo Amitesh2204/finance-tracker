@@ -1,5 +1,3 @@
-Chart.register(ChartDataLabels);
-
 document.addEventListener('DOMContentLoaded', async () => {
   const totalExpenseEl = document.getElementById('totalMonthlyExpense');
   const highestMonthEl = document.getElementById('highestExpenseMonth');
