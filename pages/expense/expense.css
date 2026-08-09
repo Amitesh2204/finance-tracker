@@ -16,7 +16,8 @@
 .content-panel {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 24px;
+  margin-bottom: 24px; /* extra spacing below summary cards */
 }
 
 .summary-cards {
