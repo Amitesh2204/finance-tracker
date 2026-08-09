@@ -209,18 +209,18 @@ async function loadFinancialStats() {
       return;
     }
 
-    // Expense totals
+    // --- Balance (from Expense page) ---
     const balanceEntries = entries.filter(e => String(e.type || '').toLowerCase() === 'balance');
+    const totalBalance = balanceEntries.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+
+    // --- Expenses (from Expense + Trip entries) ---
     const expenseEntries = entries.filter(e => {
       const type = String(e.type || '').toLowerCase();
       return type === 'expense' || type === 'trip';
     });
-
-    const totalBalance = balanceEntries.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
     const totalExpense = expenseEntries.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
-    const totalSaving = Math.max(totalBalance - totalExpense, 0); // prevent negative values
 
-    // Investment totals (Mutual Fund + LIC + PPF + Sukanya Yojana)
+    // --- Savings (from Investments: Mutual Fund + LIC + PPF + Sukanya) ---
     const investmentEntries = entries.filter(e => String(e.type || '').toLowerCase() === 'investment');
     const relevantInvestments = investmentEntries.filter(e => {
       const cat = String(e.category || '').toLowerCase();
@@ -228,12 +228,12 @@ async function loadFinancialStats() {
     });
     const totalInvestments = relevantInvestments.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
 
-    // Update UI
+    // --- Update UI cards ---
     if (balanceEl) balanceEl.textContent = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(totalBalance);
     if (expensesEl) expensesEl.textContent = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(totalExpense);
     if (savingsEl) savingsEl.textContent = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(totalInvestments);
 
-    console.debug("Financial stats updated:", { totalBalance, totalExpense, totalSaving, totalInvestments });
+    console.debug("Financial stats updated:", { totalBalance, totalExpense, totalInvestments });
   } catch (err) {
     console.error("Error loading financial stats:", err);
   }
