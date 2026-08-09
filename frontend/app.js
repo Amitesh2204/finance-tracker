@@ -138,12 +138,14 @@ window.addEventListener('load', async () => {
     const entries = await fetchEntries();
     if (Array.isArray(entries) && entries.length) {
       window.__LAST_ENTRIES__ = entries;
-      await loadFinancialStats(); // ensure stats update after entries load
     }
+    // Always call stats update after load
+    await loadFinancialStats();
   } catch (err) {
     console.warn('Initial entry load failed', err);
   }
 });
+
 
 // --- UI bindings ---
 document.addEventListener('DOMContentLoaded', async () => {
@@ -239,5 +241,4 @@ async function loadFinancialStats() {
     console.error("Error loading financial stats:", err);
   }
 }
-
 });
