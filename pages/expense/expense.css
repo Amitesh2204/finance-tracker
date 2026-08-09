@@ -22,9 +22,9 @@
 
 .summary-cards {
   display: grid;
-  grid-template-columns: repeat(3, minmax(120px, 1fr));
-  gap: 200px;
-  margin-bottom: 24px; /* extra spacing below summary cards */
+  grid-template-columns: repeat(3, minmax(200px, 1fr)); /* wider blocks */
+  gap: 40px; /* reduce gap so blocks fill more space */
+  margin-bottom: 24px;
 }
 
 .card {
