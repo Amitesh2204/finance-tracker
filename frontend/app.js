@@ -148,12 +148,31 @@ window.addEntry = addEntry;
 window.formatCurrency = formatCurrency;
 
 // --- Summary cards (balance/savings/expenses) ---
+// NOTE: made getExpenseTotals more robust to handle different entry shapes/labels
 function getExpenseTotals(entries = []) {
-  const balanceEntries = entries.filter(e => normalizeEntryType(e) === 'balance');
-  const expenseEntries = entries.filter(e => ['expense', 'trip'].includes(normalizeEntryType(e)));
+  // Accept entries that are typed as 'balance' or 'income' or have notes/categories indicating balance
+  const isBalanceEntry = (e) => {
+    const type = normalizeEntryType(e);
+    const cat = String(e.category || '').toLowerCase();
+    const notes = String(e.notes || '').toLowerCase();
+    return type === 'balance' || type === 'income' || cat.includes('balance') || notes.includes('total balance') || notes.includes('monthly total');
+  };
 
+  const isExpenseEntry = (e) => {
+    const type = normalizeEntryType(e);
+    const cat = String(e.category || '').toLowerCase();
+    const notes = String(e.notes || '').toLowerCase();
+    return type === 'expense' || type === 'trip' || cat.includes('expense') || notes.includes('expense') || notes.includes('monthly expense');
+  };
+
+  const balanceEntries = entries.filter(isBalanceEntry);
+  const expenseEntries = entries.filter(isExpenseEntry);
+
+  // Some data sources store expenses as positive numbers, some as negative.
+  // We'll treat expense amounts as absolute values when summing.
   const totalBalance = balanceEntries.reduce((s, e) => s + (Number(e.amount) || 0), 0);
-  const totalExpense = expenseEntries.reduce((s, e) => s + (Number(e.amount) || 0), 0);
+  const totalExpense = expenseEntries.reduce((s, e) => s + Math.abs(Number(e.amount) || 0), 0);
+
   return { totalBalance, totalExpense, totalSaving: totalBalance - totalExpense };
 }
 
@@ -172,33 +191,55 @@ function getInvestmentTotals(entries = []) {
 }
 
 async function loadFinancialStats(optionalEntries) {
-  const entries = Array.isArray(optionalEntries) ? optionalEntries : (Array.isArray(window.__LAST_ENTRIES__) ? window.__LAST_ENTRIES__ : await fetchEntries());
-  const balanceEl = getElementByAnyId('totalBalance');
-  const savingsEl = getElementByAnyId('savings');
-  const expensesEl = getElementByAnyId('expenses');
+  try {
+    const entries = Array.isArray(optionalEntries)
+      ? optionalEntries
+      : (Array.isArray(window.__LAST_ENTRIES__) ? window.__LAST_ENTRIES__ : await fetchEntries());
 
-  if (balanceEl) balanceEl.textContent = 'Loading…';
-  if (savingsEl) savingsEl.textContent = 'Loading…';
-  if (expensesEl) expensesEl.textContent = 'Loading…';
+    const balanceEl = getElementByAnyId('totalBalance');
+    const savingsEl = getElementByAnyId('savings');
+    const expensesEl = getElementByAnyId('expenses');
 
-  if (!entries || !entries.length) {
-    if (balanceEl) balanceEl.textContent = '₹0.00';
-    if (savingsEl) savingsEl.textContent = '₹0.00';
-    if (expensesEl) expensesEl.textContent = '₹0.00';
-    return;
+    if (balanceEl) balanceEl.textContent = 'Loading…';
+    if (savingsEl) savingsEl.textContent = 'Loading…';
+    if (expensesEl) expensesEl.textContent = 'Loading…';
+
+    if (!entries || entries.length === 0) {
+      if (balanceEl) balanceEl.textContent = '₹0.00';
+      if (savingsEl) savingsEl.textContent = '₹0.00';
+      if (expensesEl) expensesEl.textContent = '₹0.00';
+      return;
+    }
+
+    const expenseTotals = getExpenseTotals(entries);
+    const investmentTotals = getInvestmentTotals(entries);
+    const savingsValue = investmentTotals.total > 0 ? investmentTotals.total : expenseTotals.totalSaving;
+
+    if (balanceEl) balanceEl.textContent = formatCurrency(expenseTotals.totalBalance);
+    if (expensesEl) expensesEl.textContent = formatCurrency(expenseTotals.totalExpense);
+    if (savingsEl) savingsEl.textContent = formatCurrency(savingsValue);
+
+    console.debug('Financial stats updated:', {
+      totalBalance: expenseTotals.totalBalance,
+      totalExpense: expenseTotals.totalExpense,
+      totalSaving: expenseTotals.totalSaving,
+      investmentTotal: investmentTotals.total,
+    });
+  } catch (err) {
+    console.error('Error loading financial stats:', err);
+    const balanceEl = getElementByAnyId('totalBalance');
+    const savingsEl = getElementByAnyId('savings');
+    const expensesEl = getElementByAnyId('expenses');
+    if (balanceEl) balanceEl.textContent = 'Error';
+    if (savingsEl) savingsEl.textContent = 'Error';
+    if (expensesEl) expensesEl.textContent = 'Error';
   }
-
-  const expenseTotals = getExpenseTotals(entries);
-  const investmentTotals = getInvestmentTotals(entries);
-  const savingsValue = investmentTotals.total > 0 ? investmentTotals.total : expenseTotals.totalSaving;
-
-  if (balanceEl) balanceEl.textContent = formatCurrency(expenseTotals.totalBalance);
-  if (expensesEl) expensesEl.textContent = formatCurrency(expenseTotals.totalExpense);
-  if (savingsEl) savingsEl.textContent = formatCurrency(savingsValue);
 }
 
+// make loadFinancialStats available globally for debugging or manual calls
+window.loadFinancialStats = loadFinancialStats;
+
 // --- Last Transaction rendering (date selector) ---
-// shows category (if present) in first column; table is placed inside a scrollable container in HTML
 function renderLastTransactionsForDate(entries = [], dateISO = null) {
   const txTable = getElementByAnyId('lastTx');
   if (!txTable) return;
@@ -244,7 +285,7 @@ function updateRecentActivityChart(entries = [], year = (new Date()).getFullYear
     if (Number.isNaN(d.getTime())) return;
     if (d.getFullYear() !== Number(year)) return;
     const t = normalizeEntryType(e);
-    if (t === 'expense' || t === 'trip') expenseByMonth[d.getMonth()] += Number(e.amount) || 0;
+    if (t === 'expense' || t === 'trip') expenseByMonth[d.getMonth()] += Math.abs(Number(e.amount) || 0);
   });
 
   const monthLabels = Array.from({length:12}, (_,i) => new Date(0,i).toLocaleString('en-IN',{month:'short'}));
@@ -290,8 +331,8 @@ function updateSavingsChart(entries = [], year = (new Date()).getFullYear()) {
     if (Number.isNaN(d.getTime())) return;
     if (d.getFullYear() !== Number(year)) return;
     const t = normalizeEntryType(e);
-    if (t === 'balance') balanceByMonth[d.getMonth()] += Number(e.amount) || 0;
-    if (t === 'expense' || t === 'trip') expenseByMonth[d.getMonth()] += Number(e.amount) || 0;
+    if (t === 'balance' || t === 'income') balanceByMonth[d.getMonth()] += Number(e.amount) || 0;
+    if (t === 'expense' || t === 'trip') expenseByMonth[d.getMonth()] += Math.abs(Number(e.amount) || 0);
   });
 
   const savingsByMonth = balanceByMonth.map((b,i) => b - expenseByMonth[i]);
@@ -324,6 +365,7 @@ function initSelectorsAndUI(entries = []) {
   const lastTxDateInput = document.getElementById('lastTxDate');
   const activityYearSelector = document.getElementById('activityYear');
   const savingsYearSelector = document.getElementById('savingsYear');
+  const chartYearSelector = document.getElementById('chartYear');
 
   const now = new Date();
   const todayISO = now.toISOString().slice(0,10);
@@ -343,10 +385,12 @@ function initSelectorsAndUI(entries = []) {
   const yearOptionsHtml = years.map(y => `<option value="${y}">${y}</option>`).join('');
   if (activityYearSelector) activityYearSelector.innerHTML = yearOptionsHtml;
   if (savingsYearSelector) savingsYearSelector.innerHTML = yearOptionsHtml;
+  if (chartYearSelector) chartYearSelector.innerHTML = yearOptionsHtml;
 
   // defaults
   if (activityYearSelector && !activityYearSelector.value) activityYearSelector.value = now.getFullYear();
   if (savingsYearSelector && !savingsYearSelector.value) savingsYearSelector.value = now.getFullYear();
+  if (chartYearSelector && !chartYearSelector.value) chartYearSelector.value = now.getFullYear();
 
   function refreshAll() {
     const dateVal = lastTxDateInput ? lastTxDateInput.value : todayISO;
@@ -357,14 +401,74 @@ function initSelectorsAndUI(entries = []) {
 
     const savYear = savingsYearSelector ? Number(savingsYearSelector.value) : now.getFullYear();
     updateSavingsChart(entries, savYear);
+
+    // update financeChart (year-wise income/expense) if chartYearSelector exists
+    if (chartYearSelector) {
+      const chartYear = Number(chartYearSelector.value);
+      updateFinanceChartYear(entries, chartYear);
+    }
   }
 
   if (lastTxDateInput) lastTxDateInput.addEventListener('change', refreshAll);
   if (activityYearSelector) activityYearSelector.addEventListener('change', refreshAll);
   if (savingsYearSelector) savingsYearSelector.addEventListener('change', refreshAll);
+  if (chartYearSelector) chartYearSelector.addEventListener('change', refreshAll);
 
   // initial render
   refreshAll();
+}
+
+// --- Finance chart (year-wise, each bar = month) ---
+function updateFinanceChartYear(entries = [], year = (new Date()).getFullYear()) {
+  const canvas = document.getElementById('financeChart');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+
+  const incomeByMonth = new Array(12).fill(0);
+  const expenseByMonth = new Array(12).fill(0);
+
+  (entries || []).forEach(e => {
+    const d = new Date(e.date);
+    if (Number.isNaN(d.getTime())) return;
+    if (d.getFullYear() !== Number(year)) return;
+    const m = d.getMonth();
+    const amt = Number(e.amount) || 0;
+    const type = normalizeEntryType(e);
+    if (type === 'balance' || type === 'income') incomeByMonth[m] += amt;
+    if (type === 'expense' || type === 'trip') expenseByMonth[m] += Math.abs(amt);
+  });
+
+  const monthLabels = Array.from({ length: 12 }, (_, i) => new Date(0, i).toLocaleString('en-IN', { month: 'short' }));
+
+  if (window.financeChartInstance) {
+    try { window.financeChartInstance.destroy(); } catch (e) { /* ignore */ }
+  }
+
+  window.financeChartInstance = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: monthLabels,
+      datasets: [
+        {
+          label: 'Income',
+          data: incomeByMonth,
+          backgroundColor: '#1abc9c'
+        },
+        {
+          label: 'Expense',
+          data: expenseByMonth,
+          backgroundColor: '#e74c3c'
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        y: { beginAtZero: true }
+      }
+    }
+  });
 }
 
 // --- Run once after window load ---
