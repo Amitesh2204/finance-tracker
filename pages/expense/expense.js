@@ -9,7 +9,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const dailyMonthYearSelect = document.getElementById('dailyMonthYearSelect');
   const yearlyExpenseSelect = document.getElementById('yearlyExpenseSelect');
 
-  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
   let totalBalance = 0;
   let totalExpense = 0;
@@ -29,7 +29,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   function getMonthYearKey(dateValue) {
     const date = new Date(dateValue);
     if (Number.isNaN(date.getTime())) return null;
-    return `${date.toLocaleString('default', { month: 'short' })}-${date.getFullYear()}`;
+    return `${date.toLocaleString('default',{month:'short'})}-${date.getFullYear()}`;
   }
 
   function renderMonthlyExpenseChart(selectedYear) {
@@ -64,6 +64,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
+  // Pie chart for category-wise monthly spending
   function renderDailyExpenseChart(selectedMonthYear) {
     const canvas = document.getElementById('dailyExpenseChart');
     if (!canvas || typeof Chart === 'undefined') return;
@@ -74,26 +75,29 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     const dailyEntries = monthlyData[selectedMonthYear]?.daily || [];
-    const labels = dailyEntries.map(entry => new Date(entry.date).getDate());
-    const amounts = dailyEntries.map(entry => Number(entry.amount) || 0);
+
+    // Group by category
+    const categoryTotals = {};
+    dailyEntries.forEach(entry => {
+      const category = entry.category || 'Expense';
+      categoryTotals[category] = (categoryTotals[category] || 0) + (Number(entry.amount) || 0);
+    });
+
+    const labels = Object.keys(categoryTotals);
+    const amounts = Object.values(categoryTotals);
 
     window.dailyExpenseChart = new Chart(ctx, {
-      type: 'line',
+      type: 'pie',
       data: {
         labels,
         datasets: [{
-          label: 'Daily Expense',
           data: amounts,
-          borderColor: '#e67e22',
-          backgroundColor: 'rgba(230,126,34,0.2)',
-          fill: true,
-          tension: 0.3
+          backgroundColor: ['#e74c3c','#3498db','#2ecc71','#9b59b6','#f1c40f']
         }]
       },
       options: {
         responsive: true,
-        maintainAspectRatio: false,
-        scales: { y: { beginAtZero: true } }
+        maintainAspectRatio: false
       }
     });
   }
@@ -115,42 +119,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     }).join('');
 
     yearlyTableBody.innerHTML = rows || '<tr><td colspan="4">No data yet</td></tr>';
-  }
-
-  function populateYearSelect(selectEl, values) {
-    selectEl.innerHTML = '';
-    if (!values.length) {
-      const opt = document.createElement('option');
-      opt.value = '';
-      opt.textContent = 'No data';
-      selectEl.appendChild(opt);
-      return;
-    }
-
-    values.sort((a, b) => a - b).forEach(value => {
-      const opt = document.createElement('option');
-      opt.value = value;
-      opt.textContent = value;
-      selectEl.appendChild(opt);
-    });
-  }
-
-  function populateMonthYearSelect(selectEl, values) {
-    selectEl.innerHTML = '';
-    if (!values.length) {
-      const opt = document.createElement('option');
-      opt.value = '';
-      opt.textContent = 'No data';
-      selectEl.appendChild(opt);
-      return;
-    }
-
-    values.forEach(value => {
-      const opt = document.createElement('option');
-      opt.value = value;
-      opt.textContent = value;
-      selectEl.appendChild(opt);
-    });
   }
 
   async function loadEntries() {
@@ -180,24 +148,14 @@ document.addEventListener('DOMContentLoaded', async () => {
       totalBalance += amount;
     });
 
-    monthlyExpenseEntries.forEach(entry => {
+    allExpenseEntries.forEach(entry => {
       const amount = Number(entry.amount) || 0;
       const key = getMonthYearKey(entry.date);
       if (!key) return;
 
       monthlyData[key] = monthlyData[key] || { balance: 0, expense: 0, daily: [] };
       monthlyData[key].expense += amount;
-      monthlyData[key].daily.push({ date: entry.date, amount });
-      totalExpense += amount;
-    });
-
-    tripEntries.forEach(entry => {
-      const amount = Number(entry.amount) || 0;
-      const key = getMonthYearKey(entry.date);
-      if (!key) return;
-
-      monthlyData[key] = monthlyData[key] || { balance: 0, expense: 0, daily: [] };
-      monthlyData[key].expense += amount;
+      monthlyData[key].daily.push({ date: entry.date, amount, category: entry.category });
       totalExpense += amount;
     });
 
@@ -209,13 +167,41 @@ document.addEventListener('DOMContentLoaded', async () => {
       ...allExpenseEntries.map(entry => new Date(entry.date).getFullYear())
     ])].filter(Boolean);
 
-    populateYearSelect(expenseYearSelect, years);
-    populateYearSelect(yearlyExpenseSelect, years);
+    expenseYearSelect.innerHTML = '';
+    yearlyExpenseSelect.innerHTML = '';
+    if (!years.length) {
+      const opt = document.createElement('option');
+      opt.value = '';
+      opt.textContent = 'No data';
+      expenseYearSelect.appendChild(opt);
+      yearlyExpenseSelect.appendChild(opt.cloneNode(true));
+    } else {
+      years.sort().forEach(y => {
+        const opt = document.createElement('option');
+        opt.value = y;
+        opt.textContent = y;
+        expenseYearSelect.appendChild(opt);
+        yearlyExpenseSelect.appendChild(opt.cloneNode(true));
+      });
+    }
 
-    const monthYearValues = [...new Set(monthlyExpenseEntries
+    const monthYearValues = [...new Set(allExpenseEntries
       .map(entry => getMonthYearKey(entry.date))
       .filter(Boolean))];
-    populateMonthYearSelect(dailyMonthYearSelect, monthYearValues);
+    dailyMonthYearSelect.innerHTML = '';
+    if (!monthYearValues.length) {
+      const opt = document.createElement('option');
+      opt.value = '';
+      opt.textContent = 'No data';
+      dailyMonthYearSelect.appendChild(opt);
+    } else {
+      monthYearValues.forEach(m => {
+        const opt = document.createElement('option');
+        opt.value = m;
+        opt.textContent = m;
+        dailyMonthYearSelect.appendChild(opt);
+      });
+    }
 
     const defaultYear = expenseYearSelect.value || years[years.length - 1] || new Date().getFullYear();
     const defaultMonthYear = dailyMonthYearSelect.value || monthYearValues[0] || '';
@@ -263,4 +249,5 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   loadEntries();
+
 });
