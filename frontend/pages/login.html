@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Login - Finance Tracker</title>
+  <link rel="stylesheet" href="../../style.css">
+  <style>
+    body { background:var(--bg); }
+    .login-wrap { max-width:420px; margin:60px auto; }
+    .oauth-note { color:var(--muted); font-size:0.9rem; margin-bottom:8px; }
+    .small { font-size:0.9rem; color:var(--muted); }
+  </style>
+  <script src="https://unpkg.com/pouchdb@7.3.1/dist/pouchdb.min.js"></script>
+</head>
+<body>
+  <div class="login-wrap">
+    <div class="login-container">
+      <h3>Sign in to Wealty</h3>
+
+      <div id="error" class="small" style="color:#e74c3c; display:none"></div>
+
+      <label for="username">Username or Email</label>
+      <input id="username" type="text" placeholder="username or email" />
+
+      <label for="password">Password</label>
+      <input id="password" type="password" placeholder="password" />
+
+      <div class="login-actions">
+        <button id="loginBtn">Login</button>
+        <button id="toRegister" style="background:#3498db">Register</button>
+      </div>
+
+      <div style="margin-top:8px;">
+        <div class="oauth-note">Google sign-in is not enabled by default in this build. To enable OAuth, configure a server-side flow and set window.__GOOGLE_OAUTH__ in config.js.</div>
+      </div>
+    </div>
+
+    <div id="registerBox" class="login-container" style="display:none; margin-top:12px;">
+      <h3>Create an account</h3>
+      <div id="regError" class="small" style="color:#e74c3c; display:none"></div>
+
+      <label for="regUsername">Username</label>
+      <input id="regUsername" type="text" placeholder="username" />
+
+      <label for="regEmail">Email (optional)</label>
+      <input id="regEmail" type="email" placeholder="you@example.com" />
+
+      <label for="regPassword">Password</label>
+      <input id="regPassword" type="password" placeholder="password" />
+
+      <div class="login-actions">
+        <button id="registerBtn">Create account</button>
+        <button id="toLogin" style="background:#95a5a6">Back to login</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Ensure app.js is loaded (db.js should be loaded before this page in your app)
+    // If db.js isn't loaded, we still can use PouchDB directly for users DB.
+    (function(){
+      // helper to show errors
+      function showError(id, msg) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.style.display = msg ? 'block' : 'none';
+        el.textContent = msg || '';
+      }
+
+      // register / login wiring
+      const loginBtn = document.getElementById('loginBtn');
+      const toRegister = document.getElementById('toRegister');
+      const registerBtn = document.getElementById('registerBtn');
+      const toLogin = document.getElementById('toLogin');
+
+      toRegister.addEventListener('click', () => {
+        document.getElementById('registerBox').style.display = 'block';
+      });
+      toLogin.addEventListener('click', () => {
+        document.getElementById('registerBox').style.display = 'none';
+      });
+
+      loginBtn.addEventListener('click', async () => {
+        showError('error', '');
+        const username = document.getElementById('username').value.trim();
+        const password = document.getElementById('password').value;
+        if (!username || !password) {
+          showError('error', 'Please enter username/email and password.');
+          return;
+        }
+        try {
+          // prefer app-provided loginUser if available
+          if (window.loginUser && typeof window.loginUser === 'function') {
+            await window.loginUser({ usernameOrEmail: username, password });
+          } else {
+            // fallback: use local users DB directly
+            const usersDb = new PouchDB('finance-users');
+            // try username id
+            let doc = null;
+            try { doc = await usersDb.get('user:' + username.toLowerCase()); } catch {}
+            if (!doc) {
+              // scan for email
+              const all = await usersDb.allDocs({ include_docs: true });
+              doc = all.rows.map(r => r.doc).find(d => d.email === username) || null;
+            }
+            if (!doc) throw new Error('User not found');
+            const hash = (window.simpleHash ? window.simpleHash(password) : (function(s){ let h=2166136261>>>0; for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619);} return (h>>>0).toString(16); })(password));
+            if (doc.passwordHash !== hash) throw new Error('Invalid credentials');
+            localStorage.setItem('finance-tracker:current-user', JSON.stringify({ username: doc.username, email: doc.email, id: doc._id }));
+            window.__CURRENT_USER__ = { username: doc.username, email: doc.email, id: doc._id };
+          }
+          // redirect to home
+          window.location.href = '../../index.html';
+        } catch (err) {
+          showError('error', err.message || 'Login failed');
+        }
+      });
+
+      registerBtn.addEventListener('click', async () => {
+        showError('regError', '');
+        const username = document.getElementById('regUsername').value.trim();
+        const email = document.getElementById('regEmail').value.trim();
+        const password = document.getElementById('regPassword').value;
+        if (!username || !password) {
+          showError('regError', 'Please enter username and password.');
+          return;
+        }
+        try {
+          if (window.registerUser && typeof window.registerUser === 'function') {
+            await window.registerUser({ username, email, password });
+          } else {
+            const usersDb = new PouchDB('finance-users');
+            const id = 'user:' + username.toLowerCase();
+            const existing = await usersDb.get(id).catch(() => null);
+            if (existing) throw new Error('User already exists');
+            await usersDb.put({ _id: id, username, email, passwordHash: (window.simpleHash ? window.simpleHash(password) : (function(s){ let h=2166136261>>>0; for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619);} return (h>>>0).toString(16); })(password)), createdAt: new Date().toISOString() });
+          }
+          alert('Account created. You can now login.');
+          document.getElementById('registerBox').style.display = 'none';
+        } catch (err) {
+          showError('regError', err.message || 'Registration failed');
+        }
+      });
+
+      // If already logged in, redirect to home
+      try {
+        const cur = (window.getCurrentUser && typeof window.getCurrentUser === 'function') ? window.getCurrentUser() : JSON.parse(localStorage.getItem('finance-tracker:current-user') || 'null');
+        if (cur) {
+          window.location.href = '../../index.html';
+        }
+      } catch (e) { /* ignore */ }
+    })();
+  </script>
+</body>
+</html>
