@@ -37,6 +37,57 @@ function getMutualFundSummary(entries = []) {
   return summary;
 }
 
+// --- Helper: safe DOM query for multiple possible IDs ---
+function getElementByAnyId(...ids) {
+  for (const id of ids) {
+    const el = document.getElementById(id);
+    if (el) return el;
+  }
+  return null;
+}
+
+// --- Local sync helper: persist remote entries into local PouchDB for offline persistence ---
+async function syncEntriesToLocal(entries = []) {
+  if (!db || typeof db.bulkDocs !== 'function') return;
+  try {
+    // Normalize docs: ensure _id exists and avoid overwriting _rev
+    const docs = entries.map(e => {
+      const doc = Object.assign({}, e);
+      if (!doc._id) {
+        // create stable id if not present
+        doc._id = doc._id || `entry:${doc.type || 'txn'}:${doc.date || Date.now()}:${Math.random().toString(36).slice(2,9)}`;
+      }
+      // Remove any transient fields that PouchDB may not accept (optional)
+      return doc;
+    });
+
+    // Use bulkDocs with new_edits=false to preserve remote _rev if present, but only if _rev exists.
+    // If _rev not present, allow new_edits true (default).
+    // We'll attempt bulkDocs and ignore conflicts.
+    await db.bulkDocs(docs).catch(err => {
+      // If conflict or other error, try upserting individually
+      if (err && err.status === 409) {
+        // ignore; conflicts expected if docs already exist
+        return;
+      }
+      // fallback: upsert each doc
+      return Promise.all(docs.map(async d => {
+        try {
+          const existing = await db.get(d._id).catch(() => null);
+          if (existing) {
+            d._rev = existing._rev;
+          }
+          return db.put(d).catch(() => null);
+        } catch (e) {
+          return null;
+        }
+      }));
+    });
+  } catch (err) {
+    console.warn('syncEntriesToLocal failed', err);
+  }
+}
+
 // --- Fetch entries (remote first, fallback to local PouchDB) ---
 async function fetchEntries() {
   const apiBase = window.__API_BASE__ || '';
@@ -46,10 +97,17 @@ async function fetchEntries() {
     const response = await fetch(apiUrl, { headers: { Accept: 'application/json' } });
     if (!response.ok) throw new Error(`API request failed: ${response.status}`);
     const data = await response.json();
-    console.debug('Fetched entries from API:', Array.isArray(data) ? data.length : 0);
+    const entries = Array.isArray(data) ? data : [];
+    console.debug('Fetched entries from API:', entries.length);
+
     // cache for reuse during this page lifecycle
-    if (Array.isArray(data)) window.__LAST_ENTRIES__ = data;
-    return Array.isArray(data) ? data : [];
+    if (entries.length) {
+      window.__LAST_ENTRIES__ = entries;
+      // Persist remote entries into local PouchDB so data remains available after refresh
+      // Do this asynchronously but don't block returning entries
+      syncEntriesToLocal(entries).catch(err => console.warn('syncEntriesToLocal error', err));
+    }
+    return entries;
   } catch (err) {
     console.warn('Falling back to local PouchDB:', err);
     if (!db || typeof db.allDocs !== 'function') return [];
@@ -113,6 +171,10 @@ async function addEntry(entry) {
     const saved = await response.json();
     // update in-memory cache
     window.__LAST_ENTRIES__ = Array.isArray(window.__LAST_ENTRIES__) ? [saved, ...window.__LAST_ENTRIES__] : [saved];
+    // persist saved remote entry locally
+    if (db && typeof db.put === 'function') {
+      saveLocalEntry(saved).catch(err => console.warn('saveLocalEntry after remote save failed', err));
+    }
     return saved;
   } catch (err) {
     console.warn('Falling back to local PouchDB save:', err);
@@ -129,20 +191,13 @@ window.addEntry = addEntry;
 window.getMutualFundSummary = getMutualFundSummary;
 window.isMutualFundEntry = isMutualFundEntry;
 
-// --- Helper: safe DOM query for multiple possible IDs ---
-function getElementByAnyId(...ids) {
-  for (const id of ids) {
-    const el = document.getElementById(id);
-    if (el) return el;
-  }
-  return null;
-}
-
 // --- Financial Statistics (global function) ---
 // Accepts optionalEntries to avoid duplicate network calls
 async function loadFinancialStats(optionalEntries) {
   try {
-    const entries = Array.isArray(optionalEntries) ? optionalEntries : (Array.isArray(window.__LAST_ENTRIES__) ? window.__LAST_ENTRIES__ : await fetchEntries());
+    const entries = Array.isArray(optionalEntries)
+      ? optionalEntries
+      : (Array.isArray(window.__LAST_ENTRIES__) ? window.__LAST_ENTRIES__ : await fetchEntries());
 
     // Query DOM elements here (ensure they exist at call time)
     const balanceEl = getElementByAnyId('totalBalance', 'balanceValue');
