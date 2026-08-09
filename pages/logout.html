@@ -6,50 +6,42 @@
   <title>Logout</title>
   <link rel="stylesheet" href="../../style.css">
   <style>
-    body { display:flex; align-items:center; justify-content:center; min-height:100vh; background:var(--bg); color:#ecf0f1; font-family:Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial; }
-    .box { background:var(--card-bg); padding:28px; border-radius:12px; text-align:center; width:320px; box-shadow:0 6px 22px rgba(0,0,0,0.4); }
-    .box h2 { margin:0 0 12px; }
-    .btn { display:inline-block; padding:10px 14px; border-radius:8px; background:#1abc9c; color:#fff; text-decoration:none; margin-top:12px; }
-    .btn-ghost { background:transparent; border:1px solid rgba(255,255,255,0.08); color:#ecf0f1; padding:8px 12px; border-radius:8px; display:inline-block; margin-top:8px; text-decoration:none; }
+    .logout-wrap { max-width:520px; margin:80px auto; text-align:center; }
+    .logout-wrap p { color:#ecf0f1; }
+    .logout-wrap a { display:inline-block; margin-top:12px; padding:10px 14px; border-radius:8px; background:#1abc9c; color:#fff; text-decoration:none; }
   </style>
 </head>
 <body>
-  <div class="box" role="main" aria-live="polite">
-    <h2>Logging out</h2>
-    <p id="msg">Signing you out…</p>
-    <div>
-      <a id="homeBtn" class="btn" href="../../index.html" style="display:none">Go to Home</a>
-      <a id="loginBtn" class="btn-ghost" href="../login.html" style="display:none">Login</a>
-    </div>
+  <div class="logout-wrap">
+    <h2 style="color:#ecf0f1">Logging out…</h2>
+    <p id="logoutMsg">Please wait while we sign you out.</p>
+    <a id="backHome" href="../../index.html" style="display:none">Return to Home</a>
   </div>
 
   <script>
-    // Clear auth and redirect to home after logout
-    (function () {
+    // Clear local session and redirect to login page
+    (function(){
       try {
-        if (window.auth && typeof window.auth.logout === 'function') {
-          window.auth.logout();
+        if (window.logoutUser && typeof window.logoutUser === 'function') {
+          window.logoutUser();
         } else {
-          // fallback: clear localStorage auth key if present
-          localStorage.removeItem('finance-tracker:auth-current-user');
+          localStorage.removeItem('finance-tracker:current-user');
           window.__CURRENT_USER__ = null;
         }
-      } catch (e) {
-        // ignore
+      } catch(e) {
+        console.warn('logout error', e);
       }
-
-      const msg = document.getElementById('msg');
-      const homeBtn = document.getElementById('homeBtn');
-      const loginBtn = document.getElementById('loginBtn');
-
-      if (msg) msg.textContent = 'You have been signed out.';
-      if (homeBtn) homeBtn.style.display = 'inline-block';
-      if (loginBtn) loginBtn.style.display = 'inline-block';
-
-      // optional: redirect to home after short delay
+      // show message and redirect to login page after short delay
+      const loginPath = '../../frontend/pages/login.html';
+      const backHome = document.getElementById('backHome');
       setTimeout(() => {
-        window.location.href = '../../index.html';
-      }, 1200);
+        // If login page exists, go there; otherwise go to root index
+        try {
+          window.location.href = loginPath;
+        } catch {
+          window.location.href = '../../index.html';
+        }
+      }, 800);
     })();
   </script>
 </body>
