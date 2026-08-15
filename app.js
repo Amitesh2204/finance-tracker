@@ -55,6 +55,7 @@
 
   // --- Users DB helper (PouchDB) ---
   // Returns a PouchDB instance for users and ensures replication/sync to remote if configured.
+  // This implementation parses credentials from __USERS_COUCH__ or __CONFIG__.couchAuth and sets remoteOpts.auth explicitly.
   function getUsersDB() {
     try {
       if (window.financeUsersDB) return window.financeUsersDB;
@@ -63,26 +64,52 @@
 
       // Determine remote users URL and auth
       let remoteUsersUrl = null;
-      let remoteOpts = { skip_setup: true };
-
+      const cfg = window.__CONFIG__ || {};
       if (typeof window.__USERS_COUCH__ === 'string' && window.__USERS_COUCH__.trim()) {
         remoteUsersUrl = window.__USERS_COUCH__.trim();
-      } else {
-        const cfg = window.__CONFIG__ || {};
-        if (cfg.couchHost) remoteUsersUrl = `https://${cfg.couchHost}/finance-users`;
-        if (cfg.couchAuth && cfg.couchAuth.username && cfg.couchAuth.password) {
+      } else if (cfg.couchHost) {
+        remoteUsersUrl = `https://${cfg.couchHost}/finance-users`;
+      }
+
+      const remoteOpts = { skip_setup: true };
+
+      // Parse credentials from URL if present and set remoteOpts.auth explicitly
+      try {
+        if (remoteUsersUrl) {
+          try {
+            const parsed = new URL(remoteUsersUrl);
+            if (parsed.username || parsed.password) {
+              remoteOpts.auth = {
+                username: decodeURIComponent(parsed.username || ''),
+                password: decodeURIComponent(parsed.password || '')
+              };
+              // remove credentials from URL to avoid browser quirks
+              parsed.username = '';
+              parsed.password = '';
+              remoteUsersUrl = parsed.toString();
+            }
+          } catch (e) {
+            // ignore parse errors and fall back to cfg.couchAuth
+          }
+        }
+        if (!remoteOpts.auth && cfg.couchAuth && cfg.couchAuth.username && cfg.couchAuth.password) {
           remoteOpts.auth = { username: cfg.couchAuth.username, password: cfg.couchAuth.password };
         }
+      } catch (e) {
+        console.warn('getUsersDB credential parsing failed', e);
       }
 
       if (remoteUsersUrl) {
         try {
           const remote = new PouchDB(remoteUsersUrl, remoteOpts);
+          // start live sync so changes replicate both ways
           usersDb.sync(remote, { live: true, retry: true })
             .on('change', info => console.debug('Users DB sync change', info))
-            .on('paused', () => console.debug('Users DB sync paused'))
-            .on('active', () => console.debug('Users DB sync active'))
-            .on('error', err => console.warn('Users DB sync error', err));
+            .on('paused', info => console.debug('Users DB sync paused', info))
+            .on('active', info => console.debug('Users DB sync active', info))
+            .on('denied', info => console.warn('Users DB sync denied', info))
+            .on('error', err => console.error('Users DB sync error', err));
+          console.debug('getUsersDB: usersDb.sync started', { remoteUsersUrl, hasAuth: !!remoteOpts.auth });
         } catch (e) {
           console.warn('Users DB live sync setup failed', e);
         }
@@ -130,6 +157,28 @@
     throw lastErr || new Error('replicateToRemoteWithRetries: failed after retries');
   }
 
+  // Helper: replicate.from with retries (pull latest docs before login)
+  async function replicateFromRemoteWithRetries(localDb, remoteUrl, remoteOpts = {}, maxAttempts = 3) {
+    if (!localDb || !remoteUrl) throw new Error('replicateFromRemoteWithRetries: missing args');
+    let attempt = 0;
+    let lastErr = null;
+    while (attempt < maxAttempts) {
+      attempt++;
+      try {
+        console.debug(`replicateFromRemoteWithRetries: attempt ${attempt} -> ${remoteUrl}`);
+        await localDb.replicate.from(new PouchDB(remoteUrl, Object.assign({ skip_setup: true }, remoteOpts)));
+        console.debug('replicateFromRemoteWithRetries: success');
+        return true;
+      } catch (err) {
+        lastErr = err;
+        console.warn(`replicate.from attempt ${attempt} failed`, err);
+        const waitMs = Math.min(1000 * Math.pow(2, attempt - 1), 8000);
+        await new Promise(res => setTimeout(res, waitMs));
+      }
+    }
+    throw lastErr || new Error('replicateFromRemoteWithRetries: failed after retries');
+  }
+
   // --- Authentication helpers ---
   function simpleHash(str) {
     let h = 2166136261 >>> 0;
@@ -171,10 +220,26 @@
         }
 
         if (remoteUsersUrl) {
+          // parse credentials from URL if present
           const remoteOpts = {};
-          if (cfg.couchAuth && cfg.couchAuth.username && cfg.couchAuth.password) {
+          try {
+            const parsed = new URL(remoteUsersUrl);
+            if (parsed.username || parsed.password) {
+              remoteOpts.auth = {
+                username: decodeURIComponent(parsed.username || ''),
+                password: decodeURIComponent(parsed.password || '')
+              };
+              parsed.username = '';
+              parsed.password = '';
+              remoteUsersUrl = parsed.toString();
+            }
+          } catch (e) {
+            // ignore
+          }
+          if (!remoteOpts.auth && cfg.couchAuth && cfg.couchAuth.username && cfg.couchAuth.password) {
             remoteOpts.auth = { username: cfg.couchAuth.username, password: cfg.couchAuth.password };
           }
+
           await replicateToRemoteWithRetries(usersDb, remoteUsersUrl, remoteOpts, 4).catch(e => {
             console.warn('registerUser replicateToRemoteWithRetries failed', e);
           });
@@ -196,6 +261,48 @@
     if (!usersDb) throw new Error('Users DB not available');
     const pwHash = simpleHash(password || '');
     try {
+      // Before attempting local lookup, try to pull latest from remote to ensure mobile has latest user docs
+      try {
+        let remoteUsersUrl = null;
+        const cfg = window.__CONFIG__ || {};
+        if (typeof window.__USERS_COUCH__ === 'string' && window.__USERS_COUCH__.trim()) {
+          remoteUsersUrl = window.__USERS_COUCH__.trim();
+        } else if (cfg.couchHost) {
+          remoteUsersUrl = `https://${cfg.couchHost}/finance-users`;
+        }
+
+        if (remoteUsersUrl) {
+          const remoteOpts = {};
+          try {
+            const parsed = new URL(remoteUsersUrl);
+            if (parsed.username || parsed.password) {
+              remoteOpts.auth = {
+                username: decodeURIComponent(parsed.username || ''),
+                password: decodeURIComponent(parsed.password || '')
+              };
+              parsed.username = '';
+              parsed.password = '';
+              remoteUsersUrl = parsed.toString();
+            }
+          } catch (e) {
+            // ignore
+          }
+          if (!remoteOpts.auth && cfg.couchAuth && cfg.couchAuth.username && cfg.couchAuth.password) {
+            remoteOpts.auth = { username: cfg.couchAuth.username, password: cfg.couchAuth.password };
+          }
+
+          // Attempt a one-shot pull to get latest user docs before lookup
+          try {
+            await replicateFromRemoteWithRetries(usersDb, remoteUsersUrl, remoteOpts, 2).catch(() => null);
+          } catch (e) {
+            // ignore replicate errors; we'll still attempt local lookup
+            console.debug('loginUser: replicateFromRemoteWithRetries failed or skipped', e);
+          }
+        }
+      } catch (e) {
+        console.debug('loginUser: pre-lookup replicate attempt failed', e);
+      }
+
       let doc = null;
 
       if (usernameOrEmail && usernameOrEmail.includes('@')) {
@@ -660,7 +767,7 @@
       if (totalEl) totalEl.textContent = `Total monthly expense (year ${year}): ${formatCurrency(totalExpense)}`;
 
       if (window.recentActivityChartInstance) {
-        try { window.recentActivityChartInstance.destroy(); } catch(e){/*ignore*/}
+        try { window.recentActivityChartInstance.destroy(); } catch(e){/*ignore*/} 
       }
 
       window.recentActivityChartInstance = new Chart(ctx, {
@@ -710,7 +817,7 @@
       const monthLabels = Array.from({length:12}, (_,i) => new Date(0,i).toLocaleString('en-IN',{month:'short'}));
 
       if (window.savingsChartInstance) {
-        try { window.savingsChartInstance.destroy(); } catch(e){/*ignore*/}
+        try { window.savingsChartInstance.destroy(); } catch(e){/*ignore*/} 
       }
 
       window.savingsChartInstance = new Chart(ctx, {
@@ -806,7 +913,6 @@
       const requireLogin = (typeof window.__REQUIRE_LOGIN__ === 'boolean') ? window.__REQUIRE_LOGIN__ : true;
       const currentUser = getCurrentUser();
       if (requireLogin && !currentUser) {
-        // If not on login page, redirect to login page (use relative path to avoid GitHub Pages root issues)
         if (!/login\.html$/i.test(window.location.pathname)) {
           const base = (window.location.pathname || '').replace(/\/[^/]*$/, '/');
           window.location.href = base + 'frontend/pages/login.html';
@@ -834,42 +940,24 @@
 
   // --- DOMContentLoaded: render a short preview of last transactions ---
   document.addEventListener('DOMContentLoaded', async () => {
-    try {
-      const txTable = getElementByAnyId('lastTx');
-      if (!txTable) return;
-      const entries = Array.isArray(window.__LAST_ENTRIES__) ? window.__LAST_ENTRIES__ : await fetchEntries().catch(() => []);
-      if (!entries || !entries.length) {
-        txTable.innerHTML = '<tr><td colspan="3">No transactions</td></tr>';
-        return;
-      }
-      const preview = entries
-        .filter(e => ['balance','expense','trip','investment'].includes(normalizeEntryType(e)))
-        .sort((a,b) => new Date(b.date) - new Date(a.date))
-        .slice(0, 6)
-        .map(entry => {
-          const amount = Number(entry.amount) || 0;
-          const label = entry.category || entry.notes || entry.type || 'Entry';
-          const sign = amount < 0 ? '-' : '';
-          return `<tr><td>${label}</td><td>${entry.date || ''}</td><td>${sign}${formatCurrency(Math.abs(amount))}</td></tr>`;
-        }).join('');
-      txTable.innerHTML = preview;
-    } catch (err) {
-      console.warn('DOMContentLoaded preview failed', err);
+    const txTable = getElementByAnyId('lastTx');
+    if (!txTable) return;
+    const entries = Array.isArray(window.__LAST_ENTRIES__) ? window.__LAST_ENTRIES__ : await fetchEntries().catch(() => []);
+    if (!entries || !entries.length) {
+      txTable.innerHTML = '<tr><td colspan="3">No transactions</td></tr>';
+      return;
     }
+    const preview = entries
+      .filter(e => ['balance','expense','trip','investment'].includes(normalizeEntryType(e)))
+      .sort((a,b) => new Date(b.date) - new Date(a.date))
+      .slice(0, 6)
+      .map(entry => {
+        const amount = Number(entry.amount) || 0;
+        const label = entry.category || entry.notes || entry.type || 'Entry';
+        const sign = amount < 0 ? '-' : '';
+        return `<tr><td>${label}</td><td>${entry.date || ''}</td><td>${sign}${formatCurrency(Math.abs(amount))}</td></tr>`;
+      }).join('');
+    txTable.innerHTML = preview;
   });
 
-  // --- Defensive service worker registration (optional) ---
-  try {
-    if ('serviceWorker' in navigator && window.__REGISTER_SW__ === true) {
-      navigator.serviceWorker.register('/sw.js').then(reg => {
-        console.debug('Service worker registered', reg);
-      }).catch(err => {
-        console.warn('Service worker registration failed', err);
-      });
-    }
-  } catch (e) {
-    console.warn('Service worker guard failed', e);
-  }
-
-  // End of IIFE
 })();
