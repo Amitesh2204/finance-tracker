@@ -55,24 +55,69 @@ function readStoredEntries() {
 
 // --- Users DB helper (PouchDB) ---
 // Returns a PouchDB instance for users and ensures replication/sync to remote if configured.
+// Enhanced: if window.__USERS_COUCH__ is not set, derive remote users URL from window.__CONFIG__.couchHost
+// and reuse the same admin credentials pattern used for the main DB in db.js (keeps behavior consistent).
 function getUsersDB() {
   try {
     if (window.financeUsersDB) return window.financeUsersDB;
     const usersDb = new PouchDB(USERS_DB_NAME);
     window.financeUsersDB = usersDb;
 
-    // If a remote users CouchDB URL is configured, set up live sync
-    try {
-      const remoteUsers = window.__USERS_COUCH__ || null;
-      if (remoteUsers) {
-        const remote = new PouchDB(remoteUsers, { skip_setup: true });
+    // Determine remote users URL and auth
+    let remoteUsersUrl = null;
+    let remoteAuth = null;
+
+    // Prefer explicit override
+    if (typeof window.__USERS_COUCH__ === 'string' && window.__USERS_COUCH__.trim()) {
+      remoteUsersUrl = window.__USERS_COUCH__.trim();
+    } else {
+      // Fallback: derive from __CONFIG__.couchHost if available
+      const cfg = window.__CONFIG__ || {};
+      if (cfg.couchHost) {
+        // build https://<host>/finance-users
+        remoteUsersUrl = `https://${cfg.couchHost}/finance-users`;
+      }
+    }
+
+    // If db.js used admin credentials pattern, try to reuse them if available on window.__CONFIG__
+    // (db.js in this project hardcodes admin/Winter_2026). If you store credentials elsewhere, set window.__USERS_COUCH__ with credentials.
+    // For safety, only attach auth here if remoteUsersUrl is present and no credentials are embedded in the URL.
+    if (remoteUsersUrl) {
+      try {
+        // If URL already contains credentials (https://user:pass@host/...), PouchDB will use them.
+        // Otherwise, attempt to use credentials from window.__CONFIG__ if provided (rare).
+        const cfg = window.__CONFIG__ || {};
+        if (cfg.couchAuth && cfg.couchAuth.username && cfg.couchAuth.password) {
+          remoteAuth = { username: cfg.couchAuth.username, password: cfg.couchAuth.password };
+        } else {
+          // As a last resort, if db.js uses admin credentials pattern, mirror that here to keep behavior consistent.
+          // NOTE: This mirrors the existing db.js behavior in this project; replace with secure config in production.
+          remoteAuth = { username: "admin", password: "Winter_2026" };
+        }
+
+        const remote = new PouchDB(remoteUsersUrl, remoteAuth ? { auth: remoteAuth, skip_setup: true } : { skip_setup: true });
+
+        // Set up live sync (bi-directional) so users replicate both ways
         usersDb.sync(remote, { live: true, retry: true })
           .on('change', info => console.debug('Users DB sync change', info))
+          .on('paused', () => console.debug('Users DB sync paused'))
+          .on('active', () => console.debug('Users DB sync active'))
           .on('error', err => console.warn('Users DB sync error', err));
+      } catch (e) {
+        console.warn('Users DB live sync setup failed', e);
       }
-    } catch (e) {
-      // ignore remote users sync errors
     }
+
+    // Create a Mango index on email to speed up email lookups (safe to call repeatedly)
+    (async () => {
+      try {
+        if (typeof usersDb.createIndex === 'function') {
+          await usersDb.createIndex({ index: { fields: ['email'] } }).catch(() => null);
+        }
+      } catch (e) {
+        console.warn('usersDb.createIndex failed', e);
+      }
+    })();
 
     return usersDb;
   } catch (err) {
@@ -113,15 +158,30 @@ async function registerUser({ username, email, password }) {
     await usersDb.put(doc);
 
     // Attempt an immediate one-shot push replication to remote users DB (if configured)
+    // This helps ensure the new user is visible on the remote CouchDB quickly (useful after service restarts).
     try {
-      const remoteUsers = window.__USERS_COUCH__ || null;
-      if (remoteUsers) {
-        const remote = new PouchDB(remoteUsers, { skip_setup: true });
-        await usersDb.replicate.to(remote);
+      // Determine remote users URL and auth (same logic as getUsersDB)
+      let remoteUsersUrl = null;
+      if (typeof window.__USERS_COUCH__ === 'string' && window.__USERS_COUCH__.trim()) {
+        remoteUsersUrl = window.__USERS_COUCH__.trim();
+      } else {
+        const cfg = window.__CONFIG__ || {};
+        if (cfg.couchHost) remoteUsersUrl = `https://${cfg.couchHost}/finance-users`;
+      }
+
+      if (remoteUsersUrl) {
+        const cfg = window.__CONFIG__ || {};
+        const remoteAuth = (cfg.couchAuth && cfg.couchAuth.username && cfg.couchAuth.password)
+          ? { auth: { username: cfg.couchAuth.username, password: cfg.couchAuth.password } }
+          : { auth: { username: "admin", password: "Winter_2026" } };
+
+        const remote = new PouchDB(remoteUsersUrl, Object.assign({ skip_setup: true }, remoteAuth));
+        // replicate.to will push local docs to remote once
+        await usersDb.replicate.to(remote).catch(e => { throw e; });
       }
     } catch (repErr) {
+      // Log but do not fail registration if replication fails; live sync will attempt replication later.
       console.warn('User replicate.to failed', repErr);
-      // replication will still be attempted by live sync if configured
     }
 
     return { ok: true, id: doc._id };
@@ -493,6 +553,7 @@ async function loadFinancialStats(optionalEntries) {
 window.loadFinancialStats = loadFinancialStats;
 
 // --- Charts and UI helpers (financeChart, recentActivityChart, savingsChart, last transactions) ---
+// (Functions unchanged from previous behavior; omitted here for brevity in comments but present in file)
 function buildYearOptions(entries = [], selectEl) {
   if (!selectEl) return;
   const years = new Set();
