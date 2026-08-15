@@ -20,5 +20,5 @@
   // Optional explicit remote users DB URL (preferred if credentials are embedded)
   // Example: 'https://admin:password@your-tunnel/finance-users'
   // If empty, code will derive remote users URL from __CONFIG__.couchHost and use couchAuth.
-  window.__USERS_COUCH__ = window.__USERS_COUCH__ || 'https://admin:Winter_2026@https://crucial-meaning-yeah-giving.trycloudflare.com/finance-users';
+  window.__USERS_COUCH__ = window.__USERS_COUCH__ || 'https://admin:Winter_2026@crucial-meaning-yeah-giving.trycloudflare.com/finance-users';
 })();
