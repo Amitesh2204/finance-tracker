@@ -1,10 +1,7 @@
-// app.js - main application logic
+// app.js - main application logic (full file)
 // Uses window.financeDB (from db.js) when available and falls back to remote API or localStorage.
-// Adds a lightweight authentication layer (local users stored in PouchDB 'finance-users' DB) and login/logout helpers.
-// Key design goals:
-//  - Do not overwrite db.js helpers if they already exist.
-//  - Ensure user docs replicate to remote CouchDB so mobile/other clients can see registered users.
-//  - Preserve existing entries logic, charts, and UI wiring.
+// Adds authentication (local users stored in PouchDB 'finance-users' DB) and robust replication helpers.
+// Preserves existing entries logic, charts, and UI wiring. Non-destructive changes only.
 
 const db = window.financeDB || null;
 const STORAGE_KEY = 'finance-tracker:last-entries';
@@ -55,8 +52,6 @@ function readStoredEntries() {
 
 // --- Users DB helper (PouchDB) ---
 // Returns a PouchDB instance for users and ensures replication/sync to remote if configured.
-// Enhanced: if window.__USERS_COUCH__ is not set, derive remote users URL from window.__CONFIG__.couchHost
-// and reuse the same admin credentials pattern used for the main DB in db.js (keeps behavior consistent).
 function getUsersDB() {
   try {
     if (window.financeUsersDB) return window.financeUsersDB;
@@ -65,39 +60,21 @@ function getUsersDB() {
 
     // Determine remote users URL and auth
     let remoteUsersUrl = null;
-    let remoteAuth = null;
+    let remoteOpts = { skip_setup: true };
 
-    // Prefer explicit override
     if (typeof window.__USERS_COUCH__ === 'string' && window.__USERS_COUCH__.trim()) {
       remoteUsersUrl = window.__USERS_COUCH__.trim();
     } else {
-      // Fallback: derive from __CONFIG__.couchHost if available
       const cfg = window.__CONFIG__ || {};
-      if (cfg.couchHost) {
-        // build https://<host>/finance-users
-        remoteUsersUrl = `https://${cfg.couchHost}/finance-users`;
+      if (cfg.couchHost) remoteUsersUrl = `https://${cfg.couchHost}/finance-users`;
+      if (cfg.couchAuth && cfg.couchAuth.username && cfg.couchAuth.password) {
+        remoteOpts.auth = { username: cfg.couchAuth.username, password: cfg.couchAuth.password };
       }
     }
 
-    // If db.js used admin credentials pattern, try to reuse them if available on window.__CONFIG__
-    // (db.js in this project hardcodes admin/Winter_2026). If you store credentials elsewhere, set window.__USERS_COUCH__ with credentials.
-    // For safety, only attach auth here if remoteUsersUrl is present and no credentials are embedded in the URL.
     if (remoteUsersUrl) {
       try {
-        // If URL already contains credentials (https://user:pass@host/...), PouchDB will use them.
-        // Otherwise, attempt to use credentials from window.__CONFIG__ if provided (rare).
-        const cfg = window.__CONFIG__ || {};
-        if (cfg.couchAuth && cfg.couchAuth.username && cfg.couchAuth.password) {
-          remoteAuth = { username: cfg.couchAuth.username, password: cfg.couchAuth.password };
-        } else {
-          // As a last resort, if db.js uses admin credentials pattern, mirror that here to keep behavior consistent.
-          // NOTE: This mirrors the existing db.js behavior in this project; replace with secure config in production.
-          remoteAuth = { username: "admin", password: "Winter_2026" };
-        }
-
-        const remote = new PouchDB(remoteUsersUrl, remoteAuth ? { auth: remoteAuth, skip_setup: true } : { skip_setup: true });
-
-        // Set up live sync (bi-directional) so users replicate both ways
+        const remote = new PouchDB(remoteUsersUrl, remoteOpts);
         usersDb.sync(remote, { live: true, retry: true })
           .on('change', info => console.debug('Users DB sync change', info))
           .on('paused', () => console.debug('Users DB sync paused'))
@@ -106,6 +83,8 @@ function getUsersDB() {
       } catch (e) {
         console.warn('Users DB live sync setup failed', e);
       }
+    } else {
+      console.debug('getUsersDB: no remote users URL configured; users will remain local until configured');
     }
 
     // Create a Mango index on email to speed up email lookups (safe to call repeatedly)
@@ -126,9 +105,30 @@ function getUsersDB() {
   }
 }
 
+// Helper: replicate.to with retries and exponential backoff
+async function replicateToRemoteWithRetries(localDb, remoteUrl, remoteOpts = {}, maxAttempts = 4) {
+  if (!localDb || !remoteUrl) throw new Error('replicateToRemoteWithRetries: missing args');
+  let attempt = 0;
+  let lastErr = null;
+  while (attempt < maxAttempts) {
+    attempt++;
+    try {
+      console.debug(`replicateToRemoteWithRetries: attempt ${attempt} -> ${remoteUrl}`);
+      await localDb.replicate.to(new PouchDB(remoteUrl, Object.assign({ skip_setup: true }, remoteOpts)));
+      console.debug('replicateToRemoteWithRetries: success');
+      return true;
+    } catch (err) {
+      lastErr = err;
+      console.warn(`replicate attempt ${attempt} failed`, err);
+      const waitMs = Math.min(2000 * Math.pow(2, attempt - 1), 15000);
+      await new Promise(res => setTimeout(res, waitMs));
+    }
+  }
+  throw lastErr || new Error('replicateToRemoteWithRetries: failed after retries');
+}
+
 // --- Authentication helpers ---
 function simpleHash(str) {
-  // Lightweight non-cryptographic hash (FNV-1a variant) for local password storage.
   let h = 2166136261 >>> 0;
   for (let i = 0; i < str.length; i++) {
     h ^= str.charCodeAt(i);
@@ -158,29 +158,27 @@ async function registerUser({ username, email, password }) {
     await usersDb.put(doc);
 
     // Attempt an immediate one-shot push replication to remote users DB (if configured)
-    // This helps ensure the new user is visible on the remote CouchDB quickly (useful after service restarts).
     try {
-      // Determine remote users URL and auth (same logic as getUsersDB)
       let remoteUsersUrl = null;
+      const cfg = window.__CONFIG__ || {};
       if (typeof window.__USERS_COUCH__ === 'string' && window.__USERS_COUCH__.trim()) {
         remoteUsersUrl = window.__USERS_COUCH__.trim();
-      } else {
-        const cfg = window.__CONFIG__ || {};
-        if (cfg.couchHost) remoteUsersUrl = `https://${cfg.couchHost}/finance-users`;
+      } else if (cfg.couchHost) {
+        remoteUsersUrl = `https://${cfg.couchHost}/finance-users`;
       }
 
       if (remoteUsersUrl) {
-        const cfg = window.__CONFIG__ || {};
-        const remoteAuth = (cfg.couchAuth && cfg.couchAuth.username && cfg.couchAuth.password)
-          ? { auth: { username: cfg.couchAuth.username, password: cfg.couchAuth.password } }
-          : { auth: { username: "admin", password: "Winter_2026" } };
-
-        const remote = new PouchDB(remoteUsersUrl, Object.assign({ skip_setup: true }, remoteAuth));
-        // replicate.to will push local docs to remote once
-        await usersDb.replicate.to(remote).catch(e => { throw e; });
+        const remoteOpts = {};
+        if (cfg.couchAuth && cfg.couchAuth.username && cfg.couchAuth.password) {
+          remoteOpts.auth = { username: cfg.couchAuth.username, password: cfg.couchAuth.password };
+        }
+        await replicateToRemoteWithRetries(usersDb, remoteUsersUrl, remoteOpts, 4).catch(e => {
+          console.warn('registerUser replicateToRemoteWithRetries failed', e);
+        });
+      } else {
+        console.debug('registerUser: no remoteUsersUrl configured; skipping replicate.to');
       }
     } catch (repErr) {
-      // Log but do not fail registration if replication fails; live sync will attempt replication later.
       console.warn('User replicate.to failed', repErr);
     }
 
@@ -197,15 +195,13 @@ async function loginUser({ usernameOrEmail, password }) {
   try {
     let doc = null;
 
-    // If looks like email, search by email; otherwise try id lookup
     if (usernameOrEmail && usernameOrEmail.includes('@')) {
-      // Try to use Mango find if available
       if (typeof usersDb.find === 'function') {
         try {
           const res = await usersDb.find({ selector: { email: usernameOrEmail } }).catch(() => null);
           if (res && res.docs && res.docs.length) doc = res.docs[0];
         } catch (e) {
-          // ignore and fallback to allDocs scan
+          // ignore and fallback
         }
       }
       if (!doc) {
@@ -259,7 +255,6 @@ window.simpleHash = simpleHash;
 function buildApiUrl(endpoint = 'entries') {
   const apiBase = typeof window.__API_BASE__ === 'string' ? window.__API_BASE__ : '';
   if (!apiBase) {
-    // relative path: "entries"
     return `${endpoint}`;
   }
   const base = apiBase.replace(/\/$/, '');
@@ -297,7 +292,6 @@ async function fetchLocalEntries() {
 
 // --- Unified fetchEntries: prefer existing db.js implementation, then remote, then local, then cache ---
 async function fetchEntries() {
-  // If db.js already exposed a fetchEntries implementation, use it (do not override)
   if (typeof window.fetchEntries === 'function' && window.fetchEntries !== fetchEntries) {
     try {
       const entries = await window.fetchEntries();
@@ -308,11 +302,9 @@ async function fetchEntries() {
       return Array.isArray(entries) ? entries : [];
     } catch (err) {
       console.warn('Existing window.fetchEntries failed, falling back to internal logic', err);
-      // continue to internal fallback
     }
   }
 
-  // Try remote API first if __API_BASE__ is set (non-empty)
   const apiBaseConfigured = typeof window.__API_BASE__ === 'string' && window.__API_BASE__.trim() !== '';
   if (apiBaseConfigured) {
     try {
@@ -320,7 +312,6 @@ async function fetchEntries() {
       if (remote && remote.length) {
         window.__LAST_ENTRIES__ = remote;
         persistEntries(remote);
-        // attempt to sync to local PouchDB asynchronously if available
         if (db && typeof db.bulkDocs === 'function') {
           try {
             const docs = remote.map(e => Object.assign({}, e, { _id: e._id || `entry:${e.type || 'txn'}:${e.date || Date.now()}:${Math.random().toString(36).slice(2,9)}` }));
@@ -336,7 +327,6 @@ async function fetchEntries() {
     }
   }
 
-  // Try PouchDB local DB if available
   if (db && typeof db.allDocs === 'function') {
     const local = await fetchLocalEntries();
     if (local && local.length) {
@@ -346,7 +336,6 @@ async function fetchEntries() {
     }
   }
 
-  // Fallback to localStorage cache
   const cached = readStoredEntries();
   if (cached && cached.length) {
     window.__LAST_ENTRIES__ = cached;
@@ -380,20 +369,16 @@ async function saveLocalEntry(doc) {
 }
 
 // --- Unified addEntry: prefer PouchDB (db.js) if available, otherwise remote API, then local fallback ---
-// Important: do not override existing window.addEntry from db.js; if present, call it.
 async function addEntry(entry) {
-  // If db.js already exposed addEntry and it's not this function, use it
   if (typeof window.addEntry === 'function' && window.addEntry !== addEntry) {
     try {
       const saved = await window.addEntry(entry);
-      // update in-memory cache and localStorage if possible
       const existing = Array.isArray(window.__LAST_ENTRIES__) ? [...window.__LAST_ENTRIES__] : [];
       window.__LAST_ENTRIES__ = [saved, ...existing];
       persistEntries(window.__LAST_ENTRIES__);
       return saved;
     } catch (err) {
       console.warn('Existing window.addEntry failed, falling back to internal addEntry', err);
-      // continue to internal fallback
     }
   }
 
@@ -401,7 +386,6 @@ async function addEntry(entry) {
   const id = entry._id || `entry:${entry.type || 'txn'}:${entry.date || Date.now()}:${Math.random().toString(36).slice(2,9)}`;
   const doc = Object.assign({}, entry, { _id: id });
 
-  // If PouchDB is available, prefer saving locally (it will sync to CouchDB if remote sync is configured)
   if (db && typeof db.put === 'function') {
     try {
       const savedLocal = await saveLocalEntry(doc);
@@ -411,11 +395,9 @@ async function addEntry(entry) {
       return savedLocal;
     } catch (err) {
       console.warn('PouchDB save failed, will try remote API', err);
-      // fall through to remote attempt
     }
   }
 
-  // Try remote API if configured
   if (apiBaseConfigured) {
     const apiUrl = buildApiUrl('entries');
     try {
@@ -429,7 +411,6 @@ async function addEntry(entry) {
       const existing = Array.isArray(window.__LAST_ENTRIES__) ? [...window.__LAST_ENTRIES__] : [];
       window.__LAST_ENTRIES__ = [saved, ...existing];
       persistEntries(window.__LAST_ENTRIES__);
-      // attempt to persist to PouchDB as well
       if (db && typeof db.put === 'function') {
         saveLocalEntry(saved).catch(() => null);
       }
@@ -439,7 +420,6 @@ async function addEntry(entry) {
     }
   }
 
-  // Final fallback: store in local PouchDB if possible, otherwise localStorage
   try {
     const savedLocal = await saveLocalEntry(doc);
     const existing = Array.isArray(window.__LAST_ENTRIES__) ? [...window.__LAST_ENTRIES__] : [];
@@ -447,7 +427,6 @@ async function addEntry(entry) {
     persistEntries(window.__LAST_ENTRIES__);
     return savedLocal;
   } catch (err) {
-    // local PouchDB failed; persist to localStorage cache
     const existing = Array.isArray(window.__LAST_ENTRIES__) ? [...window.__LAST_ENTRIES__] : [];
     window.__LAST_ENTRIES__ = [doc, ...existing];
     persistEntries(window.__LAST_ENTRIES__);
@@ -549,11 +528,9 @@ async function loadFinancialStats(optionalEntries) {
   }
 }
 
-// make loadFinancialStats available globally for debugging or manual calls
 window.loadFinancialStats = loadFinancialStats;
 
 // --- Charts and UI helpers (financeChart, recentActivityChart, savingsChart, last transactions) ---
-// (Functions unchanged from previous behavior; omitted here for brevity in comments but present in file)
 function buildYearOptions(entries = [], selectEl) {
   if (!selectEl) return;
   const years = new Set();
@@ -753,7 +730,6 @@ function initSelectorsAndUI(entries = []) {
     lastTxDateInput.max = todayISO;
   }
 
-  // build year options from entries
   const yearsSet = new Set((entries || []).map(e => {
     const d = new Date(e.date);
     return Number.isNaN(d.getFullYear()) ? null : d.getFullYear();
@@ -766,7 +742,6 @@ function initSelectorsAndUI(entries = []) {
   if (savingsYearSelector) savingsYearSelector.innerHTML = yearOptionsHtml;
   if (chartYearSelector) chartYearSelector.innerHTML = yearOptionsHtml;
 
-  // defaults
   if (activityYearSelector && !activityYearSelector.value) activityYearSelector.value = now.getFullYear();
   if (savingsYearSelector && !savingsYearSelector.value) savingsYearSelector.value = now.getFullYear();
   if (chartYearSelector && !chartYearSelector.value) chartYearSelector.value = now.getFullYear();
@@ -781,7 +756,6 @@ function initSelectorsAndUI(entries = []) {
     const savYear = savingsYearSelector ? Number(savingsYearSelector.value) : now.getFullYear();
     updateSavingsChart(entries, savYear);
 
-    // update financeChart (year-wise income/expense) if chartYearSelector exists
     if (chartYearSelector) {
       const chartYear = Number(chartYearSelector.value);
       updateFinanceChartYear(entries, chartYear);
@@ -793,10 +767,8 @@ function initSelectorsAndUI(entries = []) {
   if (savingsYearSelector) savingsYearSelector.addEventListener('change', refreshAll);
   if (chartYearSelector) chartYearSelector.addEventListener('change', refreshAll);
 
-  // initial render
   refreshAll();
 
-  // show user badge in topbar if available
   const topbarRight = document.getElementById('topbarRight') || getElementByAnyId('topbarRight', 'topbar-right');
   const currentUser = getCurrentUser();
   if (topbarRight && currentUser) {
@@ -816,7 +788,6 @@ window.addEventListener('load', async () => {
     const requireLogin = (typeof window.__REQUIRE_LOGIN__ === 'boolean') ? window.__REQUIRE_LOGIN__ : true;
     const currentUser = getCurrentUser();
     if (requireLogin && !currentUser) {
-      // If not on login page, redirect to login page
       if (!/login\.html$/i.test(window.location.pathname)) {
         const base = (window.location.pathname || '').replace(/\/[^/]*$/, '/');
         window.location.href = base + 'frontend/pages/login.html';
@@ -842,7 +813,7 @@ window.addEventListener('load', async () => {
   }
 });
 
-// --- DOMContentLoaded: render a short preview of last transactions (keeps previous behavior) ---
+// --- DOMContentLoaded: render a short preview of last transactions ---
 document.addEventListener('DOMContentLoaded', async () => {
   const txTable = getElementByAnyId('lastTx');
   if (!txTable) return;
