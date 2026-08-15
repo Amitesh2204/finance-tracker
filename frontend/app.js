@@ -960,4 +960,14 @@
     txTable.innerHTML = preview;
   });
 
+  // Expose for debugging
+  window._app_helpers = {
+    getUsersDB,
+    replicateToRemoteWithRetries,
+    replicateFromRemoteWithRetries,
+    saveLocalEntry,
+    fetchEntries,
+    addEntry
+  };
+
 })();
