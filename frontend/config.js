@@ -7,7 +7,7 @@
   // Primary CouchDB host (used by db.js for the main finance DB)
   // Replace couchHost with your tunnel/host. Provide credentials via couchAuth or set __USERS_COUCH__.
   window.__CONFIG__ = {
-    couchHost: 'mild-phi-accuracy-habitat.trycloudflare.com', // replace with your tunnel host
+    couchHost: 'talk-liberty-beef-difficulties.trycloudflare.com', // replace with your tunnel host
     couchDbName: 'finance',
     apiBase: window.__API_BASE__,
     // Recommended: store credentials here (or set window.__USERS_COUCH__ to a full URL with credentials)
@@ -20,5 +20,5 @@
   // Optional explicit remote users DB URL (preferred if credentials are embedded)
   // Example: 'https://admin:password@your-tunnel/finance-users'
   // If empty, code will derive remote users URL from __CONFIG__.couchHost and use couchAuth.
-  window.__USERS_COUCH__ = window.__USERS_COUCH__ || 'https://admin:Winter_2026@YOUR_TUNNEL_HOST/finance-users';
+  window.__USERS_COUCH__ = window.__USERS_COUCH__ || 'https://admin:Winter_2026@talk-liberty-beef-difficulties.trycloudflare.com/finance-users';
 })();
