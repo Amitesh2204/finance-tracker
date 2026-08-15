@@ -1,7 +1,10 @@
-// app.js - main application logic (updated to avoid overriding db.js PouchDB helpers)
+// app.js - main application logic
 // Uses window.financeDB (from db.js) when available and falls back to remote API or localStorage.
-// Adds a lightweight authentication layer (local users stored in PouchDB 'users' DB) and login/logout helpers.
-// Key change: do not overwrite existing window.fetchEntries or window.addEntry if db.js already provides them.
+// Adds a lightweight authentication layer (local users stored in PouchDB 'finance-users' DB) and login/logout helpers.
+// Key design goals:
+//  - Do not overwrite db.js helpers if they already exist.
+//  - Ensure user docs replicate to remote CouchDB so mobile/other clients can see registered users.
+//  - Preserve existing entries logic, charts, and UI wiring.
 
 const db = window.financeDB || null;
 const STORAGE_KEY = 'finance-tracker:last-entries';
@@ -51,20 +54,26 @@ function readStoredEntries() {
 }
 
 // --- Users DB helper (PouchDB) ---
+// Returns a PouchDB instance for users and ensures replication/sync to remote if configured.
 function getUsersDB() {
   try {
     if (window.financeUsersDB) return window.financeUsersDB;
     const usersDb = new PouchDB(USERS_DB_NAME);
     window.financeUsersDB = usersDb;
+
+    // If a remote users CouchDB URL is configured, set up live sync
     try {
       const remoteUsers = window.__USERS_COUCH__ || null;
       if (remoteUsers) {
         const remote = new PouchDB(remoteUsers, { skip_setup: true });
-        usersDb.sync(remote, { live: true, retry: true }).on('error', e => console.warn('users sync error', e));
+        usersDb.sync(remote, { live: true, retry: true })
+          .on('change', info => console.debug('Users DB sync change', info))
+          .on('error', err => console.warn('Users DB sync error', err));
       }
     } catch (e) {
       // ignore remote users sync errors
     }
+
     return usersDb;
   } catch (err) {
     console.warn('getUsersDB failed', err);
@@ -74,6 +83,7 @@ function getUsersDB() {
 
 // --- Authentication helpers ---
 function simpleHash(str) {
+  // Lightweight non-cryptographic hash (FNV-1a variant) for local password storage.
   let h = 2166136261 >>> 0;
   for (let i = 0; i < str.length; i++) {
     h ^= str.charCodeAt(i);
@@ -91,6 +101,7 @@ async function registerUser({ username, email, password }) {
   try {
     const existing = await usersDb.get(id).catch(() => null);
     if (existing) throw new Error('User already exists');
+
     const doc = {
       _id: id,
       username,
@@ -98,7 +109,21 @@ async function registerUser({ username, email, password }) {
       passwordHash: simpleHash(password),
       createdAt: new Date().toISOString()
     };
+
     await usersDb.put(doc);
+
+    // Attempt an immediate one-shot push replication to remote users DB (if configured)
+    try {
+      const remoteUsers = window.__USERS_COUCH__ || null;
+      if (remoteUsers) {
+        const remote = new PouchDB(remoteUsers, { skip_setup: true });
+        await usersDb.replicate.to(remote);
+      }
+    } catch (repErr) {
+      console.warn('User replicate.to failed', repErr);
+      // replication will still be attempted by live sync if configured
+    }
+
     return { ok: true, id: doc._id };
   } catch (err) {
     throw err;
@@ -111,10 +136,17 @@ async function loginUser({ usernameOrEmail, password }) {
   const pwHash = simpleHash(password || '');
   try {
     let doc = null;
+
+    // If looks like email, search by email; otherwise try id lookup
     if (usernameOrEmail && usernameOrEmail.includes('@')) {
+      // Try to use Mango find if available
       if (typeof usersDb.find === 'function') {
-        const res = await usersDb.find({ selector: { email: usernameOrEmail } }).catch(() => null);
-        if (res && res.docs && res.docs.length) doc = res.docs[0];
+        try {
+          const res = await usersDb.find({ selector: { email: usernameOrEmail } }).catch(() => null);
+          if (res && res.docs && res.docs.length) doc = res.docs[0];
+        } catch (e) {
+          // ignore and fallback to allDocs scan
+        }
       }
       if (!doc) {
         const all = await usersDb.allDocs({ include_docs: true });
@@ -156,17 +188,18 @@ function getCurrentUser() {
   }
 }
 
-// Expose auth helpers
+// Expose auth helpers globally
 window.registerUser = registerUser;
 window.loginUser = loginUser;
 window.logoutUser = logoutUser;
 window.getCurrentUser = getCurrentUser;
 window.simpleHash = simpleHash;
 
-// --- Helper to build API URL robustly ---
+// --- Helper to build API URL robustly (avoids absolute root 404 on GitHub Pages) ---
 function buildApiUrl(endpoint = 'entries') {
   const apiBase = typeof window.__API_BASE__ === 'string' ? window.__API_BASE__ : '';
   if (!apiBase) {
+    // relative path: "entries"
     return `${endpoint}`;
   }
   const base = apiBase.replace(/\/$/, '');
@@ -202,7 +235,7 @@ async function fetchLocalEntries() {
   }
 }
 
-// --- Unified fetchEntries ---
+// --- Unified fetchEntries: prefer existing db.js implementation, then remote, then local, then cache ---
 async function fetchEntries() {
   // If db.js already exposed a fetchEntries implementation, use it (do not override)
   if (typeof window.fetchEntries === 'function' && window.fetchEntries !== fetchEntries) {
@@ -263,7 +296,7 @@ async function fetchEntries() {
   return [];
 }
 
-// --- Save to local PouchDB ---
+// --- Save to local PouchDB (used when remote save fails) ---
 async function saveLocalEntry(doc) {
   if (!db || typeof db.put !== 'function') {
     throw new Error('PouchDB is not ready yet');
@@ -286,7 +319,8 @@ async function saveLocalEntry(doc) {
   }
 }
 
-// --- Unified addEntry ---
+// --- Unified addEntry: prefer PouchDB (db.js) if available, otherwise remote API, then local fallback ---
+// Important: do not override existing window.addEntry from db.js; if present, call it.
 async function addEntry(entry) {
   // If db.js already exposed addEntry and it's not this function, use it
   if (typeof window.addEntry === 'function' && window.addEntry !== addEntry) {
@@ -455,9 +489,10 @@ async function loadFinancialStats(optionalEntries) {
   }
 }
 
+// make loadFinancialStats available globally for debugging or manual calls
 window.loadFinancialStats = loadFinancialStats;
 
-// --- Charts and UI helpers ---
+// --- Charts and UI helpers (financeChart, recentActivityChart, savingsChart, last transactions) ---
 function buildYearOptions(entries = [], selectEl) {
   if (!selectEl) return;
   const years = new Set();
