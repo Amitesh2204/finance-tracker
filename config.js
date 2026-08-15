@@ -7,7 +7,7 @@
   // Primary CouchDB host (used by db.js for the main finance DB)
   // Replace couchHost with your tunnel/host. Provide credentials via couchAuth or set __USERS_COUCH__.
   window.__CONFIG__ = {
-    couchHost: 'determination-towers-kernel-marie.trycloudflare.com', // replace with your tunnel host
+    couchHost: 'bearing-counsel-slot-oxide.trycloudflare.com', // replace with your tunnel host
     couchDbName: 'finance',
     apiBase: window.__API_BASE__,
     // Recommended: store credentials here (or set window.__USERS_COUCH__ to a full URL with credentials)
