@@ -6,15 +6,19 @@ window.financeDB = db;
 
 function safeInitRemoteSync() {
   try {
-    const { couchHost, couchDbName } = window.__CONFIG__ || {};
+    const { couchHost, couchDbName, couchAuth } = window.__CONFIG__ || {};
     if (!couchHost || !couchDbName) {
+      console.debug('safeInitRemoteSync: no couchHost/couchDbName configured');
       return;
     }
 
-    const remoteDB = new PouchDB(`https://${couchHost}/${couchDbName}`, {
-      auth: { username: "admin", password: "Winter_2026" },
-      skip_setup: true
-    });
+    const remoteUrl = `https://${couchHost}/${couchDbName}`;
+    const remoteOpts = { skip_setup: true };
+    if (couchAuth && couchAuth.username && couchAuth.password) {
+      remoteOpts.auth = { username: couchAuth.username, password: couchAuth.password };
+    }
+
+    const remoteDB = new PouchDB(remoteUrl, remoteOpts);
 
     db.sync(remoteDB, { live: true, retry: true })
       .on('change', info => console.debug('Remote finance sync change', info))
@@ -31,26 +35,36 @@ safeInitRemoteSync();
 // --- Users DB initialization and sync (separate DB so user docs replicate independently) ---
 (function initUsersDbSync() {
   try {
-    // Avoid recreating if already created elsewhere
     if (window.financeUsersDB) return;
 
     const usersDb = new PouchDB('finance-users');
     window.financeUsersDB = usersDb;
 
-    // If a remote users DB URL is provided via config, set up live sync
-    // window.__USERS_COUCH__ should be a full URL like: https://user:pass@host/finance-users
-    try {
-      const remoteUsersUrl = window.__USERS_COUCH__ || null;
-      if (remoteUsersUrl) {
-        const remoteUsers = new PouchDB(remoteUsersUrl, { skip_setup: true });
+    // Determine remote users URL and auth
+    let remoteUsersUrl = (typeof window.__USERS_COUCH__ === 'string' && window.__USERS_COUCH__.trim()) ? window.__USERS_COUCH__.trim() : null;
+    const cfg = window.__CONFIG__ || {};
+    if (!remoteUsersUrl && cfg.couchHost) {
+      remoteUsersUrl = `https://${cfg.couchHost}/finance-users`;
+    }
+
+    const remoteOpts = { skip_setup: true };
+    if (cfg.couchAuth && cfg.couchAuth.username && cfg.couchAuth.password) {
+      remoteOpts.auth = { username: cfg.couchAuth.username, password: cfg.couchAuth.password };
+    }
+
+    if (remoteUsersUrl) {
+      try {
+        const remoteUsers = new PouchDB(remoteUsersUrl, remoteOpts);
         usersDb.sync(remoteUsers, { live: true, retry: true })
           .on('change', info => console.debug('Users DB sync change', info))
           .on('paused', () => console.debug('Users DB sync paused'))
           .on('active', () => console.debug('Users DB sync active'))
           .on('error', err => console.warn('Users DB sync error', err));
+      } catch (e) {
+        console.warn('Users DB live sync setup failed', e);
       }
-    } catch (e) {
-      console.warn('Users DB live sync setup failed', e);
+    } else {
+      console.debug('initUsersDbSync: no remote users URL configured; users will remain local until configured');
     }
 
     // Create a Mango index on email to speed up email lookups (safe to call repeatedly)
@@ -60,7 +74,6 @@ safeInitRemoteSync();
           await usersDb.createIndex({ index: { fields: ['email'] } }).catch(() => null);
         }
       } catch (e) {
-        // non-fatal
         console.warn('usersDb.createIndex failed', e);
       }
     })();
