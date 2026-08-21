@@ -8,6 +8,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   const iciciEl = document.getElementById('iciciBalance');
   const sbiEl = document.getElementById('sbiBalance');
   const bobEl = document.getElementById('bobBalance');
+  const totalExpenseEl = document.getElementById('totalExpense');
+  const totalSavingEl = document.getElementById('totalSaving');
 
   // Forms and selectors
   const balanceForm = document.getElementById('balanceForm');
@@ -25,7 +27,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
-  let monthlyData = {}; // keyed by "Mon-YYYY" -> { balance: number, expense: number, daily: [entries], byBank: { bankName: {balance, expense, daily}} }
+  // monthlyData keyed by "Mon-YYYY" -> { balance: number, expense: number, daily: [entries], byBank: { bankName: {balance, expense, daily}} }
+  let monthlyData = {};
   let allEntries = [];
 
   function formatINR(amount) {
@@ -38,15 +41,21 @@ document.addEventListener('DOMContentLoaded', async () => {
     return `${date.toLocaleString('default',{month:'short'})}-${date.getFullYear()}`;
   }
 
-  // Update the three bank totals at top
-  function updateBankTotals() {
+  // Update the three bank totals at top and overall totals
+  function updateBankTotalsAndTotals() {
     const iciciTotal = computeBankTotal('ICICI');
     const sbiTotal = computeBankTotal('SBI');
     const bobTotal = computeBankTotal('Bank of Baroda');
 
+    const totalExpense = computeTotalExpense();
+    const totalBalance = computeTotalBalance();
+    const totalSaving = totalBalance - totalExpense;
+
     if (iciciEl) iciciEl.textContent = formatINR(iciciTotal);
     if (sbiEl) sbiEl.textContent = formatINR(sbiTotal);
     if (bobEl) bobEl.textContent = formatINR(bobTotal);
+    if (totalExpenseEl) totalExpenseEl.textContent = formatINR(totalExpense);
+    if (totalSavingEl) totalSavingEl.textContent = formatINR(totalSaving);
   }
 
   function computeBankTotal(bankName) {
@@ -54,10 +63,30 @@ document.addEventListener('DOMContentLoaded', async () => {
     let sum = 0;
     allEntries.forEach(e => {
       if (String(e.type || '').toLowerCase() === 'balance') {
-        const b = e.bank || 'All';
+        const b = e.bank || 'ICICI'; // default to ICICI if missing
         if (bankName === 'All' || b === bankName) {
           sum += Number(e.amount) || 0;
         }
+      }
+    });
+    return sum;
+  }
+
+  function computeTotalBalance() {
+    let sum = 0;
+    allEntries.forEach(e => {
+      if (String(e.type || '').toLowerCase() === 'balance') {
+        sum += Number(e.amount) || 0;
+      }
+    });
+    return sum;
+  }
+
+  function computeTotalExpense() {
+    let sum = 0;
+    allEntries.forEach(e => {
+      if (String(e.type || '').toLowerCase() === 'expense' || String(e.type || '').toLowerCase() === 'trip') {
+        sum += Number(e.amount) || 0;
       }
     });
     return sum;
@@ -95,7 +124,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             color: '#ffffff',
             anchor: 'end',
             align: 'end',
-            font: { weight: '700', size: 13 },
+            font: { weight: '800', size: 13 },
             formatter: (value) => value ? formatINR(value) : ''
           },
           legend: { display: false },
@@ -141,7 +170,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       '#e74c3c','#3498db','#2ecc71','#f39c12','#9b59b6','#e67e22','#1abc9c','#34495e','#f1c40f','#d35400','#7f8c8d','#95a5a6'
     ];
 
-    categories.forEach((cat, idx) => {
+    categories.forEach((cat) => {
       const amt = categoryTotals[cat] || 0;
       if (amt > 0) {
         labels.push(cat);
@@ -239,13 +268,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Initialize monthlyData and accumulate
     allEntries.forEach(entry => {
-      const key = getMonthYearKey(entry.date);
+      // default bank to ICICI if missing (so existing expenses are deducted from ICICI)
+      const bank = entry.bank || 'ICICI';
+      const key = getMonthYearKey(entry.date || new Date().toISOString());
       if (!key) return;
       monthlyData[key] = monthlyData[key] || { balance: 0, expense: 0, daily: [], byBank: {} };
 
-      const bank = entry.bank || 'All';
-
-      // Ensure byBank bucket
       monthlyData[key].byBank[bank] = monthlyData[key].byBank[bank] || { balance: 0, expense: 0, daily: [] };
 
       const t = String(entry.type || '').toLowerCase();
@@ -258,7 +286,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         monthlyData[key].expense += amt;
         monthlyData[key].byBank[bank].expense += amt;
         // store daily entry with category and bank
-        const dailyEntry = { date: entry.date, amount: amt, category: entry.category || entry.notes || 'Other', bank };
+        const dailyEntry = { date: entry.date || new Date().toISOString(), amount: amt, category: entry.category || entry.notes || 'Other', bank };
         monthlyData[key].daily.push(dailyEntry);
         monthlyData[key].byBank[bank].daily.push(dailyEntry);
       }
@@ -289,7 +317,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     dailyMonthYearSelect.value = defaultMonthYear;
 
     // Update bank totals and charts/tables
-    updateBankTotals();
+    updateBankTotalsAndTotals();
     renderMonthlyExpenseChart(defaultYear);
     renderDailyExpenseChart(defaultMonthYear);
     renderYearlyTable(defaultYear, yearlyBankSelect.value || 'All');

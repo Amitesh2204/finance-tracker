@@ -20,11 +20,11 @@
   margin-bottom: 24px; /* extra spacing below summary cards */
 }
 
-/* Top summary cards (now includes per-bank cards) */
+/* Top summary cards (three bank cards + totals) */
 .summary-cards {
   display: grid;
-  grid-template-columns: repeat(3, minmax(200px, 1fr)); /* three bank cards */
-  gap: 20px;
+  grid-template-columns: repeat(5, minmax(140px, 1fr)); /* 5 cards */
+  gap: 16px;
   margin-bottom: 16px;
 }
 
@@ -152,6 +152,12 @@ select {
 }
 
 /* responsive tweaks */
+@media (max-width: 1200px) {
+  .summary-cards {
+    grid-template-columns: repeat(3, minmax(140px, 1fr));
+  }
+}
+
 @media (max-width: 1024px) {
   .expense-layout {
     grid-template-columns: 1fr;

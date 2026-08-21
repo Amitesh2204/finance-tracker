@@ -54,8 +54,8 @@
 
       <section class="content expense-layout" aria-label="Expense dashboard">
         <aside class="content-panel left-panel">
-          <!-- Per-bank summary cards -->
-          <div class="cards summary-cards" aria-label="Bank balances">
+          <!-- Top summary: three bank totals + total expense + total saving -->
+          <div class="cards summary-cards" aria-label="Bank balances and totals">
             <article class="card summary-card">
               <h3>ICICI Total Balance</h3>
               <p id="iciciBalance" class="monthly-amount">₹0.00</p>
@@ -67,6 +67,14 @@
             <article class="card summary-card">
               <h3>Bank of Baroda Total Balance</h3>
               <p id="bobBalance" class="monthly-amount">₹0.00</p>
+            </article>
+            <article class="card summary-card">
+              <h3>Total Expense</h3>
+              <p id="totalExpense" class="monthly-amount" style="color:#e74c3c">₹0.00</p>
+            </article>
+            <article class="card summary-card">
+              <h3>Total Saving</h3>
+              <p id="totalSaving" class="monthly-amount" style="color:#1abc9c">₹0.00</p>
             </article>
           </div>
 
