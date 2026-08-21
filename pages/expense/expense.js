@@ -1,7 +1,28 @@
-// expense.js - Expense dashboard totals, charts, and yearly summary (updated)
+// expense.js - Expense dashboard totals, charts, and yearly summary (final)
 // Requires Chart.js and chartjs-plugin-datalabels (loaded in expense.html)
 
 Chart.register(ChartDataLabels);
+
+// Canonical categories and colors (kept local to this file)
+const EXPENSE_CATEGORIES = [
+  'School Fees','Rent','Food & Fruit','Vegetables','Electricity',
+  'Doctor Fees','Medicine & Tests','Loan','Saving','Clothes','BC','Other'
+];
+
+const CATEGORY_COLORS = {
+  'School Fees': '#8e44ad',
+  'Rent': '#2ecc71',
+  'Food & Fruit': '#f39c12',
+  'Vegetables': '#27ae60',
+  'Electricity': '#f1c40f',
+  'Doctor Fees': '#3498db',
+  'Medicine & Tests': '#e67e22',
+  'Loan': '#34495e',
+  'Saving': '#1abc9c',
+  'Clothes': '#d35400',
+  'BC': '#7f8c8d',
+  'Other': '#95a5a6'
+};
 
 document.addEventListener('DOMContentLoaded', async () => {
   // Top bank balance elements
@@ -43,6 +64,26 @@ document.addEventListener('DOMContentLoaded', async () => {
     const date = new Date(dateValue);
     if (Number.isNaN(date.getTime())) return null;
     return `${date.toLocaleString('default',{month:'short'})}-${date.getFullYear()}`;
+  }
+
+  // Normalize category names to canonical list
+  function normalizeCategory(raw) {
+    if (!raw) return 'Other';
+    const trimmed = String(raw).trim();
+    if (EXPENSE_CATEGORIES.includes(trimmed)) return trimmed;
+    const lower = trimmed.toLowerCase();
+    if (lower.includes('veg') || lower.includes('vegetable')) return 'Vegetables';
+    if (lower.includes('food') || lower.includes('fruit') || lower.includes('dining')) return 'Food & Fruit';
+    if (lower.includes('rent')) return 'Rent';
+    if (lower.includes('school') || lower.includes('tuition') || lower.includes('fees')) return 'School Fees';
+    if (lower.includes('electric')) return 'Electricity';
+    if (lower.includes('doctor') || lower.includes('clinic') || lower.includes('hospital')) return 'Doctor Fees';
+    if (lower.includes('medicine') || lower.includes('test')) return 'Medicine & Tests';
+    if (lower.includes('loan')) return 'Loan';
+    if (lower.includes('save') || lower.includes('saving')) return 'Saving';
+    if (lower.includes('cloth') || lower.includes('apparel')) return 'Clothes';
+    if (lower === 'balance' || lower === 'bc') return 'BC';
+    return 'Other';
   }
 
   // Update the three bank totals at top and overall totals
@@ -96,7 +137,31 @@ document.addEventListener('DOMContentLoaded', async () => {
     return sum;
   }
 
-  // Monthly bar chart (monthlyExpenseChart) with visible data labels (large, high contrast)
+  // Custom Chart.js plugin to draw totals on top of bars (used for monthly bar chart)
+  const drawBarTotalsPlugin = {
+    id: 'drawBarTotals',
+    afterDatasetsDraw(chart) {
+      const ctx = chart.ctx;
+      chart.data.datasets.forEach((dataset, dsIndex) => {
+        const meta = chart.getDatasetMeta(dsIndex);
+        meta.data.forEach((bar, index) => {
+          const value = dataset.data[index] || 0;
+          if (value === 0) return;
+          const x = bar.x;
+          const y = bar.y - 8; // slightly above bar
+          ctx.save();
+          ctx.fillStyle = '#ffffff';
+          ctx.font = '700 12px Inter, system-ui, Arial';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'bottom';
+          ctx.fillText(formatINR(value), x, y);
+          ctx.restore();
+        });
+      });
+    }
+  };
+
+  // Monthly bar chart (monthlyExpenseChart) with visible data labels and totals on top
   function renderMonthlyExpenseChart(selectedYear) {
     const canvas = document.getElementById('monthlyExpenseChart');
     if (!canvas || typeof Chart === 'undefined') return;
@@ -124,10 +189,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         responsive: true,
         maintainAspectRatio: false,
         layout: {
-          padding: {
-            top: 8,
-            bottom: 8
-          }
+          padding: { top: 12, bottom: 8 }
         },
         plugins: {
           datalabels: {
@@ -136,7 +198,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             align: 'start',
             offset: -6,
             clamp: true,
-            font: { weight: '800', size: 12 },
+            font: { weight: '800', size: 11 },
             formatter: (value) => value ? formatINR(value) : ''
           },
           legend: { display: false },
@@ -150,7 +212,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           y: { beginAtZero: true, ticks: { callback: v => formatINR(v) } }
         }
       },
-      plugins: [ChartDataLabels]
+      plugins: [ChartDataLabels, drawBarTotalsPlugin]
     });
   }
 
@@ -166,57 +228,30 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const dailyEntries = monthlyData[selectedMonthYear]?.daily || [];
 
-    // Categories list (fixed order)
-    const categories = ['School Fees','Rent','Food & Fruit','Vegetables','Electricity','Doctor Fees','Medicine & Tests','Loan','Saving','Clothes','BC','Other'];
-
-    // Color palette mapped to categories (one-to-one)
-    const colors = {
-      'School Fees': '#8e44ad',
-      'Rent': '#2ecc71',
-      'Food & Fruit': '#f39c12',
-      'Vegetables': '#27ae60',
-      'Electricity': '#f1c40f',
-      'Doctor Fees': '#3498db',
-      'Medicine & Tests': '#e67e22',
-      'Loan': '#34495e',
-      'Saving': '#1abc9c',
-      'Clothes': '#d35400',
-      'BC': '#7f8c8d',
-      'Other': '#95a5a6'
-    };
-
     // Initialize totals for all categories (so legend always shows all)
     const categoryTotals = {};
-    categories.forEach(c => categoryTotals[c] = 0);
+    EXPENSE_CATEGORIES.forEach(c => categoryTotals[c] = 0);
 
     dailyEntries.forEach(entry => {
-      const category = entry.category || entry.notes || 'Other';
-      const matched = categories.includes(category) ? category : 'Other';
-      categoryTotals[matched] = (categoryTotals[matched] || 0) + (Number(entry.amount) || 0);
+      // normalize category names to canonical set
+      const cat = normalizeCategory(entry.category || entry.notes || 'Other');
+      categoryTotals[cat] = (categoryTotals[cat] || 0) + (Number(entry.amount) || 0);
     });
 
     // Save original totals for interactivity
     originalCategoryTotals = Object.assign({}, categoryTotals);
     // If activeCategories is empty, treat as all active
-    if (activeCategories.size === 0) categories.forEach(c => activeCategories.add(c));
+    if (activeCategories.size === 0) EXPENSE_CATEGORIES.forEach(c => activeCategories.add(c));
 
-    // Build labels and amounts based on activeCategories
-    const labels = [];
-    const amounts = [];
-    const bgColors = [];
-
-    categories.forEach(cat => {
-      const amt = originalCategoryTotals[cat] || 0;
-      // include all categories in the chart data but zero amounts will be ignored by Chart.js pie rendering
-      labels.push(cat);
-      amounts.push(amt);
-      bgColors.push(colors[cat] || '#95a5a6');
-    });
+    // Build labels and amounts (all categories included)
+    const labels = EXPENSE_CATEGORIES.slice();
+    const amounts = labels.map(l => originalCategoryTotals[l] || 0);
+    const bgColors = labels.map(l => CATEGORY_COLORS[l] || '#95a5a6');
 
     // Build legend (color swatches + label + percentage) and attach click handlers
     const total = amounts.reduce((s,a)=>s+a,0);
     dailyLegendEl.innerHTML = '';
-    categories.forEach((lbl, i) => {
+    labels.forEach((lbl, i) => {
       const amt = originalCategoryTotals[lbl] || 0;
       const pct = total ? ((amt / total) * 100).toFixed(1) + '%' : '0%';
       const swatch = document.createElement('div');
@@ -232,14 +267,14 @@ document.addEventListener('DOMContentLoaded', async () => {
           activeCategories.add(lbl);
         }
         // If none selected, reset to all selected
-        if (activeCategories.size === 0) categories.forEach(c => activeCategories.add(c));
+        if (activeCategories.size === 0) EXPENSE_CATEGORIES.forEach(c => activeCategories.add(c));
         // Update legend visuals
         Array.from(dailyLegendEl.children).forEach(child => {
           const cat = child.dataset.category;
           if (!activeCategories.has(cat)) child.classList.add('inactive'); else child.classList.remove('inactive');
         });
         // Recompute filtered data and update chart
-        updateDailyChartFromActive(categories, originalCategoryTotals, colors);
+        updateDailyChartFromActive(EXPENSE_CATEGORIES, originalCategoryTotals, CATEGORY_COLORS);
       });
       dailyLegendEl.appendChild(swatch);
     });
@@ -279,7 +314,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     // Ensure initial active state is reflected in chart
-    updateDailyChartFromActive(categories, originalCategoryTotals, colors);
+    updateDailyChartFromActive(EXPENSE_CATEGORIES, originalCategoryTotals, CATEGORY_COLORS);
   }
 
   // Helper to update the pie chart based on activeCategories
@@ -367,8 +402,13 @@ document.addEventListener('DOMContentLoaded', async () => {
       } else if (t === 'expense' || t === 'trip') {
         monthlyData[key].expense += amt;
         monthlyData[key].byBank[bank].expense += amt;
-        // store daily entry with category and bank
-        const dailyEntry = { date: entry.date || new Date().toISOString(), amount: amt, category: entry.category || entry.notes || 'Other', bank };
+        // store daily entry with normalized category and bank
+        const dailyEntry = {
+          date: entry.date || new Date().toISOString(),
+          amount: amt,
+          category: normalizeCategory(entry.category || entry.notes || 'Other'),
+          bank
+        };
         monthlyData[key].daily.push(dailyEntry);
         monthlyData[key].byBank[bank].daily.push(dailyEntry);
       }

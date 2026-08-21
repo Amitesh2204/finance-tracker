@@ -1,3 +1,7 @@
+// monthly.js - Monthly page logic, charts, and daily items (final)
+// This file preserves existing behavior and ensures categories map to canonical set
+// Requires Chart.js and chartjs-plugin-datalabels (loaded in monthly HTML)
+
 document.addEventListener('DOMContentLoaded', async () => {
   const totalExpenseEl = document.getElementById('totalMonthlyExpense');
   const highestMonthEl = document.getElementById('highestExpenseMonth');
@@ -11,6 +15,27 @@ document.addEventListener('DOMContentLoaded', async () => {
   let expenseEntries = [];
   let monthlyData = {};
 
+  // Canonical categories and colors (kept local to this file)
+  const EXPENSE_CATEGORIES = [
+    'School Fees','Rent','Food & Fruit','Vegetables','Electricity',
+    'Doctor Fees','Medicine & Tests','Loan','Saving','Clothes','BC','Other'
+  ];
+
+  const CATEGORY_COLORS = {
+    'School Fees': '#8e44ad',
+    'Rent': '#2ecc71',
+    'Food & Fruit': '#f39c12',
+    'Vegetables': '#27ae60',
+    'Electricity': '#f1c40f',
+    'Doctor Fees': '#3498db',
+    'Medicine & Tests': '#e67e22',
+    'Loan': '#34495e',
+    'Saving': '#1abc9c',
+    'Clothes': '#d35400',
+    'BC': '#7f8c8d',
+    'Other': '#95a5a6'
+  };
+
   function formatINR(value) {
     return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(Number(value) || 0);
   }
@@ -19,6 +44,26 @@ document.addEventListener('DOMContentLoaded', async () => {
     const date = new Date(dateValue);
     if (Number.isNaN(date.getTime())) return null;
     return `${date.toLocaleString('default', { month: 'short' })}-${date.getFullYear()}`;
+  }
+
+  // Normalize category names to canonical list
+  function normalizeCategory(raw) {
+    if (!raw) return 'Other';
+    const trimmed = String(raw).trim();
+    if (EXPENSE_CATEGORIES.includes(trimmed)) return trimmed;
+    const lower = trimmed.toLowerCase();
+    if (lower.includes('veg') || lower.includes('vegetable')) return 'Vegetables';
+    if (lower.includes('food') || lower.includes('fruit') || lower.includes('dining')) return 'Food & Fruit';
+    if (lower.includes('rent')) return 'Rent';
+    if (lower.includes('school') || lower.includes('tuition') || lower.includes('fees')) return 'School Fees';
+    if (lower.includes('electric')) return 'Electricity';
+    if (lower.includes('doctor') || lower.includes('clinic') || lower.includes('hospital')) return 'Doctor Fees';
+    if (lower.includes('medicine') || lower.includes('test')) return 'Medicine & Tests';
+    if (lower.includes('loan')) return 'Loan';
+    if (lower.includes('save') || lower.includes('saving')) return 'Saving';
+    if (lower.includes('cloth') || lower.includes('apparel')) return 'Clothes';
+    if (lower === 'balance' || lower === 'bc') return 'BC';
+    return 'Other';
   }
 
   function renderSummary(values) {
@@ -30,9 +75,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       return best;
     }, null);
 
-    totalExpenseEl.textContent = formatINR(total);
-    highestMonthEl.textContent = highest ? highest.key : '—';
-    averageExpenseEl.textContent = formatINR(total && values ? total / Object.keys(values).length : 0);
+    if (totalExpenseEl) totalExpenseEl.textContent = formatINR(total);
+    if (highestMonthEl) highestMonthEl.textContent = highest ? highest.key : '—';
+    if (averageExpenseEl) averageExpenseEl.textContent = formatINR(total && values ? total / Object.keys(values).length : 0);
   }
 
   function daysInMonth(year, monthIndex) {
@@ -53,7 +98,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           const y = bar.y - 6; // slightly above bar
           ctx.save();
           ctx.fillStyle = '#ffffff';
-          ctx.font = '600 12px Inter, system-ui, Arial';
+          ctx.font = '700 12px Inter, system-ui, Arial';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'bottom';
           ctx.fillText(formatINR(value), x, y);
@@ -137,7 +182,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       `;
     }).join('');
 
-    tableBody.innerHTML = rows || '<tr><td colspan="3">No data yet</td></tr>';
+    if (tableBody) tableBody.innerHTML = rows || '<tr><td colspan="3">No data yet</td></tr>';
   }
 
   function renderDailyItems(selectedMonthYear, selectedDay = null) {
@@ -162,7 +207,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const rows = filtered.map(e => {
       const name = e.name || 'Item';
-      const cat = e.category || e.notes || 'Expense';
+      const cat = normalizeCategory(e.category || e.notes || 'Expense');
       const amt = Number(e.amount) || 0;
       const dateStr = new Date(e.date).toLocaleDateString();
       return `<tr><td>${name}</td><td>${cat}</td><td>${dateStr}</td><td>${formatINR(amt)}</td></tr>`;
@@ -180,6 +225,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     const entries = await window.fetchEntries().catch(() => []);
     // keep all expense entries (type 'expense')
     expenseEntries = entries.filter(entry => String(entry.type || '').toLowerCase() === 'expense');
+
+    // Normalize categories in expenseEntries to canonical set for consistency across pages
+    expenseEntries = expenseEntries.map(e => {
+      return Object.assign({}, e, { category: normalizeCategory(e.category || e.notes || 'Other') });
+    });
 
     // Build monthlyData
     monthlyData = {};
@@ -215,7 +265,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (yearSelect) {
       const years = Array.from(new Set(Object.keys(monthlyData).map(k => k.split('-')[1]))).sort((a,b) => b - a);
       if (!years.length) years.push(String(now.getFullYear()));
-      yearSelect.innerHTML = years.map(y => `<option value="${y}">${y}</option>`).join('');
+      yearSelect.innerHTML = years.map(y => `<option value="${y}">${y}</option>`).join(''); 
       yearSelect.value = String(now.getFullYear());
     }
 
@@ -242,8 +292,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       const val = subcategorySelect.value;
       if (val && val !== 'none') {
         categorySelect.value = 'custom';
-        customWrapper.style.display = 'block';
-        customInput.value = val;
+        if (customWrapper) customWrapper.style.display = 'block';
+        if (customInput) customInput.value = val;
       }
     });
   }
@@ -252,10 +302,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (categorySelect) {
     categorySelect.addEventListener('change', () => {
       if (categorySelect.value === 'custom') {
-        customWrapper.style.display = 'block';
+        if (customWrapper) customWrapper.style.display = 'block';
       } else {
-        customWrapper.style.display = 'none';
-        customInput.value = '';
+        if (customWrapper) customWrapper.style.display = 'none';
+        if (customInput) customInput.value = '';
         // reset subcategory to none
         if (subcategorySelect) subcategorySelect.value = 'none';
       }
@@ -268,7 +318,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       const amount = parseFloat(document.getElementById('monthlyExpenseAmount').value);
       const date = document.getElementById('monthlyExpenseDate').value || new Date().toISOString();
       const name = (nameInput && nameInput.value) ? nameInput.value.trim() : '';
-      let category = categorySelect.value;
+      let category = categorySelect ? categorySelect.value : 'Other';
       if (category === 'custom') {
         category = (customInput && customInput.value.trim()) ? customInput.value.trim() : 'Custom';
       }
@@ -278,7 +328,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       const entry = {
         type: 'expense',
         name: name || 'Item',
-        category,
+        category: normalizeCategory(category),
         amount,
         date,
         notes: 'Monthly expense'
@@ -290,7 +340,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
 
       event.target.reset();
-      customWrapper.style.display = 'none';
+      if (customWrapper) customWrapper.style.display = 'none';
       if (subcategorySelect) subcategorySelect.value = 'none';
     });
   }
