@@ -137,6 +137,8 @@
             <div class="collapsible-header" role="button" tabindex="0" aria-expanded="true">
               <div class="title">Monthly Expense Summary</div>
               <div class="controls">
+                <label for="summaryYearSelect" style="font-weight:600; color:#ecf0f1; font-size:0.95rem; margin-right:8px;">Year</label>
+                <select id="summaryYearSelect" style="padding:6px 8px; border-radius:6px; background:#1e1e1e; color:#ecf0f1; border:1px solid #333;"></select>
                 <div class="chev">▲</div>
               </div>
             </div>
@@ -161,8 +163,12 @@
           <!-- Collapsible: Daily Items -->
           <div class="collapsible" id="dailyItemsSection" data-default-open="false">
             <div class="collapsible-header" role="button" tabindex="0" aria-expanded="false">
-              <div class="title">Daily Purchases (Name, Category, Amount)</div>
+              <div class="title">Daily Purchases (Name, Category, Date, Amount)</div>
               <div class="controls">
+                <label for="dayFilterSelect" style="font-weight:600; color:#ecf0f1; font-size:0.95rem; margin-right:8px;">Day</label>
+                <select id="dayFilterSelect" style="padding:6px 8px; border-radius:6px; background:#1e1e1e; color:#ecf0f1; border:1px solid #333;">
+                  <option value="all">All days</option>
+                </select>
                 <div class="chev">▼</div>
               </div>
             </div>
@@ -173,11 +179,12 @@
                     <tr>
                       <th>Name</th>
                       <th>Category</th>
+                      <th>Date</th>
                       <th>Amount</th>
                     </tr>
                   </thead>
                   <tbody>
-                    <tr><td colspan="3">No purchases for selected month</td></tr>
+                    <tr><td colspan="4">No purchases for selected month</td></tr>
                   </tbody>
                 </table>
               </article>
