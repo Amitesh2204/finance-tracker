@@ -1,11 +1,11 @@
 <!doctype html>
-<html>
+<html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Expense</title>
-  <link rel="stylesheet" href="../../style.css">
-  <link rel="stylesheet" href="expense.css">
+  <link rel="stylesheet" href="../../style.css" />
+  <link rel="stylesheet" href="expense.css" />
 
   <script src="https://unpkg.com/pouchdb@7.3.1/dist/pouchdb.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -25,9 +25,7 @@
 <body>
   <div class="app">
     <aside class="sidebar">
-      <div class="brand">
-        <h1>Wealty</h1>
-      </div>
+      <div class="brand"><h1>Wealty</h1></div>
       <nav class="main-menu">
         <a href="../../../index.html">🏠 Home</a>
         <a href="../budget/budget.html">📊 Budget</a>
@@ -48,9 +46,7 @@
     </aside>
 
     <main class="main">
-      <header class="topbar">
-        <h2>Expense Dashboard</h2>
-      </header>
+      <header class="topbar"><h2>Expense Dashboard</h2></header>
 
       <section class="content expense-layout" aria-label="Expense dashboard">
         <aside class="content-panel left-panel">
@@ -82,90 +78,153 @@
             </article>
           </div>
 
-          <article class="card section-card">
-            <h3>Add Total Balance</h3>
-            <form id="balanceForm" class="investment-form">
-              <label for="balanceAmount">Balance Amount</label>
-              <input id="balanceAmount" type="number" min="0" step="0.01" required>
+          <!-- Collapsible: Add Total Balance -->
+          <div class="collapsible" data-default-open="true" id="addBalanceCollapsible">
+            <div class="collapsible-header" role="button" tabindex="0" aria-expanded="true">
+              <div class="title">Add Total Balance</div>
+              <div class="controls">
+                <select id="balanceBank" aria-label="Select bank (quick)">
+                  <option value="ICICI">ICICI</option>
+                  <option value="SBI">SBI</option>
+                  <option value="Bank of Baroda">Bank of Baroda</option>
+                  <option value="Other">Other</option>
+                </select>
+                <div class="chev">▲</div>
+              </div>
+            </div>
+            <div class="collapsible-content">
+              <article class="card section-card" style="background:transparent; box-shadow:none; padding:0;">
+                <form id="balanceForm" class="investment-form" aria-label="Add total balance form">
+                  <label for="balanceAmount">Balance Amount</label>
+                  <input id="balanceAmount" type="number" min="0" step="0.01" required />
 
-              <label for="balanceMonth">Month</label>
-              <input id="balanceMonth" type="month" />
+                  <label for="balanceMonth">Month</label>
+                  <input id="balanceMonth" type="month" />
 
-              <label for="balanceBank">Bank</label>
-              <select id="balanceBank">
-                <option value="ICICI">ICICI</option>
-                <option value="SBI">SBI</option>
-                <option value="Bank of Baroda">Bank of Baroda</option>
-                <option value="Other">Other</option>
-              </select>
+                  <label for="balanceBankSelect">Bank</label>
+                  <select id="balanceBankSelect">
+                    <option value="ICICI">ICICI</option>
+                    <option value="SBI">SBI</option>
+                    <option value="Bank of Baroda">Bank of Baroda</option>
+                    <option value="Other">Other</option>
+                  </select>
 
-              <button type="submit">Add Balance</button>
-            </form>
-          </article>
+                  <button type="submit">Add Balance</button>
+                </form>
+              </article>
+            </div>
+          </div>
         </aside>
 
         <section class="content-panel right-panel">
-          <article class="card section-card">
-            <h3>Monthly Expense Overview</h3>
-            <label for="expenseYearSelect">Select Year:</label>
-            <select id="expenseYearSelect"></select>
-            <div class="chart same-size">
-              <canvas id="monthlyExpenseChart"></canvas>
-            </div>
-          </article>
-
-          <article class="card section-card">
-            <h3>Daily Expense Details</h3>
-            <label for="dailyMonthYearSelect">Select Month-Year:</label>
-            <select id="dailyMonthYearSelect"></select>
-
-            <div class="chart same-size" style="display:flex; gap:12px; align-items:flex-start;">
-              <div style="flex:1 1 60%;">
-                <canvas id="dailyExpenseChart"></canvas>
+          <!-- Collapsible: Monthly Expense Overview -->
+          <div class="collapsible" data-default-open="true" id="monthlyCollapsible">
+            <div class="collapsible-header" role="button" tabindex="0" aria-expanded="true">
+              <div class="title">Monthly Expense Overview</div>
+              <div class="controls">
+                <label for="expenseYearSelect" class="sr-only">Year</label>
+                <select id="expenseYearSelect" aria-label="Select year"></select>
+                <div class="chev">▲</div>
               </div>
-              <div class="pie-legend-wrap" style="flex:0 0 220px;">
-                <div class="pie-legend" id="dailyLegend">
-                  <!-- legend items inserted by JS -->
+            </div>
+            <div class="collapsible-content">
+              <article class="card section-card" style="background:transparent; box-shadow:none; padding:0;">
+                <div class="chart same-size">
+                  <canvas id="monthlyExpenseChart"></canvas>
                 </div>
+              </article>
+            </div>
+          </div>
+
+          <!-- Collapsible: Daily Expense Details -->
+          <div class="collapsible" data-default-open="true" id="dailyCollapsible">
+            <div class="collapsible-header" role="button" tabindex="0" aria-expanded="true">
+              <div class="title">Daily Expense Details</div>
+              <div class="controls">
+                <label for="dailyMonthYearSelect" class="sr-only">Month-Year</label>
+                <select id="dailyMonthYearSelect" aria-label="Select month and year"></select>
+                <div class="chev">▲</div>
               </div>
             </div>
-          </article>
+            <div class="collapsible-content">
+              <article class="card section-card" style="background:transparent; box-shadow:none; padding:0;">
+                <div class="chart same-size" style="display:flex; gap:12px; align-items:flex-start;">
+                  <div style="flex:1 1 60%;">
+                    <canvas id="dailyExpenseChart"></canvas>
+                  </div>
+                  <div class="pie-legend-wrap" style="flex:0 0 220px;">
+                    <div class="pie-legend" id="dailyLegend"></div>
+                  </div>
+                </div>
+              </article>
+            </div>
+          </div>
 
-          <article class="card section-card">
-            <h3>Yearly Expense Summary</h3>
-            <div style="display:flex; gap:12px; align-items:center; margin-bottom:8px;">
-              <div>
-                <label for="yearlyExpenseSelect">Select Year:</label>
-                <select id="yearlyExpenseSelect"></select>
-              </div>
-              <div>
-                <label for="yearlyBankSelect">Select Bank:</label>
-                <select id="yearlyBankSelect">
+          <!-- Collapsible: Yearly Expense Summary -->
+          <div class="collapsible" data-default-open="true" id="yearlyCollapsible">
+            <div class="collapsible-header" role="button" tabindex="0" aria-expanded="true">
+              <div class="title">Yearly Expense Summary</div>
+              <div class="controls">
+                <label for="yearlyExpenseSelect" class="sr-only">Year</label>
+                <select id="yearlyExpenseSelect" aria-label="Select year for summary"></select>
+                <label for="yearlyBankSelect" class="sr-only">Bank</label>
+                <select id="yearlyBankSelect" aria-label="Select bank for summary">
                   <option value="All">All</option>
                   <option value="ICICI">ICICI</option>
                   <option value="SBI">SBI</option>
                   <option value="Bank of Baroda">Bank of Baroda</option>
                 </select>
+                <div class="chev">▲</div>
               </div>
             </div>
-
-            <table id="yearlyExpenseTable" class="investment-table">
-              <thead>
-                <tr>
-                  <th>Month</th>
-                  <th>Total Balance</th>
-                  <th>Total Expense</th>
-                  <th>Total Saving</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr><td colspan="4">No data yet</td></tr>
-              </tbody>
-            </table>
-          </article>
+            <div class="collapsible-content">
+              <article class="card section-card" style="background:transparent; box-shadow:none; padding:0;">
+                <table id="yearlyExpenseTable" class="investment-table" aria-label="Yearly expense summary table">
+                  <thead>
+                    <tr>
+                      <th>Month</th>
+                      <th>Total Balance</th>
+                      <th>Total Expense</th>
+                      <th>Total Saving</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr><td colspan="4">No data yet</td></tr>
+                  </tbody>
+                </table>
+              </article>
+            </div>
+          </div>
         </section>
       </section>
     </main>
   </div>
+
+  <script>
+    // Collapsible behavior (keyboard accessible)
+    (function () {
+      const sections = document.querySelectorAll('.collapsible');
+      sections.forEach(section => {
+        const header = section.querySelector('.collapsible-header');
+        const chev = header.querySelector('.chev');
+        const defaultOpen = section.getAttribute('data-default-open') === 'true';
+        const isMobile = window.matchMedia('(max-width:800px)').matches;
+        if (!isMobile || defaultOpen) section.classList.add('open');
+        else section.classList.remove('open');
+        if (chev) chev.textContent = section.classList.contains('open') ? '▲' : '▼';
+        header.addEventListener('click', () => {
+          section.classList.toggle('open');
+          if (chev) chev.textContent = section.classList.contains('open') ? '▲' : '▼';
+        });
+        header.addEventListener('keydown', (ev) => {
+          if (ev.key === 'Enter' || ev.key === ' ') {
+            ev.preventDefault();
+            section.classList.toggle('open');
+            if (chev) chev.textContent = section.classList.contains('open') ? '▲' : '▼';
+          }
+        });
+      });
+    })();
+  </script>
 </body>
 </html>

@@ -1,5 +1,13 @@
 /* expense.css - dedicated styling for Expense page */
 
+:root {
+  --card-bg: #1e1e1e;
+  --muted: #95a5a6;
+  --accent: #1abc9c;
+  --danger: #e74c3c;
+  --rounded: 18px;
+}
+
 .content {
   display: flex;
   flex-direction: column;
@@ -17,21 +25,21 @@
   display: flex;
   flex-direction: column;
   gap: 24px;
-  margin-bottom: 24px; /* extra spacing below summary cards */
+  margin-bottom: 24px;
 }
 
 /* Top summary cards (three bank cards + totals) */
 .summary-cards {
   display: grid;
-  grid-template-columns: repeat(5, minmax(140px, 1fr)); /* 5 cards */
+  grid-template-columns: repeat(5, minmax(140px, 1fr));
   gap: 16px;
   margin-bottom: 16px;
 }
 
 .card {
-  background: #1e1e1e;
+  background: var(--card-bg);
   padding: 20px;
-  border-radius: 24px;
+  border-radius: 16px;
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.28);
 }
 
@@ -45,139 +53,99 @@
 
 .card h3 {
   color: #ecf0f1;
-  margin: 0 0 12px;
-  font-size: 1rem;
+  margin: 0 0 8px;
+  font-size: 0.95rem;
+  font-weight: 700;
 }
 
 .card p {
-  font-size: 1.6rem; /* increased font size for readability */
+  font-size: 1.6rem;
   font-weight: 800;
-  color: #1abc9c; /* default color for balances (green) */
+  color: var(--accent);
   margin: 0;
 }
 
-/* Make expense amount more visible in Monthly Overview */
+/* Make expense amount more visible */
 .monthly-amount {
-  color: #e74c3c;
+  color: var(--danger);
   font-size: 1.6rem;
   font-weight: 800;
 }
 
 /* Section card spacing */
 .section-card {
-  padding: 20px 22px;
-  margin-bottom: 24px; /* add spacing between stacked cards */
+  padding: 16px;
+  border-radius: 12px;
 }
 
-.investment-form {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+/* Collapsible */
+.collapsible {
+  border-radius: 12px;
+  background: transparent;
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,0.03);
+  margin-bottom: 12px;
 }
-
-.investment-form input,
-.investment-form button,
-.investment-form select,
-select {
-  padding: 10px 12px;
-  border-radius: 8px;
-  border: 1px solid #444;
-  background: #1e1e1e;
-  color: #ecf0f1;
-}
-
-.investment-form button {
-  background: #e74c3c;
-  color: #fff;
-  font-weight: 700;
-  cursor: pointer;
-  border: none;
-  padding: 10px 12px;
-  border-radius: 8px;
-}
-
-.investment-form button:hover {
-  background: #c0392b;
-}
-
-.investment-table {
-  width: 100%;
-  border-collapse: collapse;
-  margin-top: 12px;
-}
-
-.investment-table th,
-.investment-table td {
-  padding: 10px;
-  border-bottom: 1px solid #333;
-  color: #ecf0f1;
-  text-align: center;
-}
-
-.investment-table th {
-  background: #2c2c2c;
-}
-
-.investment-table tr:nth-child(even) {
-  background: #2c2c2c;
-}
-
-.chart.same-size {
-  height: 340px;
-  margin-top: 12px;
-}
-
-/* Daily pie + legend layout */
-.pie-legend-wrap {
-  display: flex;
-  gap: 16px;
-  align-items: flex-start;
-}
-.pie-legend {
-  min-width: 180px;
-  max-width: 220px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-.pie-legend .legend-item {
+.collapsible-header {
   display:flex;
-  gap:8px;
   align-items:center;
-  color:#ecf0f1;
-  font-size:0.95rem;
+  justify-content:space-between;
+  gap:12px;
+  padding:12px 14px;
+  cursor:pointer;
+  user-select:none;
+  background: linear-gradient(0deg, rgba(255,255,255,0.01), rgba(255,255,255,0.01));
 }
-.legend-swatch {
-  width:14px; height:14px; border-radius:3px; display:inline-block;
-}
+.collapsible-header .title { font-weight:700; color:#ecf0f1; }
+.collapsible-header .controls { display:flex; gap:8px; align-items:center; margin-left:auto; }
+.collapsible-header .chev { font-size:0.95rem; color:var(--muted); }
+.collapsible-content { max-height: 0; overflow: hidden; transition: max-height 320ms ease, padding 320ms ease; padding: 0 14px; }
+.collapsible.open .collapsible-content { padding: 12px 14px 18px 14px; max-height: 1200px; }
 
-/* responsive tweaks */
-@media (max-width: 1200px) {
-  .summary-cards {
-    grid-template-columns: repeat(3, minmax(140px, 1fr));
-  }
+/* Forms */
+.investment-form {
+  display:flex;
+  flex-direction:column;
+  gap:10px;
 }
+.investment-form label { color:#ecf0f1; font-weight:600; font-size:0.95rem; }
+.investment-form input, .investment-form select, .investment-form button {
+  padding:10px 12px; border-radius:8px; border:1px solid #333; background:#121212; color:#ecf0f1;
+}
+.investment-form button { background: var(--danger); border: none; font-weight:700; cursor:pointer; }
+.investment-form button:hover { background:#c0392b; }
 
-@media (max-width: 1024px) {
-  .expense-layout {
-    grid-template-columns: 1fr;
-  }
-  .summary-cards {
-    grid-template-columns: repeat(3, 1fr);
-    gap: 12px;
-  }
+/* Tables */
+.investment-table { width:100%; border-collapse:collapse; margin-top:12px; }
+.investment-table th, .investment-table td { padding:10px; border-bottom:1px solid #333; color:#ecf0f1; text-align:center; font-size:0.95rem; }
+.investment-table th { background:#2c2c2c; font-weight:700; }
+.investment-table tr:nth-child(even) { background:#2a2a2a; }
+
+/* Charts */
+.chart.same-size { height:340px; margin-top:12px; }
+
+/* Pie legend */
+.pie-legend-wrap { display:flex; gap:16px; align-items:flex-start; }
+.pie-legend { min-width:180px; max-width:220px; display:flex; flex-direction:column; gap:8px; }
+.pie-legend .legend-item { display:flex; gap:8px; align-items:center; color:#ecf0f1; font-size:0.95rem; }
+.legend-swatch { width:14px; height:14px; border-radius:3px; display:inline-block; }
+
+/* Accessibility helper */
+.sr-only { position:absolute; left:-9999px; top:auto; width:1px; height:1px; overflow:hidden; }
+
+/* Responsive */
+@media (max-width:1200px) {
+  .summary-cards { grid-template-columns: repeat(3, minmax(140px,1fr)); }
+}
+@media (max-width:1024px) {
+  .expense-layout { grid-template-columns: 1fr; }
+  .summary-cards { grid-template-columns: repeat(3,1fr); gap:12px; }
   .pie-legend-wrap { flex-direction: column; }
 }
-
-@media (max-width: 600px) {
-  .summary-cards {
-    grid-template-columns: 1fr;
-  }
-  .card {
-    padding: 14px;
-  }
-  .chart.same-size { height: 260px; }
+@media (max-width:600px) {
+  .summary-cards { grid-template-columns: 1fr; }
+  .chart.same-size { height:260px; }
+  .collapsible-header { padding:10px 12px; }
+  .collapsible-content { padding:8px 12px; }
 }
-.right-panel {
-  margin-top: 181px; /* pushes the right-side charts down */
-}
+.right-panel { margin-top: 12px; }
