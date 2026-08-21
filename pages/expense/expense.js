@@ -124,7 +124,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             color: '#ffffff',
             anchor: 'end',
             align: 'end',
-            font: { weight: '800', size: 13 },
+            font: { weight: '800', size: 14 },
             formatter: (value) => value ? formatINR(value) : ''
           },
           legend: { display: false },
@@ -296,8 +296,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     const years = Array.from(new Set(Object.keys(monthlyData).map(k => k.split('-')[1]))).sort((a,b)=>b-a);
     if (!years.length) years.push(String(new Date().getFullYear()));
 
-    expenseYearSelect.innerHTML = years.map(y => `<option value="${y}">${y}</option>`).join('');
-    yearlyExpenseSelect.innerHTML = years.map(y => `<option value="${y}">${y}</option>`).join('');
+    if (expenseYearSelect) expenseYearSelect.innerHTML = years.map(y => `<option value="${y}">${y}</option>`).join('');
+    if (yearlyExpenseSelect) yearlyExpenseSelect.innerHTML = years.map(y => `<option value="${y}">${y}</option>`).join('');
 
     // Populate month-year options for daily selector
     const monthYearValues = Object.keys(monthlyData).sort((a,b) => {
@@ -305,22 +305,24 @@ document.addEventListener('DOMContentLoaded', async () => {
       const db = new Date(b.split('-')[1], new Date(`${b.split('-')[0]} 1`).getMonth());
       return db - da;
     });
-    dailyMonthYearSelect.innerHTML = monthYearValues.map(m => `<option value="${m}">${m}</option>`).join('');
-    if (!monthYearValues.length) dailyMonthYearSelect.innerHTML = '<option value="">No data</option>';
+    if (dailyMonthYearSelect) {
+      dailyMonthYearSelect.innerHTML = monthYearValues.map(m => `<option value="${m}">${m}</option>`).join('');
+      if (!monthYearValues.length) dailyMonthYearSelect.innerHTML = '<option value="">No data</option>';
+    }
 
     // Default selections
     const defaultYear = years[0];
     const defaultMonthYear = monthYearValues[0] || `${monthNames[new Date().getMonth()]}-${new Date().getFullYear()}`;
 
-    expenseYearSelect.value = defaultYear;
-    yearlyExpenseSelect.value = defaultYear;
-    dailyMonthYearSelect.value = defaultMonthYear;
+    if (expenseYearSelect) expenseYearSelect.value = defaultYear;
+    if (yearlyExpenseSelect) yearlyExpenseSelect.value = defaultYear;
+    if (dailyMonthYearSelect) dailyMonthYearSelect.value = defaultMonthYear;
 
     // Update bank totals and charts/tables
     updateBankTotalsAndTotals();
     renderMonthlyExpenseChart(defaultYear);
     renderDailyExpenseChart(defaultMonthYear);
-    renderYearlyTable(defaultYear, yearlyBankSelect.value || 'All');
+    renderYearlyTable(defaultYear, yearlyBankSelect ? yearlyBankSelect.value || 'All' : 'All');
   }
 
   // Add balance form handler (stores a balance entry with optional bank and month)
@@ -373,13 +375,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   if (yearlyExpenseSelect) {
     yearlyExpenseSelect.addEventListener('change', () => {
-      renderYearlyTable(yearlyExpenseSelect.value, yearlyBankSelect.value || 'All');
+      renderYearlyTable(yearlyExpenseSelect.value, yearlyBankSelect ? yearlyBankSelect.value || 'All' : 'All');
     });
   }
 
   if (yearlyBankSelect) {
     yearlyBankSelect.addEventListener('change', () => {
-      renderYearlyTable(yearlyExpenseSelect.value || expenseYearSelect.value, yearlyBankSelect.value || 'All');
+      renderYearlyTable(yearlyExpenseSelect ? yearlyExpenseSelect.value || expenseYearSelect.value : expenseYearSelect.value, yearlyBankSelect.value || 'All');
     });
   }
 
