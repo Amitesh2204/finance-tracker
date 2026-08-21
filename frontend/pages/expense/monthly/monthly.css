@@ -4,6 +4,7 @@
   display: flex;
   flex-direction: column;
   gap: 24px;
+  padding-bottom: 24px;
 }
 
 .expense-subpage {
@@ -21,20 +22,20 @@
 
 .summary-cards {
   display: grid;
-  grid-template-columns: repeat(3, minmax(200px, 1fr)); /* wider blocks */
-  gap: 40px; /* reduce gap so they fill row evenly */
+  grid-template-columns: repeat(3, minmax(200px, 1fr));
+  gap: 24px;
   margin-bottom: 24px;
 }
 
 .card {
   background: #1e1e1e;
-  padding: 24px;
-  border-radius: 28px;
+  padding: 20px;
+  border-radius: 18px;
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.28);
 }
 
 .summary-card {
-  min-height: 120px;
+  min-height: 110px;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -44,17 +45,18 @@
 .card h3 {
   color: #ecf0f1;
   margin: 0 0 12px;
+  font-size: 1rem;
 }
 
 .card p {
-  font-size: 1.5rem;
+  font-size: 1.4rem;
   font-weight: 700;
   color: #e74c3c;
   margin: 0;
 }
 
 .section-card {
-  padding: 20px 22px;
+  padding: 14px 16px;
 }
 
 .investment-form {
@@ -65,24 +67,34 @@
 
 .investment-form input,
 .investment-form button,
-select {
+.investment-form select,
+.investment-form textarea {
   padding: 10px 12px;
   border-radius: 8px;
   border: 1px solid #444;
-  background: #1e1e1e;
+  background: #121212;
   color: #ecf0f1;
+  font-size: 0.95rem;
+}
+
+.investment-form label {
+  color: #ecf0f1;
+  font-weight: 600;
+  font-size: 0.95rem;
 }
 
 .investment-form button {
-  background: #e74c3c;
+  background: #1abc9c;
   color: #fff;
   font-weight: 700;
   cursor: pointer;
   border: none;
+  padding: 10px 12px;
+  border-radius: 8px;
 }
 
 .investment-form button:hover {
-  background: #c0392b;
+  background: #16a085;
 }
 
 .investment-table {
@@ -96,15 +108,17 @@ select {
   padding: 10px;
   border-bottom: 1px solid #333;
   color: #ecf0f1;
-  text-align: center;
+  text-align: left;
+  font-size: 0.95rem;
 }
 
 .investment-table th {
   background: #2c2c2c;
+  font-weight: 700;
 }
 
 .investment-table tr:nth-child(even) {
-  background: #2c2c2c;
+  background: #2a2a2a;
 }
 
 .chart.same-size {
@@ -112,9 +126,53 @@ select {
   margin-top: 12px;
 }
 
+/* Collapsible styles for monthly page */
+.collapsible {
+  border-radius: 12px;
+  background: var(--card-bg);
+  margin-bottom: 16px;
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,0.03);
+}
+.collapsible-header {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  padding:12px 14px;
+  cursor:pointer;
+  user-select:none;
+  background: linear-gradient(0deg, rgba(255,255,255,0.01), rgba(255,255,255,0.01));
+}
+.collapsible-header .title { font-weight:700; color:#ecf0f1; }
+.collapsible-header .controls { display:flex; gap:8px; align-items:center; margin-left:auto; }
+.collapsible-header .chev { font-size:0.95rem; color:var(--muted); }
+.collapsible-content { max-height: 0; overflow: hidden; transition: max-height 320ms ease; padding: 0 14px; }
+.collapsible.open .collapsible-content { padding: 12px 14px 18px 14px; max-height: 1200px; }
+
+/* daily items table */
+.daily-items {
+  margin-top: 12px;
+  width: 100%;
+  border-collapse: collapse;
+}
+.daily-items th, .daily-items td {
+  padding: 8px 10px;
+  border-bottom: 1px solid #333;
+  color: #ecf0f1;
+  font-size: 0.95rem;
+  text-align: left;
+}
+.daily-items th { background:#2c2c2c; font-weight:700; }
+
+/* small responsive tweaks */
 @media (max-width: 1024px) {
   .expense-subpage {
     grid-template-columns: 1fr;
+  }
+  .summary-cards {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
   }
 }
 
@@ -122,13 +180,16 @@ select {
   .summary-cards {
     grid-template-columns: 1fr;
   }
-
   .card {
-    padding: 18px;
+    padding: 14px;
   }
+  .chart.same-size { height: 260px; }
+  .collapsible-header { padding:10px 12px; }
+  .collapsible-content { padding: 8px 12px; }
+  .collapsible.open .collapsible-content { padding: 10px 12px 14px 12px; }
 }
 
+/* right panel offset */
 .right-panel {
-  margin-top: 180px; /* pushes charts down relative to summary cards */
+  margin-top: 0;
 }
-

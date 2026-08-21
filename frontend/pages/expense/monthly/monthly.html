@@ -57,73 +57,168 @@
             </article>
           </div>
 
-          <article class="card section-card">
-            <h3>Add Monthly Expense</h3>
-            <form id="monthlyExpenseForm" class="investment-form">
-              <label for="monthlyExpenseCategory">Expense Category</label>
-              <select id="monthlyExpenseCategory">
-                <option value="Monthly Expense" selected>Monthly Expense</option>
-                <option value="custom">Custom (enter manually)</option>
-              </select>
-
-              <div id="customCategoryWrapper" style="display:none;">
-                <label for="customCategoryInput">Custom Category</label>
-                <input id="customCategoryInput" type="text" placeholder="Enter category in words">
+          <!-- Collapsible: Add Monthly Expense -->
+          <div class="collapsible" id="addExpenseSection" data-default-open="true">
+            <div class="collapsible-header" role="button" tabindex="0" aria-expanded="true">
+              <div class="title">Add Monthly Expense</div>
+              <div class="controls">
+                <div class="chev">▲</div>
               </div>
+            </div>
+            <div class="collapsible-content">
+              <article class="card section-card" style="background:transparent; box-shadow:none; padding:0;">
+                <form id="monthlyExpenseForm" class="investment-form">
+                  <label for="monthlyExpenseName">Name</label>
+                  <input id="monthlyExpenseName" type="text" placeholder="Item name (e.g., Groceries, Rent)" />
 
-              <label for="monthlyExpenseAmount">Amount</label>
-              <input id="monthlyExpenseAmount" type="number" min="0" step="0.01" required>
+                  <label for="monthlyExpenseCategory">Expense Category</label>
+                  <select id="monthlyExpenseCategory">
+                    <option value="Monthly Expense" selected>Monthly Expense</option>
+                    <option value="custom">Custom (enter manually)</option>
+                  </select>
 
-              <label for="monthlyExpenseDate">Date</label>
-              <input id="monthlyExpenseDate" type="date" required>
+                  <label for="monthlyExpenseSubcategory">Sub Category (quick pick)</label>
+                  <select id="monthlyExpenseSubcategory">
+                    <option value="none">— Select subcategory —</option>
+                    <option>School Fees</option>
+                    <option>Rent</option>
+                    <option>Food &amp; Fruit</option>
+                    <option>Vegetables</option>
+                    <option>Electricity</option>
+                    <option>Doctor Fees</option>
+                    <option>Medicine &amp; Tests</option>
+                    <option>Loan</option>
+                    <option>Saving</option>
+                    <option>Clothes</option>
+                    <option>BC</option>
+                    <option>Other</option>
+                  </select>
 
-              <button type="submit">Add Expense</button>
-            </form>
-          </article>
+                  <div id="customCategoryWrapper" style="display:none;">
+                    <label for="customCategoryInput">Custom Category</label>
+                    <input id="customCategoryInput" type="text" placeholder="Enter category in words">
+                  </div>
+
+                  <label for="monthlyExpenseAmount">Amount</label>
+                  <input id="monthlyExpenseAmount" type="number" min="0" step="0.01" required>
+
+                  <label for="monthlyExpenseDate">Date</label>
+                  <input id="monthlyExpenseDate" type="date" required>
+
+                  <button type="submit">Add Expense</button>
+                </form>
+              </article>
+            </div>
+          </div>
         </aside>
 
         <section class="content-panel right-panel">
-          <article class="card section-card">
-            <h3>Monthly Expense</h3>
-            <label for="expenseMonthSelect">Select Month-Year:</label>
-            <input id="expenseMonthSelect" type="month" />
-            <div class="chart same-size">
-              <canvas id="monthlyExpenseChart"></canvas>
+          <!-- Collapsible: Monthly Expense Chart -->
+          <div class="collapsible" id="chartSection" data-default-open="true">
+            <div class="collapsible-header" role="button" tabindex="0" aria-expanded="true">
+              <div class="title">Monthly Expense</div>
+              <div class="controls">
+                <label for="expenseMonthSelect" style="font-weight:600; color:#ecf0f1; font-size:0.95rem; margin-right:8px;">Month</label>
+                <input id="expenseMonthSelect" type="month" />
+                <div class="chev">▲</div>
+              </div>
             </div>
-          </article>
+            <div class="collapsible-content">
+              <article class="card section-card" style="background:transparent; box-shadow:none; padding:0;">
+                <div class="chart same-size" style="padding:8px 0;">
+                  <canvas id="monthlyExpenseChart"></canvas>
+                </div>
+              </article>
+            </div>
+          </div>
 
-          <article class="card section-card">
-            <h3>Monthly Expense Summary</h3>
-            <table id="monthlyExpenseTable" class="investment-table">
-              <thead>
-                <tr>
-                  <th>Month</th>
-                  <th>Total Expense</th>
-                  <th>Average/Day</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr><td colspan="3">No data yet</td></tr>
-              </tbody>
-            </table>
-          </article>
+          <!-- Collapsible: Monthly Expense Summary -->
+          <div class="collapsible" id="summarySection" data-default-open="true">
+            <div class="collapsible-header" role="button" tabindex="0" aria-expanded="true">
+              <div class="title">Monthly Expense Summary</div>
+              <div class="controls">
+                <div class="chev">▲</div>
+              </div>
+            </div>
+            <div class="collapsible-content">
+              <article class="card section-card" style="background:transparent; box-shadow:none; padding:0;">
+                <table id="monthlyExpenseTable" class="investment-table">
+                  <thead>
+                    <tr>
+                      <th>Month</th>
+                      <th>Total Expense</th>
+                      <th>Average/Day</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr><td colspan="3">No data yet</td></tr>
+                  </tbody>
+                </table>
+              </article>
+            </div>
+          </div>
+
+          <!-- Collapsible: Daily Items -->
+          <div class="collapsible" id="dailyItemsSection" data-default-open="false">
+            <div class="collapsible-header" role="button" tabindex="0" aria-expanded="false">
+              <div class="title">Daily Purchases (Name, Category, Amount)</div>
+              <div class="controls">
+                <div class="chev">▼</div>
+              </div>
+            </div>
+            <div class="collapsible-content">
+              <article class="card section-card" style="background:transparent; box-shadow:none; padding:0;">
+                <table id="dailyItemsTable" class="daily-items">
+                  <thead>
+                    <tr>
+                      <th>Name</th>
+                      <th>Category</th>
+                      <th>Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr><td colspan="3">No purchases for selected month</td></tr>
+                  </tbody>
+                </table>
+              </article>
+            </div>
+          </div>
         </section>
       </section>
     </main>
   </div>
 
   <script>
-    // Toggle custom category input visibility
+    // Toggle custom category input visibility (kept for progressive enhancement)
     document.addEventListener('DOMContentLoaded', () => {
       const categorySelect = document.getElementById('monthlyExpenseCategory');
       const customWrapper = document.getElementById('customCategoryWrapper');
-      categorySelect.addEventListener('change', () => {
-        if (categorySelect.value === 'custom') {
-          customWrapper.style.display = 'block';
-        } else {
-          customWrapper.style.display = 'none';
-        }
-      });
+      const subcategorySelect = document.getElementById('monthlyExpenseSubcategory');
+
+      if (categorySelect) {
+        categorySelect.addEventListener('change', () => {
+          if (categorySelect.value === 'custom') {
+            customWrapper.style.display = 'block';
+          } else {
+            customWrapper.style.display = 'none';
+            const customInput = document.getElementById('customCategoryInput');
+            if (customInput) customInput.value = '';
+            if (subcategorySelect) subcategorySelect.value = 'none';
+          }
+        });
+      }
+
+      if (subcategorySelect) {
+        subcategorySelect.addEventListener('change', () => {
+          const val = subcategorySelect.value;
+          if (val && val !== 'none') {
+            categorySelect.value = 'custom';
+            customWrapper.style.display = 'block';
+            const customInput = document.getElementById('customCategoryInput');
+            if (customInput) customInput.value = val;
+          }
+        });
+      }
     });
   </script>
 </body>
