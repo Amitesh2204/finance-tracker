@@ -1,4 +1,4 @@
-// expense.js - Expense dashboard totals, charts, and yearly summary
+// expense.js - Expense dashboard totals, charts, and yearly summary (updated)
 // Requires Chart.js and chartjs-plugin-datalabels (loaded in expense.html)
 
 Chart.register(ChartDataLabels);
@@ -30,6 +30,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   // monthlyData keyed by "Mon-YYYY" -> { balance: number, expense: number, daily: [entries], byBank: { bankName: {balance, expense, daily}} }
   let monthlyData = {};
   let allEntries = [];
+
+  // For daily chart interactivity: keep original totals per category for the currently selected month-year
+  let originalCategoryTotals = {};
+  let activeCategories = new Set(); // when empty => all active
 
   function formatINR(amount) {
     return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(Number(amount) || 0);
@@ -119,12 +123,20 @@ document.addEventListener('DOMContentLoaded', async () => {
       options: {
         responsive: true,
         maintainAspectRatio: false,
+        layout: {
+          padding: {
+            top: 8,
+            bottom: 8
+          }
+        },
         plugins: {
           datalabels: {
             color: '#ffffff',
             anchor: 'end',
-            align: 'end',
-            font: { weight: '800', size: 14 },
+            align: 'start',
+            offset: -6,
+            clamp: true,
+            font: { weight: '800', size: 12 },
             formatter: (value) => value ? formatINR(value) : ''
           },
           legend: { display: false },
@@ -143,6 +155,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   // Daily pie chart showing percentages only; legend built beside chart
+  // This version always shows all categories in the legend (0% if none) and supports click-to-filter
   function renderDailyExpenseChart(selectedMonthYear) {
     const canvas = document.getElementById('dailyExpenseChart');
     if (!canvas || typeof Chart === 'undefined') return;
@@ -153,8 +166,26 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const dailyEntries = monthlyData[selectedMonthYear]?.daily || [];
 
-    // Group by category (use provided categories list to ensure consistent legend order)
+    // Categories list (fixed order)
     const categories = ['School Fees','Rent','Food & Fruit','Vegetables','Electricity','Doctor Fees','Medicine & Tests','Loan','Saving','Clothes','BC','Other'];
+
+    // Color palette mapped to categories (one-to-one)
+    const colors = {
+      'School Fees': '#8e44ad',
+      'Rent': '#2ecc71',
+      'Food & Fruit': '#f39c12',
+      'Vegetables': '#27ae60',
+      'Electricity': '#f1c40f',
+      'Doctor Fees': '#3498db',
+      'Medicine & Tests': '#e67e22',
+      'Loan': '#34495e',
+      'Saving': '#1abc9c',
+      'Clothes': '#d35400',
+      'BC': '#7f8c8d',
+      'Other': '#95a5a6'
+    };
+
+    // Initialize totals for all categories (so legend always shows all)
     const categoryTotals = {};
     categories.forEach(c => categoryTotals[c] = 0);
 
@@ -164,48 +195,70 @@ document.addEventListener('DOMContentLoaded', async () => {
       categoryTotals[matched] = (categoryTotals[matched] || 0) + (Number(entry.amount) || 0);
     });
 
+    // Save original totals for interactivity
+    originalCategoryTotals = Object.assign({}, categoryTotals);
+    // If activeCategories is empty, treat as all active
+    if (activeCategories.size === 0) categories.forEach(c => activeCategories.add(c));
+
+    // Build labels and amounts based on activeCategories
     const labels = [];
     const amounts = [];
-    const colors = [
-      '#e74c3c','#3498db','#2ecc71','#f39c12','#9b59b6','#e67e22','#1abc9c','#34495e','#f1c40f','#d35400','#7f8c8d','#95a5a6'
-    ];
+    const bgColors = [];
 
-    categories.forEach((cat, idx) => {
-      const amt = categoryTotals[cat] || 0;
-      if (amt > 0) {
-        labels.push(cat);
-        amounts.push(amt);
-      }
+    categories.forEach(cat => {
+      const amt = originalCategoryTotals[cat] || 0;
+      // include all categories in the chart data but zero amounts will be ignored by Chart.js pie rendering
+      labels.push(cat);
+      amounts.push(amt);
+      bgColors.push(colors[cat] || '#95a5a6');
     });
 
-    // Build legend (color swatches + label + percentage)
+    // Build legend (color swatches + label + percentage) and attach click handlers
     const total = amounts.reduce((s,a)=>s+a,0);
     dailyLegendEl.innerHTML = '';
-    labels.forEach((lbl, i) => {
-      const pct = total ? ((amounts[i] / total) * 100).toFixed(1) + '%' : '0%';
+    categories.forEach((lbl, i) => {
+      const amt = originalCategoryTotals[lbl] || 0;
+      const pct = total ? ((amt / total) * 100).toFixed(1) + '%' : '0%';
       const swatch = document.createElement('div');
       swatch.className = 'legend-item';
-      swatch.innerHTML = `<span class="legend-swatch" style="background:${colors[i % colors.length]}"></span><span>${lbl} — ${pct}</span>`;
+      if (!activeCategories.has(lbl)) swatch.classList.add('inactive');
+      swatch.dataset.category = lbl;
+      swatch.innerHTML = `<span class="legend-swatch" style="background:${bgColors[i]}"></span><span class="legend-label">${lbl} — ${pct}</span>`;
+      swatch.addEventListener('click', () => {
+        // Toggle category active state
+        if (activeCategories.has(lbl)) {
+          activeCategories.delete(lbl);
+        } else {
+          activeCategories.add(lbl);
+        }
+        // If none selected, reset to all selected
+        if (activeCategories.size === 0) categories.forEach(c => activeCategories.add(c));
+        // Update legend visuals
+        Array.from(dailyLegendEl.children).forEach(child => {
+          const cat = child.dataset.category;
+          if (!activeCategories.has(cat)) child.classList.add('inactive'); else child.classList.remove('inactive');
+        });
+        // Recompute filtered data and update chart
+        updateDailyChartFromActive(categories, originalCategoryTotals, colors);
+      });
       dailyLegendEl.appendChild(swatch);
     });
-    if (!labels.length) {
-      dailyLegendEl.innerHTML = '<div style="color:#95a5a6">No categories for selected month</div>';
-    }
 
+    // Create chart with all categories (Chart.js will hide zero slices)
     window.dailyExpenseChart = new Chart(ctx, {
       type: 'pie',
       data: {
         labels,
         datasets: [{
           data: amounts,
-          backgroundColor: colors.slice(0, labels.length)
+          backgroundColor: bgColors
         }]
       },
       options: {
         responsive: true,
         maintainAspectRatio: false,
         plugins: {
-          legend: { display: false }, // we show custom legend
+          legend: { display: false }, // custom legend used
           datalabels: {
             color: '#fff',
             formatter: (value, ctx) => {
@@ -217,13 +270,42 @@ document.addEventListener('DOMContentLoaded', async () => {
           },
           tooltip: {
             callbacks: {
-              label: (ctx) => `${ctx.label}: ${formatINR(ctx.parsed)}` // show amount in tooltip
+              label: (ctx) => `${ctx.label}: ${formatINR(ctx.parsed)}`
             }
           }
         }
       },
       plugins: [ChartDataLabels]
     });
+
+    // Ensure initial active state is reflected in chart
+    updateDailyChartFromActive(categories, originalCategoryTotals, colors);
+  }
+
+  // Helper to update the pie chart based on activeCategories
+  function updateDailyChartFromActive(categories, totals, colorsMap) {
+    if (!window.dailyExpenseChart) return;
+    const data = [];
+    const labels = [];
+    const bg = [];
+    categories.forEach(cat => {
+      if (activeCategories.has(cat)) {
+        labels.push(cat);
+        data.push(totals[cat] || 0);
+        bg.push(colorsMap[cat] || '#95a5a6');
+      }
+    });
+    // If all categories are active (or none filtered), show all categories to preserve legend mapping
+    if (activeCategories.size === categories.length) {
+      window.dailyExpenseChart.data.labels = categories;
+      window.dailyExpenseChart.data.datasets[0].data = categories.map(c => totals[c] || 0);
+      window.dailyExpenseChart.data.datasets[0].backgroundColor = categories.map(c => colorsMap[c] || '#95a5a6');
+    } else {
+      window.dailyExpenseChart.data.labels = labels;
+      window.dailyExpenseChart.data.datasets[0].data = data;
+      window.dailyExpenseChart.data.datasets[0].backgroundColor = bg;
+    }
+    window.dailyExpenseChart.update();
   }
 
   // Yearly table rendering with bank filter
@@ -369,6 +451,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     dailyMonthYearSelect.addEventListener('change', () => {
       const val = dailyMonthYearSelect.value;
       if (!val) return;
+      // Reset active categories to all when month changes
+      activeCategories = new Set();
       renderDailyExpenseChart(val);
     });
   }

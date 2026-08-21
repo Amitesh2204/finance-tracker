@@ -1,4 +1,4 @@
-/* expense.css - dedicated styling for Expense page */
+/* expense.css - dedicated styling for Expense page (updated) */
 
 :root {
   --card-bg: #1e1e1e;
@@ -8,6 +8,7 @@
   --rounded: 18px;
 }
 
+/* Layout containers */
 .content {
   display: flex;
   flex-direction: column;
@@ -28,12 +29,15 @@
   margin-bottom: 24px;
 }
 
-/* Top summary cards (three bank cards + totals) */
+/* Top summary cards (five bank cards + totals) */
+/* Ensure each card is visually separated and consistent spacing */
 .summary-cards {
   display: grid;
   grid-template-columns: repeat(5, minmax(140px, 1fr));
-  gap: 16px;
-  margin-bottom: 16px;
+  gap: 18px;
+  margin-bottom: 18px;
+  align-items: stretch;
+  z-index: 2;
 }
 
 .card {
@@ -41,10 +45,14 @@
   padding: 20px;
   border-radius: 16px;
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.28);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 110px;
 }
 
+/* Summary card specifics */
 .summary-card {
-  min-height: 110px;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -111,6 +119,7 @@
 .investment-form label { color:#ecf0f1; font-weight:600; font-size:0.95rem; }
 .investment-form input, .investment-form select, .investment-form button {
   padding:10px 12px; border-radius:8px; border:1px solid #333; background:#121212; color:#ecf0f1;
+  font-size:0.95rem;
 }
 .investment-form button { background: var(--danger); border: none; font-weight:700; cursor:pointer; }
 .investment-form button:hover { background:#c0392b; }
@@ -122,16 +131,44 @@
 .investment-table tr:nth-child(even) { background:#2a2a2a; }
 
 /* Charts */
-.chart.same-size { height:340px; margin-top:12px; }
+/* Add spacing above charts so they don't overlap with top cards */
+.chart.same-size { height:340px; margin-top:18px; position:relative; }
 
 /* Pie legend */
 .pie-legend-wrap { display:flex; gap:16px; align-items:flex-start; }
-.pie-legend { min-width:180px; max-width:220px; display:flex; flex-direction:column; gap:8px; }
-.pie-legend .legend-item { display:flex; gap:8px; align-items:center; color:#ecf0f1; font-size:0.95rem; }
-.legend-swatch { width:14px; height:14px; border-radius:3px; display:inline-block; }
+.pie-legend { min-width:220px; max-width:260px; display:flex; flex-direction:column; gap:8px; }
+.pie-legend .legend-item { display:flex; gap:8px; align-items:center; color:#ecf0f1; font-size:0.95rem; cursor:pointer; user-select:none; }
+.legend-swatch { width:14px; height:14px; border-radius:3px; display:inline-block; flex:0 0 14px; }
+
+/* Legend item states */
+.legend-item.inactive { opacity:0.45; }
+.legend-item .legend-label { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 
 /* Accessibility helper */
 .sr-only { position:absolute; left:-9999px; top:auto; width:1px; height:1px; overflow:hidden; }
+
+/* Selector sizing improvements for usability */
+.select-large, select.select-large, .select-large input, .select-large select {
+  padding:10px 12px;
+  font-size:1rem;
+  border-radius:8px;
+  min-width:160px;
+}
+
+/* Specific selectors used on the page */
+#dailyMonthYearSelect, #yearlyBankSelect, #yearlyExpenseSelect, #expenseYearSelect {
+  padding:10px 12px;
+  font-size:1rem;
+  border-radius:8px;
+  min-width:180px;
+  background:#121212;
+  color:#ecf0f1;
+  border:1px solid #333;
+}
+
+/* Make legend scrollable on small screens */
+.pie-legend-wrap { gap:12px; }
+.pie-legend { max-height: 320px; overflow:auto; padding-right:6px; }
 
 /* Responsive */
 @media (max-width:1200px) {
@@ -147,5 +184,6 @@
   .chart.same-size { height:260px; }
   .collapsible-header { padding:10px 12px; }
   .collapsible-content { padding:8px 12px; }
+  #dailyMonthYearSelect, #yearlyBankSelect, #yearlyExpenseSelect, #expenseYearSelect { min-width: 140px; font-size:0.95rem; padding:8px 10px; }
 }
 .right-panel { margin-top: 12px; }
