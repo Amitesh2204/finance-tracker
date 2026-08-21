@@ -11,13 +11,8 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels"></script>
 
-  <!-- Ensure config/db/app are loaded in correct order.
-       Use relative paths from this file (frontend/pages/expense/expense.html)
-       to the shared scripts in frontend/ (../../) -->
   <script>
-    // Prevent app-wide default of hitting site root which causes 404 on GitHub Pages.
-    // If you host an API, set window.__API_BASE__ explicitly (absolute or relative).
-    // By default we keep it empty so app.js will use relative "entries" path and fall back to local storage/PouchDB.
+    // Keep defaults; override in config.js if needed
     window.__API_BASE__ = window.__API_BASE__ || '';
     window.__REMOTE_COUCH__ = window.__REMOTE_COUCH__ || null;
   </script>
@@ -59,18 +54,19 @@
 
       <section class="content expense-layout" aria-label="Expense dashboard">
         <aside class="content-panel left-panel">
-          <div class="cards summary-cards" aria-label="Expense summary cards">
+          <!-- Per-bank summary cards -->
+          <div class="cards summary-cards" aria-label="Bank balances">
             <article class="card summary-card">
-              <h3>Total Balance</h3>
-              <p id="totalBalance">₹0.00</p>
+              <h3>ICICI Total Balance</h3>
+              <p id="iciciBalance" class="monthly-amount">₹0.00</p>
             </article>
             <article class="card summary-card">
-              <h3>Total Expense</h3>
-              <p id="totalExpense">₹0.00</p>
+              <h3>SBI Total Balance</h3>
+              <p id="sbiBalance" class="monthly-amount">₹0.00</p>
             </article>
             <article class="card summary-card">
-              <h3>Total Saving</h3>
-              <p id="totalSaving">₹0.00</p>
+              <h3>Bank of Baroda Total Balance</h3>
+              <p id="bobBalance" class="monthly-amount">₹0.00</p>
             </article>
           </div>
 
@@ -79,6 +75,18 @@
             <form id="balanceForm" class="investment-form">
               <label for="balanceAmount">Balance Amount</label>
               <input id="balanceAmount" type="number" min="0" step="0.01" required>
+
+              <label for="balanceMonth">Month</label>
+              <input id="balanceMonth" type="month" />
+
+              <label for="balanceBank">Bank</label>
+              <select id="balanceBank">
+                <option value="ICICI">ICICI</option>
+                <option value="SBI">SBI</option>
+                <option value="Bank of Baroda">Bank of Baroda</option>
+                <option value="Other">Other</option>
+              </select>
+
               <button type="submit">Add Balance</button>
             </form>
           </article>
@@ -98,15 +106,37 @@
             <h3>Daily Expense Details</h3>
             <label for="dailyMonthYearSelect">Select Month-Year:</label>
             <select id="dailyMonthYearSelect"></select>
-            <div class="chart same-size">
-              <canvas id="dailyExpenseChart"></canvas>
+
+            <div class="chart same-size" style="display:flex; gap:12px; align-items:flex-start;">
+              <div style="flex:1 1 60%;">
+                <canvas id="dailyExpenseChart"></canvas>
+              </div>
+              <div class="pie-legend-wrap" style="flex:0 0 220px;">
+                <div class="pie-legend" id="dailyLegend">
+                  <!-- legend items inserted by JS -->
+                </div>
+              </div>
             </div>
           </article>
 
           <article class="card section-card">
             <h3>Yearly Expense Summary</h3>
-            <label for="yearlyExpenseSelect">Select Year:</label>
-            <select id="yearlyExpenseSelect"></select>
+            <div style="display:flex; gap:12px; align-items:center; margin-bottom:8px;">
+              <div>
+                <label for="yearlyExpenseSelect">Select Year:</label>
+                <select id="yearlyExpenseSelect"></select>
+              </div>
+              <div>
+                <label for="yearlyBankSelect">Select Bank:</label>
+                <select id="yearlyBankSelect">
+                  <option value="All">All</option>
+                  <option value="ICICI">ICICI</option>
+                  <option value="SBI">SBI</option>
+                  <option value="Bank of Baroda">Bank of Baroda</option>
+                </select>
+              </div>
+            </div>
+
             <table id="yearlyExpenseTable" class="investment-table">
               <thead>
                 <tr>
