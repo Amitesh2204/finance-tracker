@@ -2,9 +2,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   const totalExpenseEl = document.getElementById('totalMonthlyExpense');
   const highestMonthEl = document.getElementById('highestExpenseMonth');
   const averageExpenseEl = document.getElementById('averageExpense');
-  const monthSelect = document.getElementById('expenseMonthSelect'); // month-year selector
+  const monthSelect = document.getElementById('expenseMonthSelect'); // month-year selector (input[type=month])
   const tableBody = document.querySelector('#monthlyExpenseTable tbody');
   const dailyItemsTbody = document.querySelector('#dailyItemsTable tbody');
+  const yearSelect = document.getElementById('summaryYearSelect'); // new year selector for summary table
+  const daySelect = document.getElementById('dayFilterSelect'); // new day selector to filter daily items
 
   let expenseEntries = [];
   let monthlyData = {};
@@ -36,6 +38,30 @@ document.addEventListener('DOMContentLoaded', async () => {
   function daysInMonth(year, monthIndex) {
     return new Date(year, monthIndex + 1, 0).getDate();
   }
+
+  // Custom Chart.js plugin to draw totals on top of bars
+  const drawBarTotalsPlugin = {
+    id: 'drawBarTotals',
+    afterDatasetsDraw(chart) {
+      const ctx = chart.ctx;
+      chart.data.datasets.forEach((dataset, dsIndex) => {
+        const meta = chart.getDatasetMeta(dsIndex);
+        meta.data.forEach((bar, index) => {
+          const value = dataset.data[index] || 0;
+          if (value === 0) return;
+          const x = bar.x;
+          const y = bar.y - 6; // slightly above bar
+          ctx.save();
+          ctx.fillStyle = '#ffffff';
+          ctx.font = '600 12px Inter, system-ui, Arial';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'bottom';
+          ctx.fillText(formatINR(value), x, y);
+          ctx.restore();
+        });
+      });
+    }
+  };
 
   function renderDailyChart(selectedMonthYear) {
     const canvas = document.getElementById('monthlyExpenseChart');
@@ -90,7 +116,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         scales: {
           y: { beginAtZero: true, ticks: { callback: v => formatINR(v) } }
         }
-      }
+      },
+      plugins: [drawBarTotalsPlugin]
     });
   }
 
@@ -113,7 +140,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     tableBody.innerHTML = rows || '<tr><td colspan="3">No data yet</td></tr>';
   }
 
-  function renderDailyItems(selectedMonthYear) {
+  function renderDailyItems(selectedMonthYear, selectedDay = null) {
     if (!dailyItemsTbody) return;
     const [monShort, yearStr] = selectedMonthYear.split('-');
     const monthIndex = new Date(`${monShort} 1, ${yearStr}`).getMonth();
@@ -122,12 +149,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     const filtered = expenseEntries
       .filter(e => {
         const d = new Date(e.date);
-        return d.getFullYear() === year && d.getMonth() === monthIndex;
+        if (d.getFullYear() !== year || d.getMonth() !== monthIndex) return false;
+        if (selectedDay) return d.getDate() === Number(selectedDay);
+        return true;
       })
       .sort((a,b) => new Date(a.date) - new Date(b.date));
 
     if (!filtered.length) {
-      dailyItemsTbody.innerHTML = '<tr><td colspan="3">No purchases for selected month</td></tr>';
+      dailyItemsTbody.innerHTML = '<tr><td colspan="4">No purchases for selected month/day</td></tr>';
       return;
     }
 
@@ -135,7 +164,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       const name = e.name || 'Item';
       const cat = e.category || e.notes || 'Expense';
       const amt = Number(e.amount) || 0;
-      return `<tr><td>${name}</td><td>${cat}</td><td>${formatINR(amt)}</td></tr>`;
+      const dateStr = new Date(e.date).toLocaleDateString();
+      return `<tr><td>${name}</td><td>${cat}</td><td>${dateStr}</td><td>${formatINR(amt)}</td></tr>`;
     }).join('');
 
     dailyItemsTbody.innerHTML = rows;
@@ -177,10 +207,20 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // set monthSelect value to current month
     if (monthSelect) {
-      // set value to YYYY-MM format for input[type=month]
       const mm = String(now.getMonth() + 1).padStart(2, '0');
       monthSelect.value = `${now.getFullYear()}-${mm}`;
     }
+
+    // populate yearSelect for summary table
+    if (yearSelect) {
+      const years = Array.from(new Set(Object.keys(monthlyData).map(k => k.split('-')[1]))).sort((a,b) => b - a);
+      if (!years.length) years.push(String(now.getFullYear()));
+      yearSelect.innerHTML = years.map(y => `<option value="${y}">${y}</option>`).join('');
+      yearSelect.value = String(now.getFullYear());
+    }
+
+    // populate daySelect (will be updated on month change)
+    populateDaySelectFromMonth(now.getFullYear(), now.getMonth());
 
     renderSummary(monthlyData);
     renderDailyChart(defaultMonthYear);
@@ -256,6 +296,16 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   // monthSelect change handler (input[type=month] -> YYYY-MM)
+  function populateDaySelectFromMonth(year, monthIndex) {
+    if (!daySelect) return;
+    const daysCount = daysInMonth(year, monthIndex);
+    const options = ['<option value="all">All days</option>']
+      .concat(Array.from({ length: daysCount }, (_, i) => `<option value="${i+1}">${i+1}</option>`))
+      .join('');
+    daySelect.innerHTML = options;
+    daySelect.value = 'all';
+  }
+
   if (monthSelect) {
     monthSelect.addEventListener('change', () => {
       if (!monthSelect.value) return;
@@ -265,6 +315,29 @@ document.addEventListener('DOMContentLoaded', async () => {
       renderDailyChart(selectedMonthYear);
       renderTable(year);
       renderDailyItems(selectedMonthYear);
+      // update day selector
+      populateDaySelectFromMonth(Number(year), Number(month) - 1);
+    });
+  }
+
+  // yearSelect change handler for summary table
+  if (yearSelect) {
+    yearSelect.addEventListener('change', () => {
+      const y = yearSelect.value;
+      renderTable(y);
+    });
+  }
+
+  // daySelect change handler to filter daily items
+  if (daySelect) {
+    daySelect.addEventListener('change', () => {
+      const monthVal = monthSelect && monthSelect.value ? monthSelect.value : null;
+      if (!monthVal) return;
+      const [year, month] = monthVal.split('-');
+      const monthName = new Date(`${year}-${month}-01`).toLocaleString('default',{month:'short'});
+      const selectedMonthYear = `${monthName}-${year}`;
+      const dayVal = daySelect.value === 'all' ? null : daySelect.value;
+      renderDailyItems(selectedMonthYear, dayVal);
     });
   }
 
