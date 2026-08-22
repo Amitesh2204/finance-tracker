@@ -337,11 +337,13 @@ button { cursor:pointer; }
 }
 .monthly-amount, .summary-card p, .card p { text-shadow:0 1px 0 color-mix(in srgb, var(--surface-raised) 65%, transparent); }
 .chart, .chart.card, .chart.same-size {
-  min-height:clamp(280px, 32vw, 400px);
-  height:auto !important;
+  height:clamp(280px, 32vw, 400px) !important;
+  min-height:0;
+  position:relative;
+  overflow:hidden;
 }
 .chart canvas { display:block; width:100% !important; max-width:100%; }
-.chart > div:has(> canvas) { min-height:220px; height:clamp(220px, 30vw, 320px) !important; }
+.chart > div:has(> canvas) { min-height:220px; height:clamp(220px, 30vw, 320px) !important; position:relative; }
 .tx-scroll, .investment-table-wrap { overflow-x:auto; -webkit-overflow-scrolling:touch; }
 .investment-table, .transactions table { min-width:560px; }
 .card:has(> table), .card:has(> .investment-table), .card:has(.investment-table) {
@@ -354,7 +356,7 @@ button { cursor:pointer; }
   .app, .main, .content, .content-panel, .chart-row, .cards { min-width:0; max-width:100%; }
   .main { overflow:hidden; }
   .chart, .chart.card, .chart.same-size {
-    min-height:260px;
+    height:clamp(220px, 58vw, 280px) !important;
     padding:16px;
   }
   .chart canvas { max-height:250px; }
