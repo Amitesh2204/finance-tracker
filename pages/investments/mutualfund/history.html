@@ -1,0 +1,139 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Mutual Fund — History</title>
+  <link rel="stylesheet" href="../../../style.css">
+  <link rel="stylesheet" href="mutualfund.css">
+  <link rel="stylesheet" href="history.css">
+
+  <!-- Core libraries -->
+  <script src="https://unpkg.com/pouchdb@7.3.1/dist/pouchdb.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <!-- App + DB layer -->
+  <script src="../../../config.js" defer></script>
+  <script src="../../../db.js" defer></script>
+  <script src="../../../app.js" defer></script>
+
+  <!-- Page-specific logic -->
+  <script src="history.js" defer></script>
+</head>
+
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand"><h1>Wealty</h1></div>
+      <nav class="main-menu">
+        <a href="../../../../index.html">🏠 Home</a>
+        <a href="../budget/budget.html">📊 Budget</a>
+        <a href="../expense/expense.html">💸 Expense</a>
+        <div class="submenu">
+          <a href="../investments.html" class="submenu-toggle">📈 Investments ▾</a>
+          <ul class="submenu-list">
+            <li><a href="mutualfund.html">Mutual Fund</a></li>
+            <li><a href="history.html" class="active">↳ Old Data / History</a></li>
+            <li><a href="../lic/lic.html">LIC</a></li>
+            <li><a href="../ppf/ppf.html">PPF</a></li>
+            <li><a href="../sukanya/sukanya.html">Sukanya Yojana</a></li>
+          </ul>
+        </div>
+        <a href="../../report.html">📑 Report</a>
+      </nav>
+      <div class="sidebar-footer">
+        <a href="../../settings.html">⚙️ Settings</a>
+        <a href="../../login.html">🚪 Logout</a>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <h2>Mutual Fund — Old Data / History</h2>
+        <a href="mutualfund.html" class="toggle-btn" style="text-decoration:none; display:inline-block; padding:10px 16px;">← Back to Mutual Fund</a>
+      </header>
+
+      <section class="content history-section">
+        <p class="history-intro">
+          Use this page to record buy and sell transactions going back to when investing started (July 2017),
+          plus anything new going forward. Every entry here feeds straight into the Total Investment and
+          Total Growth figures on the main Mutual Fund page — there's nothing else to sync.
+        </p>
+
+        <!-- Summary cards -->
+        <div class="cards">
+          <div class="card"><h3>Total Bought</h3><p id="historyTotalBought">₹0.00</p></div>
+          <div class="card"><h3>Total Sold</h3><p id="historyTotalSold">₹0.00</p></div>
+          <div class="card"><h3>Net Invested</h3><p id="historyNetInvested">₹0.00</p></div>
+          <div class="card"><h3>Total Growth Recorded</h3><p id="historyTotalGrowth">₹0.00</p></div>
+        </div>
+
+        <!-- Yearly growth chart -->
+        <div class="chart card same-size">
+          <h3>Yearly Growth (since July 2017)</h3>
+          <canvas id="yearlyGrowthChart"></canvas>
+        </div>
+
+        <div class="history-layout">
+          <!-- Add transaction form -->
+          <div class="card">
+            <h3>Add a Transaction</h3>
+            <form id="historyForm" class="investment-form">
+              <label for="historyFund">Fund Name</label>
+              <select id="historyFund">
+                <option value="WhiteOak">WhiteOak</option>
+                <option value="Bajaj">Bajaj</option>
+                <option value="WealthCo">WealthCo</option>
+                <option value="Groww">Groww</option>
+                <option value="JM">JM</option>
+                <option value="Abakkus">Abakkus</option>
+                <option value="Edelweiss">Edelweiss</option>
+                <option value="360 ONE">360 ONE</option>
+                <option value="Other">Other</option>
+              </select>
+
+              <label for="historyType">Transaction Type</label>
+              <select id="historyType">
+                <option value="buy">Buy</option>
+                <option value="sell">Sell</option>
+                <option value="profit">Profit / Growth update</option>
+              </select>
+
+              <label for="historyAmount">Amount</label>
+              <input id="historyAmount" type="number" min="0" step="0.01" required />
+
+              <label for="historyDate">Date</label>
+              <input id="historyDate" type="date" required />
+
+              <label for="historyNotes">Notes (optional — folio no., units, etc.)</label>
+              <input id="historyNotes" type="text" placeholder="e.g. Folio 12345, 42.5 units" />
+
+              <button type="submit">Add Entry</button>
+            </form>
+          </div>
+
+          <!-- Transaction table -->
+          <div class="card">
+            <h3>All Transactions</h3>
+            <label for="historyYearFilter">Filter by year:</label>
+            <select id="historyYearFilter">
+              <option value="all">All years</option>
+            </select>
+            <table id="historyTable" class="investment-table">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Fund</th>
+                  <th>Type</th>
+                  <th>Amount</th>
+                  <th>Notes</th>
+                </tr>
+              </thead>
+              <tbody><tr><td colspan="5">Loading…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+</body>
+</html>

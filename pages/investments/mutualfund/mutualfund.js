@@ -102,14 +102,17 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     entries.forEach(e => {
       if (typeof window.isMutualFundEntry === 'function' ? window.isMutualFundEntry(e) : (e?.type === 'investment' && String(e?.category || '').toLowerCase().includes('mutual'))) {
-        if (e.notes?.includes("WhiteOak")) fundValues.WhiteOak += e.amount;
-        if (e.notes?.includes("Bajaj")) fundValues.Bajaj += e.amount;
-        if (e.notes?.includes("Wealth")) fundValues.WealthCo += e.amount;
-        if (e.notes?.includes("Groww")) fundValues.Groww += e.amount;
-        if (e.notes?.includes("JM")) fundValues.JM += e.amount;
-        if (e.notes?.includes("Abakkus")) fundValues.Abakkus += e.amount;
-        if (e.notes?.includes("Edelweiss")) fundValues.Edelweiss += e.amount;
-        if (e.notes?.includes("360 ONE")) fundValues["360One"] += e.amount;
+        const notes = String(e.notes || '').toLowerCase();
+        const isSell = e.subtype === 'sell' || notes.includes(' sell') || notes.includes('sold');
+        const signedAmount = (isSell ? -1 : 1) * (Number(e.amount) || 0);
+        if (e.notes?.includes("WhiteOak")) fundValues.WhiteOak += signedAmount;
+        if (e.notes?.includes("Bajaj")) fundValues.Bajaj += signedAmount;
+        if (e.notes?.includes("Wealth")) fundValues.WealthCo += signedAmount;
+        if (e.notes?.includes("Groww")) fundValues.Groww += signedAmount;
+        if (e.notes?.includes("JM")) fundValues.JM += signedAmount;
+        if (e.notes?.includes("Abakkus")) fundValues.Abakkus += signedAmount;
+        if (e.notes?.includes("Edelweiss")) fundValues.Edelweiss += signedAmount;
+        if (e.notes?.includes("360 ONE")) fundValues["360One"] += signedAmount;
       }
     });
 
@@ -207,14 +210,18 @@ document.addEventListener('DOMContentLoaded', async () => {
       return category === 'mutual fund' || category.includes('mutual') || notes.includes('mutual fund') || notes.includes('mutual');
     });
 
-    const summary = { invested: 0, growth: 0, combined: 0, byYear: {} };
+    const summary = { invested: 0, growth: 0, sold: 0, combined: 0, byYear: {} };
     mfEntries.forEach(entry => {
       const amount = Number(entry.amount) || 0;
       const notes = String(entry.notes || '').toLowerCase();
       const isProfit = entry.subtype === 'profit' || notes.includes('profit');
+      const isSell = entry.subtype === 'sell' || notes.includes(' sell') || notes.includes('sold');
 
       if (isProfit) {
         summary.growth += amount;
+      } else if (isSell) {
+        summary.invested -= amount;
+        summary.sold += amount;
       } else {
         summary.invested += amount;
       }
@@ -222,9 +229,12 @@ document.addEventListener('DOMContentLoaded', async () => {
       const date = new Date(entry.date);
       if (Number.isNaN(date.getTime())) return;
       const year = date.getFullYear();
-      if (!summary.byYear[year]) summary.byYear[year] = { invested: 0, growth: 0, combined: 0 };
+      if (!summary.byYear[year]) summary.byYear[year] = { invested: 0, growth: 0, sold: 0, combined: 0 };
       if (isProfit) {
         summary.byYear[year].growth += amount;
+      } else if (isSell) {
+        summary.byYear[year].invested -= amount;
+        summary.byYear[year].sold += amount;
       } else {
         summary.byYear[year].invested += amount;
       }
@@ -258,12 +268,17 @@ document.addEventListener('DOMContentLoaded', async () => {
       const month = d.toLocaleString('default',{month:'short'});
       const year = d.getFullYear();
       const key = `${month}-${year}`;
-      monthlyData[key] = monthlyData[key] || { invested:0, profit:0, combined:0 };
+      monthlyData[key] = monthlyData[key] || { invested:0, profit:0, sold:0, combined:0 };
       const notes = String(e.notes || '').toLowerCase();
       const isProfit = e.subtype === 'profit' || notes.includes('profit');
+      const isSell = e.subtype === 'sell' || notes.includes(' sell') || notes.includes('sold');
       if (isProfit) {
         monthlyData[key].profit += Number(e.amount) || 0;
         monthlyData[key].combined += Number(e.amount) || 0;
+      } else if (isSell) {
+        monthlyData[key].sold += Number(e.amount) || 0;
+        monthlyData[key].invested -= Number(e.amount) || 0;
+        monthlyData[key].combined -= Number(e.amount) || 0;
       } else {
         monthlyData[key].invested += Number(e.amount) || 0;
         monthlyData[key].combined += Number(e.amount) || 0;
