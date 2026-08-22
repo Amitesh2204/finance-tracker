@@ -291,9 +291,37 @@ button { cursor:pointer; }
   color:var(--text) !important;
   border-bottom:2px solid var(--border) !important;
 }
+.daily-items th {
+  background:var(--accent-soft) !important;
+  color:var(--text) !important;
+  border-bottom:2px solid var(--border) !important;
+}
 .investment-table td, .transactions td { border-bottom:1px solid var(--border) !important; }
+.daily-items td, .daily-items th { border-color:var(--border) !important; }
 .investment-table tr:nth-child(even), .transactions tr:nth-child(even) {
   background:color-mix(in srgb, var(--accent-soft) 58%, var(--surface-raised)) !important;
+}
+.daily-items tr:nth-child(even) { background:color-mix(in srgb, var(--accent-soft) 58%, var(--surface-raised)) !important; }
+.portfolio-card .fund-list li, .portfolio-card .fund-list .legend-label {
+  color:var(--text) !important;
+  line-height:1.35;
+}
+.portfolio-card .fund-value { color:var(--accent) !important; white-space:nowrap; }
+.toggle-btn {
+  background:var(--accent-soft) !important;
+  color:var(--text) !important;
+  border:1px solid var(--border) !important;
+}
+.toggle-btn:hover { background:var(--accent) !important; color:#fff !important; }
+.chart-row .chart.card {
+  height:clamp(300px, 34vw, 400px) !important;
+  min-height:0 !important;
+  max-height:400px;
+  overflow:hidden;
+}
+.chart-row .chart.card canvas {
+  height:calc(100% - 34px) !important;
+  max-height:none;
 }
 .monthly-amount, .summary-card p, .card p { text-shadow:0 1px 0 color-mix(in srgb, var(--surface-raised) 65%, transparent); }
 .chart, .chart.card, .chart.same-size {
@@ -317,6 +345,10 @@ button { cursor:pointer; }
   .summary-card h3 { font-size:.92rem; }
   .summary-card p, .monthly-amount { font-size:1.25rem; overflow-wrap:anywhere; }
   .investment-table th, .investment-table td, .transactions td { padding:9px 10px; font-size:.86rem; }
+  .daily-items th, .daily-items td { padding:9px 10px; font-size:.84rem; white-space:nowrap; }
+  .portfolio-card .fund-list li { gap:10px; align-items:flex-start; }
+  .portfolio-card .fund-list li .fund-value { margin-left:auto; }
+  .chart-row .chart.card { height:clamp(250px, 72vw, 320px) !important; }
   .collapsible-header { padding:11px 12px; flex-wrap:wrap; }
   .collapsible-header .controls { width:100%; margin-left:0; justify-content:flex-end; }
 }
