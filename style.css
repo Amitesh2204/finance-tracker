@@ -298,10 +298,10 @@ button { cursor:pointer; }
 .monthly-amount, .summary-card p, .card p { text-shadow:0 1px 0 color-mix(in srgb, var(--surface-raised) 65%, transparent); }
 .chart, .chart.card, .chart.same-size {
   min-height:clamp(280px, 32vw, 400px);
-  height:auto;
+  height:auto !important;
 }
 .chart canvas { display:block; width:100% !important; max-width:100%; }
-.chart > div:has(> canvas) { min-height:220px; }
+.chart > div:has(> canvas) { min-height:220px; height:clamp(220px, 30vw, 320px) !important; }
 .tx-scroll, .investment-table-wrap { overflow-x:auto; -webkit-overflow-scrolling:touch; }
 .investment-table, .transactions table { min-width:560px; }
 

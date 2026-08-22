@@ -12,11 +12,25 @@
   const USERS_DB_NAME = 'finance-users';
   const THEME_KEY = 'finance-tracker:theme';
 
+  function updateChartTheme() {
+    if (typeof Chart === 'undefined' || !Chart.defaults) return;
+    const styles = getComputedStyle(document.documentElement);
+    const textColor = styles.getPropertyValue('--text').trim();
+    const borderColor = styles.getPropertyValue('--border').trim();
+    if (textColor) Chart.defaults.color = textColor;
+    if (borderColor) Chart.defaults.borderColor = borderColor;
+    document.querySelectorAll('canvas').forEach(canvas => {
+      const chart = Chart.getChart?.(canvas);
+      if (chart) chart.update('none');
+    });
+  }
+
   function applyTheme(theme) {
     const allowedThemes = ['light', 'dark', 'custom'];
     const selectedTheme = allowedThemes.includes(theme) ? theme : 'light';
     document.documentElement.dataset.theme = selectedTheme;
     try { localStorage.setItem(THEME_KEY, selectedTheme); } catch (e) { /* storage is optional */ }
+    updateChartTheme();
     const selector = document.getElementById('themeSelect');
     if (selector) selector.value = selectedTheme;
   }
