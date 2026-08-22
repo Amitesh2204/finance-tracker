@@ -1,0 +1,85 @@
+/* budget.css - dedicated styling for the Budget page */
+
+.budget-layout {
+  display: grid;
+  grid-template-columns: minmax(300px, 380px) minmax(0, 1fr);
+  gap: 28px;
+  align-items: start;
+}
+
+.content-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.summary-cards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(160px, 1fr));
+  gap: 16px;
+}
+
+.card {
+  background: var(--card-bg);
+  padding: 20px;
+  border-radius: var(--rounded);
+  box-shadow: var(--shadow);
+}
+.card h3 { margin: 0 0 10px; color: var(--text); font-size: 1rem; }
+.card p { margin: 0; font-size: 1.4rem; font-weight: 800; color: var(--accent); }
+
+.budget-hint {
+  color: var(--muted);
+  font-size: 0.85rem;
+  margin: 10px 0 0;
+}
+
+.sr-only { position:absolute; left:-9999px; top:auto; width:1px; height:1px; overflow:hidden; }
+
+.chart-canvas-wrap {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+.chart-canvas-wrap canvas { height: 100% !important; }
+
+/* Status badges in the breakdown table */
+.budget-status {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.budget-status--ok { background: var(--accent-soft); color: var(--accent); }
+.budget-status--warn { background: color-mix(in srgb, var(--warning) 20%, transparent); color: var(--warning); }
+.budget-status--over { background: color-mix(in srgb, var(--danger) 20%, transparent); color: var(--danger); }
+.budget-status--none { background: var(--bg); color: var(--muted); }
+
+/* Slim inline progress bar under the "Spent" cell */
+.budget-progress {
+  display: block;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--border);
+  overflow: hidden;
+  margin-top: 6px;
+  min-width: 90px;
+}
+.budget-progress > span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+}
+.budget-progress.is-over > span { background: var(--danger); }
+.budget-progress.is-warn > span { background: var(--warning); }
+
+@media (max-width: 1024px) {
+  .budget-layout { grid-template-columns: 1fr; }
+  .summary-cards { grid-template-columns: repeat(3, 1fr); }
+}
+
+@media (max-width: 600px) {
+  .summary-cards { grid-template-columns: 1fr; gap: 12px; }
+}
