@@ -201,16 +201,17 @@ document.addEventListener('DOMContentLoaded', async () => {
       .sort((a,b) => new Date(a.date) - new Date(b.date));
 
     if (!filtered.length) {
-      dailyItemsTbody.innerHTML = '<tr><td colspan="4">No purchases for selected month/day</td></tr>';
+      dailyItemsTbody.innerHTML = '<tr><td colspan="5">No purchases for selected month/day</td></tr>';
       return;
     }
 
     const rows = filtered.map(e => {
       const name = e.name || 'Item';
       const cat = normalizeCategory(e.category || e.notes || 'Expense');
+      const bank = e.bank || 'ICICI';
       const amt = Number(e.amount) || 0;
       const dateStr = new Date(e.date).toLocaleDateString();
-      return `<tr><td>${name}</td><td>${cat}</td><td>${dateStr}</td><td>${formatINR(amt)}</td></tr>`;
+      return `<tr><td>${name}</td><td>${cat}</td><td>${bank}</td><td>${dateStr}</td><td>${formatINR(amt)}</td></tr>`;
     }).join('');
 
     dailyItemsTbody.innerHTML = rows;
@@ -317,6 +318,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       event.preventDefault();
       const amount = parseFloat(document.getElementById('monthlyExpenseAmount').value);
       const date = document.getElementById('monthlyExpenseDate').value || new Date().toISOString();
+      const bankSelect = document.getElementById('monthlyExpenseBank');
+      const bank = bankSelect ? bankSelect.value : 'ICICI';
       const name = (nameInput && nameInput.value) ? nameInput.value.trim() : '';
       let category = categorySelect ? categorySelect.value : 'Other';
       if (category === 'custom') {
@@ -331,6 +334,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         category: normalizeCategory(category),
         amount,
         date,
+        bank,
         notes: 'Monthly expense'
       };
 
@@ -340,6 +344,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
 
       event.target.reset();
+      if (bankSelect) bankSelect.value = 'ICICI';
       if (customWrapper) customWrapper.style.display = 'none';
       if (subcategorySelect) subcategorySelect.value = 'none';
     });

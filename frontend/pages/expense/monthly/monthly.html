@@ -105,6 +105,14 @@
                   <label for="monthlyExpenseDate">Date</label>
                   <input id="monthlyExpenseDate" type="date" required>
 
+                  <label for="monthlyExpenseBank">Bank</label>
+                  <select id="monthlyExpenseBank">
+                    <option value="ICICI" selected>ICICI</option>
+                    <option value="SBI">SBI</option>
+                    <option value="Bank of Baroda">Bank of Baroda</option>
+                    <option value="Other">Other</option>
+                  </select>
+
                   <button type="submit">Add Expense</button>
                 </form>
               </article>
@@ -179,12 +187,13 @@
                     <tr>
                       <th>Name</th>
                       <th>Category</th>
+                      <th>Bank</th>
                       <th>Date</th>
                       <th>Amount</th>
                     </tr>
                   </thead>
                   <tbody>
-                    <tr><td colspan="4">No purchases for selected month</td></tr>
+                    <tr><td colspan="5">No purchases for selected month</td></tr>
                   </tbody>
                 </table>
               </article>

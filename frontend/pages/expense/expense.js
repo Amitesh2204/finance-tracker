@@ -88,33 +88,38 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Update the three bank totals at top and overall totals
   function updateBankTotalsAndTotals() {
-    const iciciTotal = computeBankTotal('ICICI');
-    const sbiTotal = computeBankTotal('SBI');
-    const bobTotal = computeBankTotal('Bank of Baroda');
+    // Each bank card now shows its NET balance (money added minus that bank's own
+    // expenses), so an expense tagged to a bank visibly reduces that bank's card.
+    const iciciNet = computeBankTotal('ICICI');
+    const sbiNet = computeBankTotal('SBI');
+    const bobNet = computeBankTotal('Bank of Baroda');
 
     const totalExpense = computeTotalExpense();
-    const totalBalance = computeTotalBalance();
-    const totalSaving = totalBalance - totalExpense;
+    // Total Saving = SBI + Bank of Baroda only (savings accounts). ICICI is the
+    // primary/checking account and is intentionally excluded here.
+    const totalSaving = sbiNet + bobNet;
 
-    if (iciciEl) iciciEl.textContent = formatINR(iciciTotal);
-    if (sbiEl) sbiEl.textContent = formatINR(sbiTotal);
-    if (bobEl) bobEl.textContent = formatINR(bobTotal);
+    if (iciciEl) iciciEl.textContent = formatINR(iciciNet);
+    if (sbiEl) sbiEl.textContent = formatINR(sbiNet);
+    if (bobEl) bobEl.textContent = formatINR(bobNet);
     if (totalExpenseEl) totalExpenseEl.textContent = formatINR(totalExpense);
     if (totalSavingEl) totalSavingEl.textContent = formatINR(totalSaving);
   }
 
+  // Net balance for a bank: sum of its "balance" entries minus sum of its
+  // "expense"/"trip" entries. Entries with no bank tag default to ICICI, same
+  // as elsewhere in this file, so old data keeps behaving exactly as before.
   function computeBankTotal(bankName) {
-    // Sum all balance entries that have bank === bankName
-    let sum = 0;
+    let balanceSum = 0;
+    let expenseSum = 0;
     allEntries.forEach(e => {
-      if (String(e.type || '').toLowerCase() === 'balance') {
-        const b = e.bank || 'ICICI'; // default to ICICI if missing
-        if (bankName === 'All' || b === bankName) {
-          sum += Number(e.amount) || 0;
-        }
-      }
+      const t = String(e.type || '').toLowerCase();
+      const b = e.bank || 'ICICI';
+      if (bankName !== 'All' && b !== bankName) return;
+      if (t === 'balance') balanceSum += Number(e.amount) || 0;
+      else if (t === 'expense' || t === 'trip') expenseSum += Number(e.amount) || 0;
     });
-    return sum;
+    return balanceSum - expenseSum;
   }
 
   function computeTotalBalance() {

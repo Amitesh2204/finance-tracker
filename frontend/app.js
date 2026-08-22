@@ -609,10 +609,31 @@
     const balanceEntries = entries.filter(isBalanceEntry);
     const expenseEntries = entries.filter(isExpenseEntry);
 
-    const totalBalance = balanceEntries.reduce((s, e) => s + (Number(e.amount) || 0), 0);
+    // Same bank-aware netting as the Expense page: entries with no bank tag
+    // default to ICICI, so old (pre-bank-field) data keeps working unchanged.
+    const bankOf = (e) => e.bank || 'ICICI';
+    const netForBank = (bankName) => {
+      const bal = balanceEntries.filter(e => bankOf(e) === bankName).reduce((s, e) => s + (Number(e.amount) || 0), 0);
+      const exp = expenseEntries.filter(e => bankOf(e) === bankName).reduce((s, e) => s + Math.abs(Number(e.amount) || 0), 0);
+      return bal - exp;
+    };
+
+    const iciciNet = netForBank('ICICI');
+    const sbiNet = netForBank('SBI');
+    const bobNet = netForBank('Bank of Baroda');
+
     const totalExpense = expenseEntries.reduce((s, e) => s + Math.abs(Number(e.amount) || 0), 0);
 
-    return { totalBalance, totalExpense, totalSaving: totalBalance - totalExpense };
+    return {
+      // Home "Balance" card: ICICI only, net of ICICI's own expenses.
+      totalBalance: iciciNet,
+      totalExpense,
+      // Home "Savings" card: SBI + Bank of Baroda, net of their own expenses.
+      totalSaving: sbiNet + bobNet,
+      iciciNet,
+      sbiNet,
+      bobNet,
+    };
   }
 
   function getInvestmentTotals(entries = []) {
@@ -652,7 +673,10 @@
 
       const expenseTotals = getExpenseTotals(entries);
       const investmentTotals = getInvestmentTotals(entries);
-      const savingsValue = investmentTotals.total > 0 ? investmentTotals.total : expenseTotals.totalSaving;
+      // Savings card = SBI + Bank of Baroda (net of their expenses). Previously this
+      // showed investment totals whenever any investment existed, which is why adding
+      // an SBI/BoB balance never appeared here — it wasn't reading bank data at all.
+      const savingsValue = expenseTotals.totalSaving;
 
       if (balanceEl) balanceEl.textContent = formatCurrency(expenseTotals.totalBalance);
       if (expensesEl) expensesEl.textContent = formatCurrency(expenseTotals.totalExpense);
