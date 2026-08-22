@@ -1,11 +1,7 @@
 /* expense.css - dedicated styling for Expense page (final updates) */
 
 :root {
-  --card-bg: #1e1e1e;
-  --muted: #95a5a6;
-  --accent: #1abc9c;
   --danger: #e74c3c;
-  --rounded: 18px;
   --card-padding: 20px;
   --summary-font: 1.05rem;
   --summary-amount-font: 1.45rem;
