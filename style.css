@@ -334,6 +334,9 @@ button { cursor:pointer; }
 .investment-table, .transactions table { min-width:560px; }
 
 @media (max-width:600px) {
+  html, body { width:100%; max-width:100%; overflow-x:hidden; }
+  .app, .main, .content, .content-panel, .chart-row, .cards { min-width:0; max-width:100%; }
+  .main { overflow:hidden; }
   .chart, .chart.card, .chart.same-size {
     min-height:260px;
     padding:16px;
@@ -344,8 +347,19 @@ button { cursor:pointer; }
   .summary-card { min-height:96px; }
   .summary-card h3 { font-size:.92rem; }
   .summary-card p, .monthly-amount { font-size:1.25rem; overflow-wrap:anywhere; }
-  .investment-table th, .investment-table td, .transactions td { padding:9px 10px; font-size:.86rem; }
-  .daily-items th, .daily-items td { padding:9px 10px; font-size:.84rem; white-space:nowrap; }
+  .investment-table, .transactions table, .daily-items {
+    width:100% !important;
+    min-width:0 !important;
+    table-layout:fixed;
+  }
+  .investment-table th, .investment-table td, .transactions td,
+  .daily-items th, .daily-items td {
+    padding:9px 6px;
+    font-size:.78rem;
+    white-space:normal;
+    overflow-wrap:anywhere;
+    word-break:break-word;
+  }
   .portfolio-card .fund-list li { gap:10px; align-items:flex-start; }
   .portfolio-card .fund-list li .fund-value { margin-left:auto; }
   .chart-row .chart.card { height:clamp(250px, 72vw, 320px) !important; }
