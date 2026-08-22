@@ -278,6 +278,49 @@ button { cursor:pointer; }
 .chart-row { gap:18px; }
 .chart { min-width:0; }
 
+/* Theme-safe compatibility overrides for page-specific styles. */
+.card, .chart, .activity-card, .collapsible, .content-panel, .transactions,
+.section-card, .investment-form, .investment-table-wrap {
+  background-color:var(--surface-raised) !important;
+}
+.card h3, .chart h3, .transactions h3, .collapsible-header,
+.collapsible-header .title, .investment-table th, .investment-table td,
+.transactions table { color:var(--text) !important; }
+.investment-table th, .transactions th {
+  background:var(--accent-soft) !important;
+  color:var(--text) !important;
+  border-bottom:2px solid var(--border) !important;
+}
+.investment-table td, .transactions td { border-bottom:1px solid var(--border) !important; }
+.investment-table tr:nth-child(even), .transactions tr:nth-child(even) {
+  background:color-mix(in srgb, var(--accent-soft) 58%, var(--surface-raised)) !important;
+}
+.monthly-amount, .summary-card p, .card p { text-shadow:0 1px 0 color-mix(in srgb, var(--surface-raised) 65%, transparent); }
+.chart, .chart.card, .chart.same-size {
+  min-height:clamp(280px, 32vw, 400px);
+  height:auto;
+}
+.chart canvas { display:block; width:100% !important; max-width:100%; }
+.chart > div:has(> canvas) { min-height:220px; }
+.tx-scroll, .investment-table-wrap { overflow-x:auto; -webkit-overflow-scrolling:touch; }
+.investment-table, .transactions table { min-width:560px; }
+
+@media (max-width:600px) {
+  .chart, .chart.card, .chart.same-size {
+    min-height:260px;
+    padding:16px;
+  }
+  .chart canvas { max-height:250px; }
+  .chart > div:has(> canvas) { min-height:200px !important; height:clamp(190px, 58vw, 250px) !important; }
+  .summary-cards { gap:12px; }
+  .summary-card { min-height:96px; }
+  .summary-card h3 { font-size:.92rem; }
+  .summary-card p, .monthly-amount { font-size:1.25rem; overflow-wrap:anywhere; }
+  .investment-table th, .investment-table td, .transactions td { padding:9px 10px; font-size:.86rem; }
+  .collapsible-header { padding:11px 12px; flex-wrap:wrap; }
+  .collapsible-header .controls { width:100%; margin-left:0; justify-content:flex-end; }
+}
+
 @media (max-width:1024px) {
   .sidebar { position:static; width:100%; padding:16px 18px 12px; }
   .sidebar .brand { margin-bottom:12px; }
