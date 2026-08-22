@@ -46,7 +46,7 @@
   background: var(--card-bg);
   padding: var(--card-padding);
   border-radius: 14px;
-  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
+  box-shadow: var(--shadow);
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -57,7 +57,7 @@
 /* Slight hover lift for clarity */
 .card:hover {
   transform: translateY(-4px);
-  box-shadow: 0 12px 36px rgba(0,0,0,0.45);
+  box-shadow: 0 16px 36px rgba(15, 46, 38, .16);
 }
 
 /* Summary card specifics */
@@ -70,7 +70,7 @@
 }
 
 .card h3 {
-  color: #ecf0f1;
+  color: var(--text);
   margin: 0;
   font-size: var(--summary-font);
   font-weight: 700;
@@ -122,7 +122,7 @@
   user-select:none;
   background: linear-gradient(0deg, rgba(255,255,255,0.01), rgba(255,255,255,0.01));
 }
-.collapsible-header .title { font-weight:700; color:#ecf0f1; }
+.collapsible-header .title { font-weight:700; color:var(--text); }
 .collapsible-header .controls { display:flex; gap:8px; align-items:center; margin-left:auto; }
 .collapsible-header .chev { font-size:0.95rem; color:var(--muted); }
 .collapsible-content { max-height: 0; overflow: hidden; transition: max-height 320ms ease, padding 320ms ease; padding: 0 14px; }
@@ -136,17 +136,17 @@
 }
 .investment-form label { color:#ecf0f1; font-weight:600; font-size:0.98rem; }
 .investment-form input, .investment-form select, .investment-form button {
-  padding:12px 14px; border-radius:10px; border:1px solid #333; background:#121212; color:#ecf0f1;
+  padding:12px 14px; border-radius:10px; border:1px solid var(--border); background:var(--input-bg); color:var(--text);
   font-size:1rem;
 }
 .investment-form button { background: var(--danger); border: none; font-weight:700; cursor:pointer; }
-.investment-form button:hover { background:#c0392b; }
+.investment-form button:hover { filter:brightness(0.92); }
 
 /* Tables */
 .investment-table { width:100%; border-collapse:collapse; margin-top:12px; }
-.investment-table th, .investment-table td { padding:12px; border-bottom:1px solid #333; color:#ecf0f1; text-align:center; font-size:0.98rem; }
-.investment-table th { background:#2c2c2c; font-weight:700; }
-.investment-table tr:nth-child(even) { background:#2a2a2a; }
+.investment-table th, .investment-table td { padding:12px; border-bottom:1px solid var(--border); color:var(--text); text-align:center; font-size:0.98rem; }
+.investment-table th { background:var(--accent-soft); font-weight:700; }
+.investment-table tr:nth-child(even) { background:var(--bg); }
 
 /* Charts */
 /* Add spacing above charts so they don't overlap with top cards */
@@ -155,7 +155,7 @@
 /* Pie legend */
 .pie-legend-wrap { display:flex; gap:18px; align-items:flex-start; }
 .pie-legend { min-width:220px; max-width:300px; display:flex; flex-direction:column; gap:8px; }
-.pie-legend .legend-item { display:flex; gap:10px; align-items:center; color:#ecf0f1; font-size:0.95rem; cursor:pointer; user-select:none; padding:6px 8px; border-radius:8px; }
+.pie-legend .legend-item { display:flex; gap:10px; align-items:center; color:var(--text); font-size:0.95rem; cursor:pointer; user-select:none; padding:6px 8px; border-radius:8px; }
 .legend-swatch { width:14px; height:14px; border-radius:3px; display:inline-block; flex:0 0 14px; }
 
 /* Legend item states */
@@ -179,9 +179,9 @@
   font-size:1rem;
   border-radius:10px;
   min-width:200px;
-  background:#121212;
-  color:#ecf0f1;
-  border:1px solid #333;
+  background:var(--input-bg);
+  color:var(--text);
+  border:1px solid var(--border);
 }
 
 /* Make legend scrollable on small screens */
@@ -199,6 +199,7 @@
   .expense-layout { grid-template-columns: 1fr; }
   .summary-cards { grid-template-columns: repeat(3,1fr); gap:12px; }
   .pie-legend-wrap { flex-direction: column; }
+  .right-panel { margin-top: 0; }
 }
 @media (max-width:600px) {
   .summary-cards { grid-template-columns: 1fr; }
