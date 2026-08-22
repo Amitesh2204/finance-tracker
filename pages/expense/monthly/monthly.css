@@ -28,10 +28,10 @@
 }
 
 .card {
-  background: #1e1e1e;
+  background: var(--card-bg);
   padding: 20px;
   border-radius: 18px;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.28);
+  box-shadow: var(--shadow);
 }
 
 .summary-card {
@@ -43,7 +43,7 @@
 }
 
 .card h3 {
-  color: #ecf0f1;
+  color: var(--text);
   margin: 0 0 12px;
   font-size: 1rem;
 }
@@ -51,7 +51,7 @@
 .card p {
   font-size: 1.4rem;
   font-weight: 700;
-  color: #e74c3c;
+  color: var(--danger, #e74c3c);
   margin: 0;
 }
 
@@ -71,20 +71,20 @@
 .investment-form textarea {
   padding: 10px 12px;
   border-radius: 8px;
-  border: 1px solid #444;
-  background: #121212;
-  color: #ecf0f1;
+  border: 1px solid var(--border);
+  background: var(--input-bg);
+  color: var(--text);
   font-size: 0.95rem;
 }
 
 .investment-form label {
-  color: #ecf0f1;
+  color: var(--text);
   font-weight: 600;
   font-size: 0.95rem;
 }
 
 .investment-form button {
-  background: #1abc9c;
+  background: var(--accent);
   color: #fff;
   font-weight: 700;
   cursor: pointer;
@@ -94,7 +94,7 @@
 }
 
 .investment-form button:hover {
-  background: #16a085;
+  filter: brightness(0.9);
 }
 
 .investment-table {
@@ -106,19 +106,19 @@
 .investment-table th,
 .investment-table td {
   padding: 10px;
-  border-bottom: 1px solid #333;
-  color: #ecf0f1;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
   text-align: left;
   font-size: 0.95rem;
 }
 
 .investment-table th {
-  background: #2c2c2c;
+  background: var(--accent-soft);
   font-weight: 700;
 }
 
 .investment-table tr:nth-child(even) {
-  background: #2a2a2a;
+  background: var(--bg);
 }
 
 .chart.same-size {
@@ -132,7 +132,7 @@
   background: var(--card-bg);
   margin-bottom: 16px;
   overflow: hidden;
-  border: 1px solid rgba(255,255,255,0.03);
+  border: 1px solid var(--border);
 }
 .collapsible-header {
   display:flex;
@@ -144,7 +144,7 @@
   user-select:none;
   background: linear-gradient(0deg, rgba(255,255,255,0.01), rgba(255,255,255,0.01));
 }
-.collapsible-header .title { font-weight:700; color:#ecf0f1; }
+.collapsible-header .title { font-weight:700; color:var(--text); }
 .collapsible-header .controls { display:flex; gap:8px; align-items:center; margin-left:auto; }
 .collapsible-header .chev { font-size:0.95rem; color:var(--muted); }
 .collapsible-content { max-height: 0; overflow: hidden; transition: max-height 320ms ease; padding: 0 14px; }
@@ -158,12 +158,12 @@
 }
 .daily-items th, .daily-items td {
   padding: 8px 10px;
-  border-bottom: 1px solid #333;
-  color: #ecf0f1;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
   font-size: 0.95rem;
   text-align: left;
 }
-.daily-items th { background:#2c2c2c; font-weight:700; }
+.daily-items th { background:var(--accent-soft); font-weight:700; }
 
 /* small responsive tweaks */
 @media (max-width: 1024px) {
@@ -173,6 +173,9 @@
   .summary-cards {
     grid-template-columns: repeat(3, 1fr);
     gap: 12px;
+  }
+  .right-panel {
+    margin-top: 0;
   }
 }
 

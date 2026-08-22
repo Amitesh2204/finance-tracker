@@ -8,28 +8,28 @@
 }
 
 .card {
-  background: #1e1e1e;
+  background: var(--card-bg);
   padding: 20px;
   border-radius: 12px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  box-shadow: var(--shadow);
 }
 
-.card h3 { color: #ecf0f1; margin-bottom: 10px; }
-.card p { font-size: 1.5rem; font-weight: 700; color: #3498db; text-align: center; } /* LIC blue */
+.card h3 { color: var(--text); margin-bottom: 10px; }
+.card p { font-size: 1.5rem; font-weight: 700; color: var(--info); text-align: center; } /* LIC blue */
 
 .investment-form { display: flex; flex-direction: column; gap: 10px; }
 .investment-form input, .investment-form button, .investment-form select {
-  padding: 10px; border-radius: 6px; border: 1px solid #444; background: #1e1e1e; color: #ecf0f1;
+  padding: 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--input-bg); color: var(--text);
 }
-.investment-form button { background: #3498db; color: #fff; font-weight: 700; cursor: pointer; }
-.investment-form button:hover { background: #2980b9; }
+.investment-form button { background: var(--info); color: #fff; font-weight: 700; cursor: pointer; border: none; }
+.investment-form button:hover { filter: brightness(0.9); }
 
 .investment-table { width: 100%; border-collapse: collapse; margin-top: 12px; }
 .investment-table th, .investment-table td {
-  padding: 10px; border-bottom: 1px solid #333; color: #ecf0f1; text-align: center;
+  padding: 10px; border-bottom: 1px solid var(--border); color: var(--text); text-align: center;
 }
-.investment-table th { background: #2c2c2c; }
-.investment-table tr:nth-child(even) { background: #2c2c2c; }
+.investment-table th { background: var(--accent-soft); }
+.investment-table tr:nth-child(even) { background: var(--bg); }
 
 .chart.same-size { height: 400px; }
 
@@ -58,8 +58,8 @@
 }
 
 .toggle-btn {
-  background: #2c2c2c;
-  color: #ecf0f1;
+  background: var(--accent-soft);
+  color: var(--text);
   padding: 8px;
   border: none;
   border-radius: 6px;
@@ -69,7 +69,8 @@
 }
 
 .toggle-btn:hover {
-  background: #3498db;
+  background: var(--info);
+  color: #fff;
 }
 
 .policy-list {
@@ -81,14 +82,14 @@
 
 .policy-list li {
   padding: 6px 0;
-  color: #ecf0f1;
+  color: var(--text);
   display: flex;
   justify-content: space-between;
 }
 
 .policy-value {
   font-weight: 700;
-  color: #3498db;
+  color: var(--info);
 }
 
 /* Responsive adjustments */

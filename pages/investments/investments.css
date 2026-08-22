@@ -8,15 +8,15 @@
 }
 
 .card {
-  background:#1e1e1e;
+  background:var(--card-bg);
   padding:28px;
   border-radius:18px;
-  box-shadow:0 6px 22px rgba(0,0,0,0.4);
+  box-shadow:var(--shadow);
 }
 .card h3 {
   margin:0 0 12px;
   font-weight:700;
-  color:#ecf0f1;
+  color:var(--text);
 }
 .card p {
   font-size:1.8rem;
@@ -26,10 +26,10 @@
 }
 
 /* Category colors */
-.card.mutualfund p { color:#1abc9c; }
-.card.lic p { color:#3498db; }
-.card.ppf p { color:#e67e22; }
-.card.sukanya p { color:#9b59b6; }
+.card.mutualfund p { color:var(--accent); }
+.card.lic p { color:var(--info); }
+.card.ppf p { color:var(--warning); }
+.card.sukanya p { color:var(--purple); }
 
 .investment-table {
   width:100%;
@@ -39,12 +39,12 @@
 .investment-table th,
 .investment-table td {
   padding:10px;
-  border-bottom:1px solid #333;
+  border-bottom:1px solid var(--border);
   text-align:left;
-  color:#ecf0f1;
+  color:var(--text);
 }
 .investment-table tr:nth-child(even) {
-  background:#2c2c2c;
+  background:var(--accent-soft);
 }
 
 /* Chart sizing */
@@ -88,19 +88,19 @@
 .submenu .submenu-list li a {
   display: block;
   padding: 6px 0;
-  color: #ecf0f1;
+  color: rgba(255,255,255,.82);
   font-size: 0.9rem;
 }
 
 .submenu .submenu-toggle {
   cursor: pointer;
   display: block;
-  color: #ecf0f1;
+  color: rgba(255,255,255,.9);
   font-weight: 600;
 }
 
 .submenu .submenu-toggle.active {
-  color: #1abc9c;
+  color: var(--accent);
 }
 
 .chart-row {
