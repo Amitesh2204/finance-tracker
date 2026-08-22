@@ -83,3 +83,6 @@
 @media (max-width: 600px) {
   .summary-cards { grid-template-columns: 1fr; gap: 12px; }
 }
+
+/* Right panel offset so charts don't overlap top cards on tall left column */
+.right-panel { margin-top: 162px; }
