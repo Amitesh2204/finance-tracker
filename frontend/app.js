@@ -10,6 +10,29 @@
   const STORAGE_KEY = 'finance-tracker:last-entries';
   const USER_KEY = 'finance-tracker:current-user';
   const USERS_DB_NAME = 'finance-users';
+  const THEME_KEY = 'finance-tracker:theme';
+
+  function applyTheme(theme) {
+    const allowedThemes = ['light', 'dark', 'custom'];
+    const selectedTheme = allowedThemes.includes(theme) ? theme : 'light';
+    document.documentElement.dataset.theme = selectedTheme;
+    try { localStorage.setItem(THEME_KEY, selectedTheme); } catch (e) { /* storage is optional */ }
+    const selector = document.getElementById('themeSelect');
+    if (selector) selector.value = selectedTheme;
+  }
+
+  function initTheme() {
+    let savedTheme = 'light';
+    try { savedTheme = localStorage.getItem(THEME_KEY) || 'light'; } catch (e) { /* storage is optional */ }
+    applyTheme(savedTheme);
+    const selector = document.getElementById('themeSelect');
+    if (selector && !selector.dataset.themeBound) {
+      selector.addEventListener('change', event => applyTheme(event.target.value));
+      selector.dataset.themeBound = 'true';
+    }
+  }
+
+  initTheme();
 
   // --- Utility functions ---
   function normalizeEntryType(entry) {
@@ -940,6 +963,7 @@
 
   // --- DOMContentLoaded: render a short preview of last transactions ---
   document.addEventListener('DOMContentLoaded', async () => {
+    initTheme();
     const txTable = getElementByAnyId('lastTx');
     if (!txTable) return;
     const entries = Array.isArray(window.__LAST_ENTRIES__) ? window.__LAST_ENTRIES__ : await fetchEntries().catch(() => []);
