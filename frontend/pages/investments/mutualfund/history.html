@@ -23,11 +23,11 @@
   <script src="history.js" defer></script>
 
   <style>
-    /* Small local tweaks to ensure the page spacing and mobile layout are tidy */
+    /* Local layout tweaks to ensure yearly controls align well */
     .history-section { display:flex; flex-direction:column; gap:20px; }
     .cards { display:grid; grid-template-columns: repeat(4, 1fr); gap:16px; }
     .card { padding:16px; border-radius:10px; background:var(--card-bg); box-shadow:0 6px 18px rgba(0,0,0,0.18); }
-    .investment-form select, .investment-form input { width:100%; box-sizing:border-box; }
+    .investment-form select, .investment-form input, .investment-form textarea { width:100%; box-sizing:border-box; }
     .history-layout { gap:20px; }
     @media (max-width: 1024px) {
       .cards { grid-template-columns: repeat(2, 1fr); }
@@ -128,13 +128,27 @@
               </select>
 
               <label for="historyAmount">Amount</label>
-              <input id="historyAmount" type="number" min="0" step="0.01" required />
+              <input id="historyAmount" type="number" min="0" step="0.01" />
 
               <label for="historyDate">Date</label>
-              <input id="historyDate" type="date" required />
+              <input id="historyDate" type="date" />
 
               <label for="historyNotes">Notes (optional — folio no., units, etc.)</label>
               <input id="historyNotes" type="text" placeholder="e.g. Folio 12345, 42.5 units" />
+
+              <!-- Yearly total controls -->
+              <div class="yearly-controls" style="margin-top:8px;">
+                <div class="yearly-block" style="align-items:center;">
+                  <input type="checkbox" id="historyYearlyToggle" />
+                  <label for="historyYearlyToggle" style="margin-left:8px; font-weight:600;">Submit as Yearly Total</label>
+                  <input id="historyYearInput" type="number" min="1900" max="3000" placeholder="Year (e.g., 2017)" style="margin-left:12px; width:120px;" />
+                  <input id="historyYearAmount" type="number" min="0" step="0.01" placeholder="Yearly amount" style="margin-left:8px; width:160px;" />
+                </div>
+
+                <label for="historyYearlyBulk" style="margin-top:8px; font-weight:600;">Or paste multiple yearly totals (YEAR:AMOUNT per line)</label>
+                <textarea id="historyYearlyBulk" placeholder="2017:40000\n2018:45000" style="margin-top:6px;"></textarea>
+                <div class="yearly-bulk" style="margin-top:6px; color:var(--muted);">Tip: Use format YEAR:AMOUNT per line. Commas allowed.</div>
+              </div>
 
               <button type="submit">Add Entry</button>
             </form>
@@ -166,9 +180,6 @@
     </main>
   </div>
 
-  <!-- Inline helper script to support custom fund name behavior without changing existing history.js logic.
-       This script ensures that when the user selects "Other" they can type a custom fund name,
-       and that the custom name is applied to the select before the page's history.js handler reads it. -->
   <script>
     (function () {
       const fundSelect = document.getElementById('historyFund');
@@ -178,7 +189,6 @@
 
       if (!fundSelect || !customWrapper || !customInput || !form) return;
 
-      // Show/hide custom input when "Other" is selected
       fundSelect.addEventListener('change', () => {
         if (fundSelect.value === 'Other') {
           customWrapper.style.display = 'block';
@@ -189,24 +199,19 @@
         }
       });
 
-      // Before the form is submitted, if user selected Other and provided a custom name,
-      // ensure the select contains that value so existing history.js code reads it.
       form.addEventListener('submit', (ev) => {
         if (fundSelect.value === 'Other') {
           const customVal = (customInput.value || '').trim();
           if (!customVal) {
-            // prevent submit if custom name is empty
             ev.preventDefault();
             customInput.focus();
             return;
           }
-          // If an option with this exact value already exists, select it; otherwise add it temporarily.
           let existing = Array.from(fundSelect.options).find(o => o.value === customVal);
           if (!existing) {
             const opt = document.createElement('option');
             opt.value = customVal;
             opt.textContent = customVal;
-            // insert before the "Other" option to keep "Other" at the end
             const otherOpt = Array.from(fundSelect.options).find(o => o.value === 'Other');
             if (otherOpt) fundSelect.insertBefore(opt, otherOpt);
             else fundSelect.appendChild(opt);
@@ -214,10 +219,8 @@
           }
           existing.selected = true;
         }
-        // allow the page's history.js submit handler to run after this
       });
 
-      // Accessibility: if the page pre-selects "Other" (unlikely), ensure wrapper is visible
       if (fundSelect.value === 'Other') customWrapper.style.display = 'block';
     })();
   </script>

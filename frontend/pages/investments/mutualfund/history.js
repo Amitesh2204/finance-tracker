@@ -1,4 +1,4 @@
-// history.js - Mutual Fund old-data / history sub-page (updated to support yearly totals)
+// history.js - Mutual Fund old-data / history sub-page (updated to support yearly totals and side-by-side yearly bars)
 // Requires db.js + app.js to be loaded first (exposes window.fetchEntries / window.addEntry)
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -10,99 +10,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   const yearFilter = document.getElementById('historyYearFilter');
   const form = document.getElementById('historyForm');
 
-  // Elements for custom fund support (may be present in HTML)
+  // Elements for custom fund support and yearly controls
   const fundSelect = document.getElementById('historyFund');
   const customFundInput = document.getElementById('customFundInput');
-
-  // We'll inject yearly-total UI controls into the form if they are not present.
-  // This keeps the HTML backward-compatible while adding the requested feature.
-  (function ensureYearlyControls() {
-    if (!form) return;
-    // Avoid injecting twice
-    if (document.getElementById('yearlyControlsInjected')) return;
-
-    const marker = document.createElement('div');
-    marker.id = 'yearlyControlsInjected';
-    marker.style.display = 'none';
-    form.appendChild(marker);
-
-    // Container for yearly controls
-    const wrapper = document.createElement('div');
-    wrapper.className = 'yearly-controls';
-
-    // Single-year toggle
-    const singleLabel = document.createElement('label');
-    singleLabel.textContent = 'Add as Yearly Total (single year)';
-    singleLabel.style.fontWeight = '600';
-    singleLabel.style.marginTop = '6px';
-
-    const singleBlock = document.createElement('div');
-    singleBlock.className = 'yearly-block';
-    singleBlock.style.marginTop = '6px';
-
-    const yearInput = document.createElement('input');
-    yearInput.type = 'number';
-    yearInput.id = 'historyYearInput';
-    yearInput.min = 1900;
-    yearInput.max = 3000;
-    yearInput.placeholder = 'Year (e.g., 2017)';
-    yearInput.title = 'Year for yearly total (e.g., 2017)';
-    yearInput.style.width = '120px';
-
-    const yearAmountInput = document.createElement('input');
-    yearAmountInput.type = 'number';
-    yearAmountInput.id = 'historyYearAmount';
-    yearAmountInput.min = 0;
-    yearAmountInput.step = '0.01';
-    yearAmountInput.placeholder = 'Yearly total amount';
-    yearAmountInput.title = 'Amount for the selected year';
-    yearAmountInput.style.width = '160px';
-
-    const yearToggle = document.createElement('input');
-    yearToggle.type = 'checkbox';
-    yearToggle.id = 'historyYearlyToggle';
-    yearToggle.title = 'Check to submit this entry as a yearly total instead of a dated transaction';
-
-    const yearToggleLabel = document.createElement('label');
-    yearToggleLabel.htmlFor = 'historyYearlyToggle';
-    yearToggleLabel.textContent = 'Use yearly total';
-    yearToggleLabel.style.marginLeft = '6px';
-
-    singleBlock.appendChild(yearToggle);
-    singleBlock.appendChild(yearToggleLabel);
-    singleBlock.appendChild(yearInput);
-    singleBlock.appendChild(yearAmountInput);
-
-    // Bulk multi-year textarea
-    const bulkLabel = document.createElement('label');
-    bulkLabel.textContent = 'Or paste multiple yearly totals (one per line: YEAR:AMOUNT)';
-    bulkLabel.style.marginTop = '8px';
-    bulkLabel.style.fontWeight = '600';
-
-    const bulkTextarea = document.createElement('textarea');
-    bulkTextarea.id = 'historyYearlyBulk';
-    bulkTextarea.placeholder = '2017:40000\n2018:45000\n2019:38000';
-    bulkTextarea.className = 'investment-form';
-    bulkTextarea.style.marginTop = '6px';
-
-    const bulkNote = document.createElement('div');
-    bulkNote.className = 'yearly-bulk';
-    bulkNote.textContent = 'Tip: Use format YEAR:AMOUNT per line. Currency and commas are optional.';
-
-    wrapper.appendChild(singleLabel);
-    wrapper.appendChild(singleBlock);
-    wrapper.appendChild(bulkLabel);
-    wrapper.appendChild(bulkTextarea);
-    wrapper.appendChild(bulkNote);
-
-    // Insert wrapper before the submit button (if present) or at the end of the form
-    const submitBtn = form.querySelector('button[type="submit"]');
-    if (submitBtn && submitBtn.parentNode) {
-      submitBtn.parentNode.insertBefore(wrapper, submitBtn);
-    } else {
-      form.appendChild(wrapper);
-    }
-  })();
+  const yearlyToggle = document.getElementById('historyYearlyToggle');
+  const yearInput = document.getElementById('historyYearInput');
+  const yearAmountInput = document.getElementById('historyYearAmount');
+  const bulkTextarea = document.getElementById('historyYearlyBulk');
 
   function formatINR(amount) {
     return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(Number(amount) || 0);
@@ -149,12 +63,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     }).filter(Boolean))].sort((a, b) => b - a);
 
     const currentYear = new Date().getFullYear();
-    // Build options
     const opts = ['<option value="all">All years</option>']
       .concat(years.map(y => `<option value="${y}">${y}</option>`))
       .join('');
     if (yearFilter) yearFilter.innerHTML = opts;
-    // Default to current year if present, otherwise 'all'
     if (yearFilter) yearFilter.value = years.includes(currentYear) ? String(currentYear) : 'all';
   }
 
@@ -191,25 +103,22 @@ document.addEventListener('DOMContentLoaded', async () => {
     const canvas = document.getElementById('yearlyGrowthChart');
     if (!canvas || typeof Chart === 'undefined') return;
 
-    // Determine the set of years to show (from entries and at least current year)
+    // Collect years from entries and ensure at least 2017..currentYear range
     const yearsSet = new Set();
     entries.forEach(e => {
       const y = new Date(e.date).getFullYear();
       if (!Number.isNaN(y)) yearsSet.add(y);
     });
-    const years = Array.from(yearsSet).sort((a, b) => a - b);
-    if (years.length === 0) {
-      const now = new Date().getFullYear();
-      years.push(now);
-    }
-
-    const startYear = Math.min(...years, 2017);
-    const endYear = Math.max(...years, new Date().getFullYear());
+    const yearsArr = Array.from(yearsSet).sort((a, b) => a - b);
+    const nowYear = new Date().getFullYear();
+    const startYear = Math.min(2017, ...(yearsArr.length ? yearsArr : [nowYear]));
+    const endYear = Math.max(nowYear, ...(yearsArr.length ? yearsArr : [nowYear]));
     const labels = [];
     for (let y = startYear; y <= endYear; y++) labels.push(String(y));
 
-    // For each year, compute total invested (buys + yearly-total) that occurred in that year (non-cumulative),
-    // and growth recorded that year (profit subtype).
+    // For each year compute:
+    // - investedByYear: sum of buys + yearly-total entries that map to that year
+    // - growthByYear: sum of profit entries in that year
     const investedByYear = labels.map(y => {
       const yearNum = Number(y);
       return entries
@@ -224,22 +133,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         .reduce((s, e) => s + (Number(e.amount) || 0), 0);
     });
 
-    // To show cumulative net invested as in previous behavior, compute cumulative running total
-    const cumulativeNet = [];
-    let running = 0;
-    labels.forEach((lab, idx) => {
-      running += investedByYear[idx];
-      // subtract sells in that year
-      const sells = entries
-        .filter(e => new Date(e.date).getFullYear() === Number(lab) && classify(e) === 'sell')
-        .reduce((s, e) => s + (Number(e.amount) || 0), 0);
-      running -= sells;
-      cumulativeNet.push(running);
-    });
-
-    // Build chart with two datasets per year: cumulative net invested (as area/line) and growth (bar),
-    // but user requested "for every year, both the Total Investment and Total Growth bars should be shown side by side."
-    // We'll render two bar datasets side-by-side: "Total Invested (yearly)" and "Total Growth (yearly)".
+    // Render side-by-side bars for each year: Invested and Growth
     const ctx = canvas.getContext('2d');
     if (window.historyYearlyChart && typeof window.historyYearlyChart.destroy === 'function') {
       window.historyYearlyChart.destroy();
@@ -275,7 +169,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         },
         scales: {
           x: {
-            stacked: false
+            stacked: false,
+            ticks: { autoSkip: false }
           },
           y: {
             beginAtZero: true,
@@ -305,10 +200,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       return;
     }
     const entries = await window.fetchEntries().catch(() => []);
-    // Keep only mutual fund related entries
     allEntries = entries.filter(isMutualFundEntry);
 
-    // Ensure entries with subtype 'yearly-total' are treated as investments (they should have been stored that way)
     renderSummary(allEntries);
     populateYearFilter(allEntries);
 
@@ -324,7 +217,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  // Form submit handler: supports custom fund name when "Other" selected and yearly totals (single + bulk)
+  // Form submit handler: supports custom fund name, single-year yearly totals, and bulk yearly totals
   if (form) {
     form.addEventListener('submit', async (event) => {
       event.preventDefault();
@@ -341,12 +234,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         fundName = customVal;
       }
 
-      // Check yearly controls
-      const yearlyToggle = document.getElementById('historyYearlyToggle');
-      const yearInput = document.getElementById('historyYearInput');
-      const yearAmountInput = document.getElementById('historyYearAmount');
-      const bulkTextarea = document.getElementById('historyYearlyBulk');
-
       // Standard fields
       const typeEl = document.getElementById('historyType');
       const amountEl = document.getElementById('historyAmount');
@@ -354,8 +241,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       const notesEl = document.getElementById('historyNotes');
 
       const type = typeEl ? typeEl.value : 'buy';
-      const amount = amountEl ? parseFloat(amountEl.value) : 0;
-      const dateVal = dateEl ? dateEl.value : null;
+      const amount = amountEl ? parseFloat(amountEl.value) : NaN;
+      const dateVal = dateEl ? dateEl.value : '';
       const notesInput = notesEl ? notesEl.value.trim() : '';
 
       // Helper to create and add an entry object via window.addEntry
@@ -367,12 +254,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
       }
 
-      // If bulk textarea has content, parse it and create entries per line
+      // Bulk yearly textarea handling
       if (bulkTextarea && bulkTextarea.value && bulkTextarea.value.trim()) {
         const lines = bulkTextarea.value.split('\n').map(l => l.trim()).filter(Boolean);
         const parsed = [];
         for (const line of lines) {
-          // Accept formats: "2017:40000" or "2017 - 40,000" or "2017 40000"
           const m = line.match(/^(\d{4})\s*[:\-]?\s*([\d,.\s]+)$/);
           if (!m) continue;
           const yr = Number(m[1]);
@@ -383,12 +269,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         if (!parsed.length) {
-          // nothing valid parsed
           bulkTextarea.focus();
           return;
         }
 
-        // Add each parsed yearly total as an entry with subtype 'yearly-total'
         for (const p of parsed) {
           const entry = {
             type: 'investment',
@@ -396,7 +280,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             subtype: 'yearly-total',
             amount: p.amount,
             currency: 'INR',
-            // use Jan 1 of the year as the date so it maps to that year
             date: new Date(p.year, 0, 1).toISOString(),
             fund: `Yearly Total (${p.year})`,
             notes: `Yearly total for ${p.year}`
@@ -404,7 +287,6 @@ document.addEventListener('DOMContentLoaded', async () => {
           await addEntryObject(entry);
         }
 
-        // Reset form fields and reload
         form.reset();
         if (customFundInput) customFundInput.value = '';
         if (bulkTextarea) bulkTextarea.value = '';
@@ -412,7 +294,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         return;
       }
 
-      // If single-year toggle is checked, create a yearly-total entry using yearInput/yearAmountInput
+      // Single-year yearly total handling
       if (yearlyToggle && yearlyToggle.checked) {
         const yr = yearInput ? Number(yearInput.value) : NaN;
         const yrAmt = yearAmountInput ? parseFloat(yearAmountInput.value) : NaN;
@@ -437,7 +319,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         return;
       }
 
-      // Otherwise, treat as a normal dated transaction (buy/sell/profit)
+      // Otherwise, normal dated transaction
       if (Number.isNaN(amount) || amount <= 0 || !dateVal) {
         if (amountEl) amountEl.focus();
         return;
@@ -477,7 +359,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         customFundInput.value = '';
       }
     });
-    // If the page pre-selects Other, ensure wrapper visible
     if (fundSelect.value === 'Other' && customFundInput) {
       const customWrapperEl = document.getElementById('customFundWrapper');
       if (customWrapperEl) customWrapperEl.style.display = 'block';
