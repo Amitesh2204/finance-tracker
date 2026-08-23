@@ -139,6 +139,21 @@
     }
   };
 
+  // Delete an entry by its doc (or _id). Always re-fetches the latest _rev
+  // first so this works even if the doc was synced/updated elsewhere since
+  // it was loaded into the page.
+  window.deleteEntry = async function(docOrId) {
+    try {
+      const id = typeof docOrId === 'string' ? docOrId : docOrId && docOrId._id;
+      if (!id) throw new Error('deleteEntry: no _id provided');
+      const latest = await db.get(id);
+      return await db.remove(latest);
+    } catch (err) {
+      console.error("Error deleting entry:", err);
+      throw err;
+    }
+  };
+
   // Expose local DB for debugging
   window._localFinanceDB = db;
 })();

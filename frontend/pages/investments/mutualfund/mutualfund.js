@@ -58,7 +58,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }).join('');
   }
 
-  function renderChart(selectedYear = "2026") {
+  function renderChart(mfEntries) {
     const canvas = document.getElementById('mutualFundChart');
     if (!canvas || typeof Chart === 'undefined') {
       console.warn('Mutual fund chart canvas or Chart.js is unavailable.');
@@ -70,25 +70,54 @@ document.addEventListener('DOMContentLoaded', async () => {
       window.mfChart.destroy();
     }
 
-    const months = ["Jul","Aug","Sep","Oct","Nov","Dec","Jan","Feb","Mar","Apr","May","Jun"];
-    const combinedData = months.map(m => {
-      const key = `${m}-${selectedYear}`;
-      const monthData = monthlyData[key] || {};
-      return (monthData.invested || 0) + (monthData.profit || 0);
+    // Build a continuous year range from the earliest entry to the current
+    // year, instead of a hardcoded year, so this reflects real data.
+    const years = mfEntries
+      .map(e => new Date(e.date).getFullYear())
+      .filter(y => !Number.isNaN(y));
+    const nowYear = new Date().getFullYear();
+    const startYear = years.length ? Math.min(...years) : nowYear;
+    const endYear = Math.max(nowYear, ...(years.length ? years : [nowYear]));
+    const labels = [];
+    for (let y = startYear; y <= endYear; y++) labels.push(String(y));
+
+    function classify(e) {
+      const notes = String(e.notes || '').toLowerCase();
+      if (e.subtype === 'profit' || notes.includes('profit')) return 'profit';
+      if (e.subtype === 'sell' || notes.includes(' sell') || notes.includes('sold')) return 'sell';
+      return 'buy';
+    }
+
+    const investedByYear = labels.map(y => {
+      const yearNum = Number(y);
+      return mfEntries
+        .filter(e => new Date(e.date).getFullYear() === yearNum && classify(e) !== 'profit')
+        .reduce((s, e) => s + (classify(e) === 'sell' ? -1 : 1) * (Number(e.amount) || 0), 0);
+    });
+    const growthByYear = labels.map(y => {
+      const yearNum = Number(y);
+      return mfEntries
+        .filter(e => new Date(e.date).getFullYear() === yearNum && classify(e) === 'profit')
+        .reduce((s, e) => s + (Number(e.amount) || 0), 0);
     });
 
     window.mfChart = new Chart(ctx, {
       type: 'bar',
       data: {
-        labels: months,
+        labels,
         datasets: [
-          { label: 'Combined Total', data: combinedData, backgroundColor: '#1abc9c' }
+          { label: 'Invested (year)', data: investedByYear, backgroundColor: '#1abc9c' },
+          { label: 'Growth (year)', data: growthByYear, backgroundColor: '#3498db' }
         ]
       },
       options: {
         responsive: true,
+        maintainAspectRatio: false,
         plugins: { legend: { position: 'top' } },
-        scales: { y: { beginAtZero: true } }
+        scales: {
+          x: { ticks: { autoSkip: false, maxRotation: 0 } },
+          y: { beginAtZero: true }
+        }
       }
     });
   }
@@ -288,67 +317,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     updateCards();
     populateMonthYearDropdown();
     renderTable(monthYearSelect.value || null);
-    renderChart("2026");
+    renderChart(mfEntries);
     updatePortfolio(mfEntries);
     populatePortfolioMonthYear(mfEntries);
     renderPortfolioChart(mfEntries);
   }
 
-  // Handle investment form
-  document.getElementById('investmentForm').addEventListener('submit', async e => {
-    e.preventDefault();
-    const amt = parseFloat(document.getElementById('monthlyAmount').value);
-    if (isNaN(amt) || amt <= 0) return;
-
-    const d = new Date();
-    const month = d.toLocaleString('default',{month:'short'});
-    const year = d.getFullYear();
-    const key = `${month}-${year}`;
-    
-    // Save entry to DB
-    const fundName = document.getElementById('fundName').value;
-    const entry = {
-      type: 'investment',
-      category: 'Mutual Fund',
-      subtype: 'investment',
-      amount: amt,
-      currency: 'INR',
-      date: d.toISOString(),
-      notes: `${fundName} Mutual Fund investment for ${key}`
-    };
-    await window.addEntry(entry);
-    await loadEntries(); // refresh portfolio and portfolio chart
-
-    e.target.reset();
-  });
-
-  // Handle profit form
-  document.getElementById('profitForm').addEventListener('submit', async e => {
-    e.preventDefault();
-    const profit = parseFloat(document.getElementById('monthlyProfit').value);
-    if (isNaN(profit) || profit <= 0) return;
-
-    const d = new Date();
-    const month = d.toLocaleString('default',{month:'short'});
-    const year = d.getFullYear();
-    const key = `${month}-${year}`;
- 
-    // Save entry to DB
-    const fundNameProfit = document.getElementById('fundNameProfit').value;
-    const entry = {
-      type: 'investment',
-      category: 'Mutual Fund',
-      subtype: 'profit',
-      amount: profit,
-      currency: 'INR',
-      date: d.toISOString(),
-      notes: `${fundNameProfit} Mutual Fund profit for ${key}`
-    };
-    await window.addEntry(entry);
-    await loadEntries(); // refresh portfolio and portfolio chart
-
-    e.target.reset();
-  });
+  // Note: the "Add Monthly Investment" and "Update Monthly Profit" forms were
+  // removed from this page (data entry now happens on the History page, which
+  // covers buy/sell/profit with more detail). If you ever re-add them, wire
+  // their submit handlers back here — guarded with an `if (form)` check, since
+  // an unguarded getElementById(...).addEventListener on a missing form throws
+  // and silently stops the rest of this script from running.
 
   // Month-year dropdown change
   monthYearSelect.addEventListener('change', () => {

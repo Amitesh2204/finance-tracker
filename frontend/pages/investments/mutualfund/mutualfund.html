@@ -65,49 +65,19 @@
             <canvas id="mutualFundChart"></canvas>
           </div>
 
-          <!-- Investment + Profit forms side by side -->
-          <div class="form-row">
-            <div class="card">
-              <h3>Add Monthly Investment</h3>
-              <form id="investmentForm" class="investment-form">
-                <label>Investment Type</label>
-                <input type="text" value="Mutual Fund" readonly />
-                <label for="fundName">Fund Name</label>
-                <select id="fundName">
-                  <option value="WhiteOak">WhiteOak</option>
-                  <option value="Bajaj">Bajaj</option>
-                  <option value="WealthCo">WealthCo</option>
-                  <option value="Groww">Groww</option>
-                  <option value="JM">JM</option>
-                  <option value="Abakkus">Abakkus</option>
-                  <option value="Edelweiss">Edelweiss</option>
-                  <option value="360 ONE">360 ONE</option>
-                </select>
-                <label for="monthlyAmount">Monthly Amount</label>
-                <input id="monthlyAmount" type="number" min="0" step="0.01" required />
-                <button type="submit">Add Investment</button>
-              </form>
+          <!-- Adding investments/profit now happens on the History page, which
+               covers buy/sell/profit with more detail (custom fund names,
+               notes, yearly totals) and avoids having two separate entry
+               points that could drift out of sync. -->
+          <div class="card" style="display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap;">
+            <div>
+              <h3 style="margin-bottom:6px;">Add or update investments</h3>
+              <p style="margin:0; color:var(--muted); font-size:0.95rem; text-align:left;">
+                Buy, sell, and profit entries are recorded on the History page — everything you add there
+                flows straight into the totals and charts on this page.
+              </p>
             </div>
-
-            <div class="card">
-              <h3>Update Monthly Profit</h3>
-              <form id="profitForm" class="investment-form">
-                <label for="fundNameProfit">Fund Name</label>
-                <select id="fundNameProfit">
-                  <option value="WhiteOak">WhiteOak</option>
-                  <option value="Bajaj">Bajaj</option>
-                  <option value="WealthCo">WealthCo</option>
-                  <option value="Groww">Groww</option>
-                  <option value="JM">JM</option>
-                  <option value="Abakkus">Abakkus</option>
-                  <option value="Edelweiss">Edelweiss</option>
-                  <option value="360 ONE">360 ONE</option>
-                </select>
-                <label for="monthlyProfit">Monthly Profit</label>
-                <input id="monthlyProfit" type="number" min="0" step="0.01" required />
-                <button type="submit">Update Profit</button>
-              </form>
-            </div>
+            <a href="history.html" class="toggle-btn" style="text-decoration:none; white-space:nowrap; padding:10px 16px;">📜 Go to History →</a>
           </div>
 
           <!-- Monthly table -->

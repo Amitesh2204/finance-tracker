@@ -84,12 +84,29 @@
           <h3>Saved Investments</h3>
           <label for="savedYearSelect">Select Year:</label>
           <select id="savedYearSelect">
+            <option value="all">All years</option>
             <option value="2026" selected>2026</option>
             <!-- Future years will be added dynamically -->
           </select>
+          <label for="savedMonthSelect">Select Month:</label>
+          <select id="savedMonthSelect">
+            <option value="all" selected>All months</option>
+            <option value="0">January</option>
+            <option value="1">February</option>
+            <option value="2">March</option>
+            <option value="3">April</option>
+            <option value="4">May</option>
+            <option value="5">June</option>
+            <option value="6">July</option>
+            <option value="7">August</option>
+            <option value="8">September</option>
+            <option value="9">October</option>
+            <option value="10">November</option>
+            <option value="11">December</option>
+          </select>
           <table id="investmentsTable" class="investment-table">
-            <thead><tr><th>Type</th><th>Amount</th><th>Date</th></tr></thead>
-            <tbody><tr><td colspan="3">Loading investments...</td></tr></tbody>
+            <thead><tr><th>Type</th><th>Amount</th><th>Date</th><th>Actions</th></tr></thead>
+            <tbody><tr><td colspan="4">Loading investments...</td></tr></tbody>
           </table>
         </div>
       </section>
