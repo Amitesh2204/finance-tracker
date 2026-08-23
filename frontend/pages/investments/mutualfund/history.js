@@ -1,5 +1,7 @@
-// history.js - Mutual Fund old-data / history sub-page (updated to support yearly totals and side-by-side yearly bars)
-// Requires db.js + app.js to be loaded first (exposes window.fetchEntries / window.addEntry)
+// history.js - Mutual Fund old-data / history sub-page (final fixes)
+// - Ensures the Yearly Growth chart shows each year on the x-axis
+// - Displays side-by-side bars per year for Total Invested and Total Growth
+// - Clarifies yearly-total behavior: yearly total = invested amount only (profit recorded separately)
 
 document.addEventListener('DOMContentLoaded', async () => {
   const boughtEl = document.getElementById('historyTotalBought');
@@ -48,7 +50,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       const kind = classify(e);
       if (kind === 'profit') growth += amt;
       else if (kind === 'sell') sold += amt;
-      else bought += amt; // includes yearly-total treated as buy
+      else bought += amt; // includes yearly-total treated as invested amount
     });
     if (boughtEl) boughtEl.textContent = formatINR(bought);
     if (soldEl) soldEl.textContent = formatINR(sold);
@@ -103,7 +105,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const canvas = document.getElementById('yearlyGrowthChart');
     if (!canvas || typeof Chart === 'undefined') return;
 
-    // Collect years from entries and ensure at least 2017..currentYear range
+    // Collect years from entries and ensure a continuous range from min(2017, earliest) to current year
     const yearsSet = new Set();
     entries.forEach(e => {
       const y = new Date(e.date).getFullYear();
@@ -133,7 +135,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         .reduce((s, e) => s + (Number(e.amount) || 0), 0);
     });
 
-    // Render side-by-side bars for each year: Invested and Growth
+    // Ensure labels are shown on x-axis and bars are side-by-side
     const ctx = canvas.getContext('2d');
     if (window.historyYearlyChart && typeof window.historyYearlyChart.destroy === 'function') {
       window.historyYearlyChart.destroy();
@@ -147,12 +149,16 @@ document.addEventListener('DOMContentLoaded', async () => {
           {
             label: 'Total Invested (year)',
             data: investedByYear,
-            backgroundColor: '#1abc9c'
+            backgroundColor: '#1abc9c',
+            categoryPercentage: 0.6,
+            barPercentage: 0.45
           },
           {
             label: 'Total Growth (year)',
             data: growthByYear,
-            backgroundColor: '#3498db'
+            backgroundColor: '#3498db',
+            categoryPercentage: 0.6,
+            barPercentage: 0.45
           }
         ]
       },
@@ -170,7 +176,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         scales: {
           x: {
             stacked: false,
-            ticks: { autoSkip: false }
+            ticks: {
+              autoSkip: false,
+              maxRotation: 0,
+              minRotation: 0
+            }
           },
           y: {
             beginAtZero: true,
@@ -200,6 +210,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       return;
     }
     const entries = await window.fetchEntries().catch(() => []);
+    // Keep only mutual fund related entries
     allEntries = entries.filter(isMutualFundEntry);
 
     renderSummary(allEntries);
