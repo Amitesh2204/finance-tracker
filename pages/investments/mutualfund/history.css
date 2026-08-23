@@ -136,7 +136,7 @@
   font-size: 0.95rem;
 }
 
-/* Yearly totals UI block (injected or present) */
+/* Yearly totals UI block */
 .yearly-block {
   display: flex;
   gap: 8px;
