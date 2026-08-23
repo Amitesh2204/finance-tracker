@@ -1,8 +1,11 @@
 <!doctype html>
 <html>
 <head>
-  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Mutual Fund — History</title>
+
+  <!-- Core styles -->
   <link rel="stylesheet" href="../../../style.css">
   <link rel="stylesheet" href="mutualfund.css">
   <link rel="stylesheet" href="history.css">
@@ -18,6 +21,24 @@
 
   <!-- Page-specific logic -->
   <script src="history.js" defer></script>
+
+  <style>
+    /* Small local tweaks to ensure the page spacing and mobile layout are tidy */
+    .history-section { display:flex; flex-direction:column; gap:20px; }
+    .cards { display:grid; grid-template-columns: repeat(4, 1fr); gap:16px; }
+    .card { padding:16px; border-radius:10px; background:var(--card-bg); box-shadow:0 6px 18px rgba(0,0,0,0.18); }
+    .investment-form select, .investment-form input { width:100%; box-sizing:border-box; }
+    .history-layout { gap:20px; }
+    @media (max-width: 1024px) {
+      .cards { grid-template-columns: repeat(2, 1fr); }
+      .history-layout { grid-template-columns: 1fr; display:grid; }
+    }
+    @media (max-width: 600px) {
+      .cards { grid-template-columns: 1fr; }
+    }
+    /* custom fund input initially hidden */
+    #customFundWrapper { display:none; margin-top:8px; }
+  </style>
 </head>
 
 <body>
@@ -60,7 +81,7 @@
         </p>
 
         <!-- Summary cards -->
-        <div class="cards">
+        <div class="cards" role="region" aria-label="Summary">
           <div class="card"><h3>Total Bought</h3><p id="historyTotalBought">₹0.00</p></div>
           <div class="card"><h3>Total Sold</h3><p id="historyTotalSold">₹0.00</p></div>
           <div class="card"><h3>Net Invested</h3><p id="historyNetInvested">₹0.00</p></div>
@@ -68,20 +89,20 @@
         </div>
 
         <!-- Yearly growth chart -->
-        <div class="chart card same-size">
+        <div class="chart card same-size" aria-hidden="false">
           <h3>Yearly Growth (since July 2017)</h3>
           <div class="chart-canvas-wrap">
-            <canvas id="yearlyGrowthChart"></canvas>
+            <canvas id="yearlyGrowthChart" aria-label="Yearly growth chart" role="img"></canvas>
           </div>
         </div>
 
         <div class="history-layout">
           <!-- Add transaction form -->
-          <div class="card">
-            <h3>Add a Transaction</h3>
-            <form id="historyForm" class="investment-form">
+          <div class="card" aria-labelledby="addTransactionHeading">
+            <h3 id="addTransactionHeading">Add a Transaction</h3>
+            <form id="historyForm" class="investment-form history-form" autocomplete="off">
               <label for="historyFund">Fund Name</label>
-              <select id="historyFund">
+              <select id="historyFund" aria-describedby="fundHelp">
                 <option value="WhiteOak">WhiteOak</option>
                 <option value="Bajaj">Bajaj</option>
                 <option value="WealthCo">WealthCo</option>
@@ -90,8 +111,14 @@
                 <option value="Abakkus">Abakkus</option>
                 <option value="Edelweiss">Edelweiss</option>
                 <option value="360 ONE">360 ONE</option>
-                <option value="Other">Other</option>
+                <option value="Other">Other (type below)</option>
               </select>
+
+              <!-- Custom fund input (shown when user selects Other) -->
+              <div id="customFundWrapper">
+                <label for="customFundInput">Custom Fund Name</label>
+                <input id="customFundInput" type="text" placeholder="Type fund name (e.g. My Custom Fund)" />
+              </div>
 
               <label for="historyType">Transaction Type</label>
               <select id="historyType">
@@ -114,20 +141,21 @@
           </div>
 
           <!-- Transaction table -->
-          <div class="card">
-            <h3>All Transactions</h3>
+          <div class="card" aria-labelledby="transactionsHeading">
+            <h3 id="transactionsHeading">All Transactions</h3>
             <label for="historyYearFilter">Filter by year:</label>
-            <select id="historyYearFilter">
+            <select id="historyYearFilter" aria-label="Filter transactions by year">
               <option value="all">All years</option>
             </select>
-            <table id="historyTable" class="investment-table">
+
+            <table id="historyTable" class="investment-table" aria-describedby="transactionsHeading">
               <thead>
                 <tr>
-                  <th>Date</th>
-                  <th>Fund</th>
-                  <th>Type</th>
-                  <th>Amount</th>
-                  <th>Notes</th>
+                  <th scope="col">Date</th>
+                  <th scope="col">Fund</th>
+                  <th scope="col">Type</th>
+                  <th scope="col">Amount</th>
+                  <th scope="col">Notes</th>
                 </tr>
               </thead>
               <tbody><tr><td colspan="5">Loading…</td></tr></tbody>
@@ -137,5 +165,61 @@
       </section>
     </main>
   </div>
+
+  <!-- Inline helper script to support custom fund name behavior without changing existing history.js logic.
+       This script ensures that when the user selects "Other" they can type a custom fund name,
+       and that the custom name is applied to the select before the page's history.js handler reads it. -->
+  <script>
+    (function () {
+      const fundSelect = document.getElementById('historyFund');
+      const customWrapper = document.getElementById('customFundWrapper');
+      const customInput = document.getElementById('customFundInput');
+      const form = document.getElementById('historyForm');
+
+      if (!fundSelect || !customWrapper || !customInput || !form) return;
+
+      // Show/hide custom input when "Other" is selected
+      fundSelect.addEventListener('change', () => {
+        if (fundSelect.value === 'Other') {
+          customWrapper.style.display = 'block';
+          customInput.focus();
+        } else {
+          customWrapper.style.display = 'none';
+          customInput.value = '';
+        }
+      });
+
+      // Before the form is submitted, if user selected Other and provided a custom name,
+      // ensure the select contains that value so existing history.js code reads it.
+      form.addEventListener('submit', (ev) => {
+        if (fundSelect.value === 'Other') {
+          const customVal = (customInput.value || '').trim();
+          if (!customVal) {
+            // prevent submit if custom name is empty
+            ev.preventDefault();
+            customInput.focus();
+            return;
+          }
+          // If an option with this exact value already exists, select it; otherwise add it temporarily.
+          let existing = Array.from(fundSelect.options).find(o => o.value === customVal);
+          if (!existing) {
+            const opt = document.createElement('option');
+            opt.value = customVal;
+            opt.textContent = customVal;
+            // insert before the "Other" option to keep "Other" at the end
+            const otherOpt = Array.from(fundSelect.options).find(o => o.value === 'Other');
+            if (otherOpt) fundSelect.insertBefore(opt, otherOpt);
+            else fundSelect.appendChild(opt);
+            existing = opt;
+          }
+          existing.selected = true;
+        }
+        // allow the page's history.js submit handler to run after this
+      });
+
+      // Accessibility: if the page pre-selects "Other" (unlikely), ensure wrapper is visible
+      if (fundSelect.value === 'Other') customWrapper.style.display = 'block';
+    })();
+  </script>
 </body>
 </html>

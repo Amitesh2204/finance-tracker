@@ -1,4 +1,4 @@
-// history.js - Mutual Fund old-data / history sub-page
+// history.js - Mutual Fund old-data / history sub-page (final)
 // Requires db.js + app.js to be loaded first (exposes window.fetchEntries / window.addEntry)
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -9,6 +9,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   const tableBody = document.querySelector('#historyTable tbody');
   const yearFilter = document.getElementById('historyYearFilter');
   const form = document.getElementById('historyForm');
+
+  // Elements for custom fund support
+  const fundSelect = document.getElementById('historyFund');
+  const customFundInput = document.getElementById('customFundInput');
 
   function formatINR(amount) {
     return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(Number(amount) || 0);
@@ -41,18 +45,26 @@ document.addEventListener('DOMContentLoaded', async () => {
       else if (kind === 'sell') sold += amt;
       else bought += amt;
     });
-    boughtEl.textContent = formatINR(bought);
-    soldEl.textContent = formatINR(sold);
-    netEl.textContent = formatINR(bought - sold);
-    growthEl.textContent = formatINR(growth);
+    if (boughtEl) boughtEl.textContent = formatINR(bought);
+    if (soldEl) soldEl.textContent = formatINR(sold);
+    if (netEl) netEl.textContent = formatINR(bought - sold);
+    if (growthEl) growthEl.textContent = formatINR(growth);
   }
 
   function populateYearFilter(entries) {
-    const years = [...new Set(entries.map(e => new Date(e.date).getFullYear()).filter(y => !Number.isNaN(y)))].sort((a, b) => b - a);
-    const current = yearFilter.value || 'all';
-    yearFilter.innerHTML = '<option value="all">All years</option>' +
-      years.map(y => `<option value="${y}">${y}</option>`).join('');
-    yearFilter.value = years.includes(Number(current)) || current === 'all' ? current : 'all';
+    const years = [...new Set(entries.map(e => {
+      const d = new Date(e.date);
+      return Number.isNaN(d.getFullYear()) ? null : d.getFullYear();
+    }).filter(Boolean))].sort((a, b) => b - a);
+
+    const currentYear = new Date().getFullYear();
+    // Build options
+    const opts = ['<option value="all">All years</option>']
+      .concat(years.map(y => `<option value="${y}">${y}</option>`))
+      .join('');
+    if (yearFilter) yearFilter.innerHTML = opts;
+    // Default to current year if present, otherwise 'all'
+    if (yearFilter) yearFilter.value = years.includes(currentYear) ? String(currentYear) : 'all';
   }
 
   function renderTable(entries, selectedYear) {
@@ -60,6 +72,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (selectedYear && selectedYear !== 'all') {
       filtered = filtered.filter(e => new Date(e.date).getFullYear() === Number(selectedYear));
     }
+
+    if (!tableBody) return;
 
     if (filtered.length === 0) {
       tableBody.innerHTML = '<tr><td colspan="5">No transactions yet</td></tr>';
@@ -74,10 +88,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       return `
         <tr>
           <td>${dateStr}</td>
-          <td>${fund}</td>
+          <td>${escapeHtml(String(fund || '—'))}</td>
           <td><span class="tx-type tx-type--${kind}">${label}</span></td>
           <td>${formatINR(e.amount)}</td>
-          <td>${e.notes || '—'}</td>
+          <td>${escapeHtml(e.notes || '—')}</td>
         </tr>`;
     }).join('');
   }
@@ -133,49 +147,119 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
+  // Utility: escape HTML for table output
+  function escapeHtml(str) {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
   async function loadAndRender() {
+    if (typeof window.fetchEntries !== 'function') {
+      console.error('fetchEntries is not defined');
+      return;
+    }
     const entries = await window.fetchEntries().catch(() => []);
     allEntries = entries.filter(isMutualFundEntry);
 
     renderSummary(allEntries);
     populateYearFilter(allEntries);
-    renderTable(allEntries, yearFilter.value || 'all');
+
+    // Use the yearFilter's current value (which is set to current year by populateYearFilter)
+    const selectedYear = yearFilter ? yearFilter.value : 'all';
+    renderTable(allEntries, selectedYear);
     renderYearlyChart(allEntries);
   }
 
-  yearFilter.addEventListener('change', () => {
-    renderTable(allEntries, yearFilter.value);
-  });
+  // Year filter change handler
+  if (yearFilter) {
+    yearFilter.addEventListener('change', () => {
+      renderTable(allEntries, yearFilter.value);
+    });
+  }
 
-  form.addEventListener('submit', async event => {
-    event.preventDefault();
-    const fund = document.getElementById('historyFund').value;
-    const type = document.getElementById('historyType').value; // buy | sell | profit
-    const amount = parseFloat(document.getElementById('historyAmount').value);
-    const dateVal = document.getElementById('historyDate').value;
-    const notesInput = document.getElementById('historyNotes').value.trim();
+  // Form submit handler: supports custom fund name when "Other" selected
+  if (form) {
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
 
-    if (Number.isNaN(amount) || amount <= 0 || !dateVal) return;
+      const fundRaw = fundSelect ? fundSelect.value : '';
+      let fundName = fundRaw;
+      if (fundRaw === 'Other' && customFundInput) {
+        const customVal = (customFundInput.value || '').trim();
+        if (!customVal) {
+          // show a minimal inline validation (do not break existing logic)
+          customFundInput.focus();
+          return;
+        }
+        fundName = customVal;
+      }
 
-    const subtype = type === 'sell' ? 'sell' : type === 'profit' ? 'profit' : 'investment';
-    const actionLabel = type === 'sell' ? 'sell' : type === 'profit' ? 'profit' : 'buy';
-    const notes = `${fund} ${actionLabel}${notesInput ? ' — ' + notesInput : ''}`;
+      const type = document.getElementById('historyType') ? document.getElementById('historyType').value : 'buy';
+      const amountEl = document.getElementById('historyAmount');
+      const dateEl = document.getElementById('historyDate');
+      const notesEl = document.getElementById('historyNotes');
 
-    const entry = {
-      type: 'investment',
-      category: 'Mutual Fund',
-      subtype,
-      amount,
-      currency: 'INR',
-      date: new Date(dateVal).toISOString(),
-      fund,
-      notes
-    };
+      const amount = amountEl ? parseFloat(amountEl.value) : 0;
+      const dateVal = dateEl ? dateEl.value : null;
+      const notesInput = notesEl ? notesEl.value.trim() : '';
 
-    await window.addEntry(entry);
-    form.reset();
-    await loadAndRender();
-  });
+      if (Number.isNaN(amount) || amount <= 0 || !dateVal) {
+        // minimal validation: require amount and date
+        if (amountEl) amountEl.focus();
+        return;
+      }
 
+      const subtype = type === 'sell' ? 'sell' : type === 'profit' ? 'profit' : 'investment';
+      const actionLabel = type === 'sell' ? 'sell' : type === 'profit' ? 'profit' : 'buy';
+      const notes = `${fundName} ${actionLabel}${notesInput ? ' — ' + notesInput : ''}`;
+
+      const entry = {
+        type: 'investment',
+        category: 'Mutual Fund',
+        subtype,
+        amount,
+        currency: 'INR',
+        date: new Date(dateVal).toISOString(),
+        fund: fundName,
+        notes
+      };
+
+      if (typeof window.addEntry === 'function') {
+        await window.addEntry(entry);
+        form.reset();
+        // hide custom input after reset
+        if (customFundInput) customFundInput.value = '';
+        // reload data and UI
+        await loadAndRender();
+      } else {
+        console.error('addEntry is not defined');
+      }
+    });
+  }
+
+  // Show/hide custom fund input when user selects "Other"
+  if (fundSelect && customFundInput) {
+    const customWrapper = document.getElementById('customFundWrapper');
+    fundSelect.addEventListener('change', () => {
+      if (fundSelect.value === 'Other') {
+        if (customWrapper) customWrapper.style.display = 'block';
+        customFundInput.focus();
+      } else {
+        if (customWrapper) customWrapper.style.display = 'none';
+        customFundInput.value = '';
+      }
+    });
+    // If the page pre-selects Other, ensure wrapper visible
+    if (fundSelect.value === 'Other' && customFundInput) {
+      const customWrapperEl = document.getElementById('customFundWrapper');
+      if (customWrapperEl) customWrapperEl.style.display = 'block';
+    }
+  }
+
+  // Initial load
   await loadAndRender();
 });
