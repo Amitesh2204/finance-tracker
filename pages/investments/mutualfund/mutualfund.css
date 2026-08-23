@@ -31,6 +31,32 @@
 
 .chart.same-size { height: 400px; }
 
+.chart.same-size:has(#mutualFundChart),
+.chart.same-size:has(#portfolioChart) {
+  height: 400px !important;
+  display: flex;
+  flex-direction: column;
+  overflow: visible;
+}
+.chart.same-size:has(#mutualFundChart) h3,
+.chart.same-size:has(#portfolioChart) h3 {
+  flex: 0 0 auto;
+  margin: 0 0 12px;
+}
+.chart.same-size:has(#mutualFundChart) canvas,
+.chart.same-size:has(#portfolioChart) canvas {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: auto !important;
+}
+
+@media (max-width: 600px) {
+  .chart.same-size:has(#mutualFundChart),
+  .chart.same-size:has(#portfolioChart) {
+    height: 320px !important;
+  }
+}
+
 /* Layout for content: Mutual Fund + Portfolio side by side */
 .content {
   display: grid;

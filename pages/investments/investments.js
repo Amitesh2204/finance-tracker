@@ -5,6 +5,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // DOM references (guarded)
   const investmentTableBody = document.querySelector('#investmentsTable tbody');
   const savedYearSelect = document.getElementById('savedYearSelect'); // optional year selector
+  const savedMonthSelect = document.getElementById('savedMonthSelect'); // optional month selector
   const mutualFundTotalEl = document.getElementById('mutualFundTotal');
   const licTotalEl = document.getElementById('licTotal');
   const ppfTotalEl = document.getElementById('ppfTotal');
@@ -24,44 +25,46 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
-  // Render investments table grouped by category and year
-  function renderInvestmentsTable(entries = [], selectedYear = null) {
+  // Render investments table as individual entries (not summed), filtered by
+  // year/month, each with a Delete action so a bad entry can be removed.
+  function renderInvestmentsTable(entries = [], selectedYear = null, selectedMonth = null) {
     if (!investmentTableBody) return;
 
-    if (!entries || entries.length === 0) {
-      investmentTableBody.innerHTML = '<tr><td colspan="3">No entries yet</td></tr>';
+    const normalized = (entries || [])
+      .map(e => ({
+        id: e._id,
+        category: e.category || e.type || 'Investment',
+        fund: e.fund || '',
+        amount: Number(e.amount) || 0,
+        date: e.date ? new Date(e.date) : null,
+      }))
+      .filter(e => e.date && !Number.isNaN(e.date.getTime()));
+
+    let filtered = normalized;
+    if (selectedYear && selectedYear !== 'all') {
+      filtered = filtered.filter(e => e.date.getFullYear() === Number(selectedYear));
+    }
+    if (selectedMonth && selectedMonth !== 'all') {
+      filtered = filtered.filter(e => e.date.getMonth() === Number(selectedMonth));
+    }
+    filtered.sort((a, b) => b.date - a.date);
+
+    if (!filtered.length) {
+      investmentTableBody.innerHTML = '<tr><td colspan="4">No investments for the selected period</td></tr>';
       return;
     }
 
-    // Normalize entries: ensure date and amount
-    const normalized = entries.map(e => ({
-      category: e.category || e.type || 'Investment',
-      amount: Number(e.amount) || 0,
-      date: e.date ? new Date(e.date) : null
-    })).filter(e => e.date && !Number.isNaN(e.date.getTime()));
-
-    // Group by category -> year -> sum
-    const grouped = {};
-    normalized.forEach(e => {
-      const year = e.date.getFullYear();
-      const cat = e.category || 'Other';
-      grouped[cat] = grouped[cat] || {};
-      grouped[cat][year] = (grouped[cat][year] || 0) + e.amount;
-    });
-
-    // If a year is selected, show rows for that year only; otherwise show recent years
-    const yearsToShow = selectedYear ? [Number(selectedYear)] : Array.from(new Set(normalized.map(e => e.date.getFullYear()))).sort((a,b) => b-a);
-
-    // Build rows
-    const rows = [];
-    yearsToShow.forEach(y => {
-      Object.keys(grouped).forEach(cat => {
-        const val = grouped[cat][y] || 0;
-        rows.push(`<tr><td>${cat}</td><td>${formatINR(val)}</td><td>${y}</td></tr>`);
-      });
-    });
-
-    investmentTableBody.innerHTML = rows.length ? rows.join('') : '<tr><td colspan="3">No investments for selected year</td></tr>';
+    investmentTableBody.innerHTML = filtered.map(e => {
+      const label = e.fund ? `${e.category} — ${e.fund}` : e.category;
+      const dateStr = e.date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+      return `
+        <tr>
+          <td>${label}</td>
+          <td>${formatINR(e.amount)}</td>
+          <td>${dateStr}</td>
+          <td><button type="button" class="delete-entry-btn" data-id="${e.id}">Delete</button></td>
+        </tr>`;
+    }).join('');
   }
 
   // Build year options for a select element
@@ -74,7 +77,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
     const arr = Array.from(years).sort((a,b) => b - a);
     if (!arr.length) arr.push(new Date().getFullYear());
-    selectEl.innerHTML = arr.map(y => `<option value="${y}">${y}</option>`).join('');
+    const previousValue = selectEl.value;
+    selectEl.innerHTML = '<option value="all">All years</option>' +
+      arr.map(y => `<option value="${y}">${y}</option>`).join('');
+    if (previousValue && Array.from(selectEl.options).some(o => o.value === previousValue)) {
+      selectEl.value = previousValue;
+    }
   }
 
   // Create or update a chart instance safely
@@ -107,13 +115,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Totals by category (robust)
     const totals = { 'Mutual Fund':0, 'LIC':0, 'PPF':0, 'Sukanya Yojana':0 };
+    const byCategory = { 'Mutual Fund':[], 'LIC':[], 'PPF':[], 'Sukanya Yojana':[] };
     investments.forEach(e => {
       const cat = String(e.category || '').trim();
       const amt = Number(e.amount) || 0;
-      if (/mutual/i.test(cat)) totals['Mutual Fund'] += amt;
-      else if (/lic/i.test(cat)) totals['LIC'] += amt;
-      else if (/ppf/i.test(cat)) totals['PPF'] += amt;
-      else if (/sukanya/i.test(cat)) totals['Sukanya Yojana'] += amt;
+      if (/mutual/i.test(cat)) { totals['Mutual Fund'] += amt; byCategory['Mutual Fund'].push(e); }
+      else if (/lic/i.test(cat)) { totals['LIC'] += amt; byCategory['LIC'].push(e); }
+      else if (/ppf/i.test(cat)) { totals['PPF'] += amt; byCategory['PPF'].push(e); }
+      else if (/sukanya/i.test(cat)) { totals['Sukanya Yojana'] += amt; byCategory['Sukanya Yojana'].push(e); }
     });
 
     if (mutualFundTotalEl) mutualFundTotalEl.textContent = formatINR(mutualFundSummary.combined || totals['Mutual Fund']);
@@ -121,15 +130,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (ppfTotalEl) ppfTotalEl.textContent = formatINR(totals['PPF']);
     if (sukanyaTotalEl) sukanyaTotalEl.textContent = formatINR(totals['Sukanya Yojana']);
 
-    // Prepare years list for charts
-    const years = Array.from(new Set(investments.map(i => {
-      const d = new Date(i.date);
-      return Number.isNaN(d.getFullYear()) ? null : d.getFullYear();
-    }).filter(Boolean))).sort((a,b) => a - b);
+    // Each chart gets its own year range, derived only from that category's
+    // own entries — not from a shared range across all investment types.
+    function yearsFor(entriesForCategory) {
+      const nowYear = new Date().getFullYear();
+      const found = Array.from(new Set(entriesForCategory.map(i => {
+        const d = new Date(i.date);
+        return Number.isNaN(d.getFullYear()) ? null : d.getFullYear();
+      }).filter(Boolean))).sort((a, b) => a - b);
+      return found.length ? found : [nowYear];
+    }
 
-    // Mutual Fund growth chart (year-wise)
+    // Mutual Fund growth chart (its own year range)
     if (mutualFundCanvas) {
-      const labels = years.length ? years : [new Date().getFullYear()];
+      const labels = yearsFor(byCategory['Mutual Fund']);
       const data = labels.map(y => (mutualFundSummary.byYear && mutualFundSummary.byYear[y] ? mutualFundSummary.byYear[y].combined : 0));
       createOrUpdateChart('mutualFundGrowthChartInstance', mutualFundCanvas, {
         type: 'line',
@@ -138,10 +152,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       });
     }
 
-    // LIC chart
+    // LIC chart (its own year range)
     if (licCanvas) {
-      const labels = years.length ? years : [new Date().getFullYear()];
-      const data = labels.map(y => investments.filter(e => /lic/i.test(e.category) && new Date(e.date).getFullYear() === y).reduce((s, it) => s + (Number(it.amount) || 0), 0));
+      const labels = yearsFor(byCategory['LIC']);
+      const data = labels.map(y => byCategory['LIC'].filter(e => new Date(e.date).getFullYear() === y).reduce((s, it) => s + (Number(it.amount) || 0), 0));
       createOrUpdateChart('licGrowthChartInstance', licCanvas, {
         type: 'line',
         data: { labels, datasets: [{ label: 'LIC Growth', data, borderColor: '#3498db', backgroundColor: 'rgba(52,152,219,0.15)', fill: true, tension: 0.3 }] },
@@ -149,10 +163,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       });
     }
 
-    // PPF chart
+    // PPF chart (its own year range)
     if (ppfCanvas) {
-      const labels = years.length ? years : [new Date().getFullYear()];
-      const data = labels.map(y => investments.filter(e => /ppf/i.test(e.category) && new Date(e.date).getFullYear() === y).reduce((s, it) => s + (Number(it.amount) || 0), 0));
+      const labels = yearsFor(byCategory['PPF']);
+      const data = labels.map(y => byCategory['PPF'].filter(e => new Date(e.date).getFullYear() === y).reduce((s, it) => s + (Number(it.amount) || 0), 0));
       createOrUpdateChart('ppfGrowthChartInstance', ppfCanvas, {
         type: 'line',
         data: { labels, datasets: [{ label: 'PPF Growth', data, borderColor: '#e67e22', backgroundColor: 'rgba(230,126,34,0.15)', fill: true, tension: 0.3 }] },
@@ -160,10 +174,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       });
     }
 
-    // Sukanya chart
+    // Sukanya chart (its own year range)
     if (sukanyaCanvas) {
-      const labels = years.length ? years : [new Date().getFullYear()];
-      const data = labels.map(y => investments.filter(e => /sukanya/i.test(e.category) && new Date(e.date).getFullYear() === y).reduce((s, it) => s + (Number(it.amount) || 0), 0));
+      const labels = yearsFor(byCategory['Sukanya Yojana']);
+      const data = labels.map(y => byCategory['Sukanya Yojana'].filter(e => new Date(e.date).getFullYear() === y).reduce((s, it) => s + (Number(it.amount) || 0), 0));
       createOrUpdateChart('sukanyaGrowthChartInstance', sukanyaCanvas, {
         type: 'line',
         data: { labels, datasets: [{ label: 'Sukanya Yojana Growth', data, borderColor: '#9b59b6', backgroundColor: 'rgba(155,89,182,0.15)', fill: true, tension: 0.3 }] },
@@ -199,25 +213,57 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (!savedYearSelect.value) savedYearSelect.value = (new Date()).getFullYear();
     }
 
-    // Render table (use selected year if available)
+    // Render table (use selected year + month if available)
     const selectedYear = savedYearSelect ? savedYearSelect.value : null;
-    renderInvestmentsTable(investments, selectedYear);
+    const selectedMonth = savedMonthSelect ? savedMonthSelect.value : null;
+    renderInvestmentsTable(investments, selectedYear, selectedMonth);
 
     // Render totals and charts
     await renderInvestments(investments);
   }
 
-  // Wire savedYearSelect change to re-render table only
+  // Re-render just the table for the currently selected year/month, using
+  // cached entries when available to avoid an extra fetch.
+  async function refreshTableOnly() {
+    const entries = Array.isArray(window.__LAST_ENTRIES__) ? window.__LAST_ENTRIES__ : await (window.fetchEntries ? window.fetchEntries() : []);
+    const investments = (entries || []).filter(e => {
+      const t = String(e.type || '').toLowerCase();
+      const cat = String(e.category || '').toLowerCase();
+      return t === 'investment' || cat.includes('mutual') || cat.includes('lic') || cat.includes('ppf') || cat.includes('sukanya');
+    });
+    renderInvestmentsTable(investments, savedYearSelect ? savedYearSelect.value : null, savedMonthSelect ? savedMonthSelect.value : null);
+  }
+
+  // Wire savedYearSelect / savedMonthSelect change to re-render table only
   if (savedYearSelect) {
-    savedYearSelect.addEventListener('change', async () => {
-      // Re-load entries from cache and re-render table for selected year
-      const entries = Array.isArray(window.__LAST_ENTRIES__) ? window.__LAST_ENTRIES__ : await (window.fetchEntries ? window.fetchEntries() : []);
-      const investments = (entries || []).filter(e => {
-        const t = String(e.type || '').toLowerCase();
-        const cat = String(e.category || '').toLowerCase();
-        return t === 'investment' || cat.includes('mutual') || cat.includes('lic') || cat.includes('ppf') || cat.includes('sukanya');
-      });
-      renderInvestmentsTable(investments, savedYearSelect.value);
+    savedYearSelect.addEventListener('change', refreshTableOnly);
+  }
+  if (savedMonthSelect) {
+    savedMonthSelect.addEventListener('change', refreshTableOnly);
+  }
+
+  // Delete an entry (event delegation so it keeps working after re-renders)
+  if (investmentTableBody) {
+    investmentTableBody.addEventListener('click', async (event) => {
+      const btn = event.target.closest('.delete-entry-btn');
+      if (!btn) return;
+      const id = btn.getAttribute('data-id');
+      if (!id) return;
+      if (!confirm('Delete this investment entry? This cannot be undone.')) return;
+      btn.disabled = true;
+      btn.textContent = 'Deleting…';
+      try {
+        if (typeof window.deleteEntry === 'function') {
+          await window.deleteEntry(id);
+        } else {
+          console.error('deleteEntry is not defined — is db.js loaded?');
+        }
+        await loadInvestments();
+      } catch (err) {
+        console.error('Failed to delete entry', err);
+        btn.disabled = false;
+        btn.textContent = 'Delete';
+      }
     });
   }
 

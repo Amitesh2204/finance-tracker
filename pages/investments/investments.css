@@ -47,6 +47,19 @@
   background:var(--accent-soft);
 }
 
+.delete-entry-btn {
+  background: transparent;
+  color: var(--danger);
+  border: 1px solid var(--danger);
+  border-radius: 8px;
+  padding: 5px 10px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.delete-entry-btn:hover { background: var(--danger); color: #fff; }
+.delete-entry-btn:disabled { opacity: 0.6; cursor: default; }
+
 /* Chart sizing */
 .chart.same-size {
   height:400px;

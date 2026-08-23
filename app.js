@@ -673,10 +673,11 @@
 
       const expenseTotals = getExpenseTotals(entries);
       const investmentTotals = getInvestmentTotals(entries);
-      // Savings card = SBI + Bank of Baroda (net of their expenses). Previously this
-      // showed investment totals whenever any investment existed, which is why adding
-      // an SBI/BoB balance never appeared here — it wasn't reading bank data at all.
-      const savingsValue = expenseTotals.totalSaving;
+      // Savings card = SBI + Bank of Baroda (net of their expenses) PLUS total
+      // investments (Mutual Fund + LIC + PPF + Sukanya). This is additive to
+      // the bank-balance fix from before — it now also updates automatically
+      // whenever an investment entry is added/changed on the Investments page.
+      const savingsValue = expenseTotals.totalSaving + investmentTotals.total;
 
       if (balanceEl) balanceEl.textContent = formatCurrency(expenseTotals.totalBalance);
       if (expensesEl) expensesEl.textContent = formatCurrency(expenseTotals.totalExpense);
