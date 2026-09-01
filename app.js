@@ -62,6 +62,37 @@
     }
   }
 
+  function parseLocalDate(dateValue) {
+    if (!dateValue) return new Date();
+    if (dateValue instanceof Date && !Number.isNaN(dateValue.getTime())) return dateValue;
+    if (typeof dateValue === 'string') {
+      const trimmed = dateValue.trim();
+      if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+        const [year, month, day] = trimmed.split('-').map(Number);
+        return new Date(year, month - 1, day);
+      }
+      if (/^\d{4}-\d{2}$/.test(trimmed)) {
+        const [year, month] = trimmed.split('-').map(Number);
+        return new Date(year, month - 1, 1);
+      }
+    }
+    const parsed = new Date(dateValue);
+    return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
+  }
+
+  function getMonthKeyFromDate(dateValue) {
+    const date = parseLocalDate(dateValue);
+    if (Number.isNaN(date.getTime())) return null;
+    const month = date.toLocaleString('en-US', { month: 'short' });
+    return `${month}-${date.getFullYear()}`;
+  }
+
+  function isCurrentMonthEntry(dateValue) {
+    const date = parseLocalDate(dateValue);
+    const now = new Date();
+    return date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth();
+  }
+
   function getElementByAnyId(...ids) {
     for (const id of ids) {
       const el = document.getElementById(id);
@@ -607,14 +638,14 @@
     };
 
     const balanceEntries = entries.filter(isBalanceEntry);
-    const expenseEntries = entries.filter(isExpenseEntry);
+    const currentMonthExpenseEntries = entries.filter(e => isExpenseEntry(e) && isCurrentMonthEntry(e.date));
 
     // Same bank-aware netting as the Expense page: entries with no bank tag
     // default to ICICI, so old (pre-bank-field) data keeps working unchanged.
     const bankOf = (e) => e.bank || 'ICICI';
     const netForBank = (bankName) => {
       const bal = balanceEntries.filter(e => bankOf(e) === bankName).reduce((s, e) => s + (Number(e.amount) || 0), 0);
-      const exp = expenseEntries.filter(e => bankOf(e) === bankName).reduce((s, e) => s + Math.abs(Number(e.amount) || 0), 0);
+      const exp = currentMonthExpenseEntries.filter(e => bankOf(e) === bankName).reduce((s, e) => s + Math.abs(Number(e.amount) || 0), 0);
       return bal - exp;
     };
 
@@ -622,7 +653,7 @@
     const sbiNet = netForBank('SBI');
     const bobNet = netForBank('Bank of Baroda');
 
-    const totalExpense = expenseEntries.reduce((s, e) => s + Math.abs(Number(e.amount) || 0), 0);
+    const totalExpense = currentMonthExpenseEntries.reduce((s, e) => s + Math.abs(Number(e.amount) || 0), 0);
 
     return {
       // Home "Balance" card: ICICI only, net of ICICI's own expenses.

@@ -60,10 +60,35 @@ document.addEventListener('DOMContentLoaded', async () => {
     return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(Number(amount) || 0);
   }
 
+  function parseLocalDateValue(dateValue) {
+    if (!dateValue) return new Date();
+    if (dateValue instanceof Date && !Number.isNaN(dateValue.getTime())) return dateValue;
+    if (typeof dateValue === 'string') {
+      const trimmed = dateValue.trim();
+      if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+        const [year, month, day] = trimmed.split('-').map(Number);
+        return new Date(year, month - 1, day);
+      }
+      if (/^\d{4}-\d{2}$/.test(trimmed)) {
+        const [year, month] = trimmed.split('-').map(Number);
+        return new Date(year, month - 1, 1);
+      }
+    }
+    const parsed = new Date(dateValue);
+    return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
+  }
+
   function getMonthYearKey(dateValue) {
-    const date = new Date(dateValue);
+    const date = parseLocalDateValue(dateValue);
     if (Number.isNaN(date.getTime())) return null;
     return `${date.toLocaleString('default',{month:'short'})}-${date.getFullYear()}`;
+  }
+
+  function formatLocalDateInput(date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   }
 
   // Normalize category names to canonical list
@@ -133,11 +158,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   function computeTotalExpense() {
+    const now = new Date();
     let sum = 0;
     allEntries.forEach(e => {
-      if (String(e.type || '').toLowerCase() === 'expense' || String(e.type || '').toLowerCase() === 'trip') {
-        sum += Number(e.amount) || 0;
-      }
+      const d = parseLocalDateValue(e.date);
+      const isExpense = String(e.type || '').toLowerCase() === 'expense' || String(e.type || '').toLowerCase() === 'trip';
+      if (!isExpense) return;
+      if (d.getFullYear() !== now.getFullYear() || d.getMonth() !== now.getMonth()) return;
+      sum += Number(e.amount) || 0;
     });
     return sum;
   }
@@ -392,7 +420,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     allEntries.forEach(entry => {
       // default bank to ICICI if missing (so existing expenses are deducted from ICICI)
       const bank = entry.bank || 'ICICI';
-      const key = getMonthYearKey(entry.date || new Date().toISOString());
+      const entryDate = parseLocalDateValue(entry.date || formatLocalDateInput(new Date()));
+      const key = getMonthYearKey(entryDate);
       if (!key) return;
       monthlyData[key] = monthlyData[key] || { balance: 0, expense: 0, daily: [], byBank: {} };
 
@@ -459,11 +488,12 @@ document.addEventListener('DOMContentLoaded', async () => {
       const amount = parseFloat(balanceAmountInput.value);
       if (Number.isNaN(amount) || amount <= 0) return;
 
-      // If user provided a month, use first day of that month; else use now
-      let date = new Date().toISOString();
+      // If user provided a month, use the first day of that month; else use now.
+      // Store a local date string so month keys don't shift in timezone-sensitive browsers.
+      let date = formatLocalDateInput(new Date());
       if (balanceMonthInput && balanceMonthInput.value) {
         const [y, m] = balanceMonthInput.value.split('-');
-        date = new Date(Number(y), Number(m) - 1, 1).toISOString();
+        date = formatLocalDateInput(new Date(Number(y), Number(m) - 1, 1));
       }
 
       const bank = balanceBankSelect ? balanceBankSelect.value : 'Other';
