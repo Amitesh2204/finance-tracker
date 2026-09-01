@@ -141,13 +141,53 @@ document.addEventListener('DOMContentLoaded', async () => {
       return found.length ? found : [nowYear];
     }
 
-    // Mutual Fund growth chart (its own year range)
+    // Mutual Fund growth chart (continuous range from earliest to current year)
     if (mutualFundCanvas) {
-      const labels = yearsFor(byCategory['Mutual Fund']);
-      const data = labels.map(y => (mutualFundSummary.byYear && mutualFundSummary.byYear[y] ? mutualFundSummary.byYear[y].combined : 0));
+      const allYears = Array.from(new Set((investments || []).map(e => {
+        const d = new Date(e.date);
+        return Number.isNaN(d.getFullYear()) ? null : d.getFullYear();
+      }).filter(Boolean))).sort((a, b) => a - b);
+      const startYear = allYears.length ? Math.min(...allYears) : new Date().getFullYear();
+      const endYear = Math.max(new Date().getFullYear(), ...(allYears.length ? allYears : [new Date().getFullYear()]));
+      const labels = [];
+      for (let y = startYear; y <= endYear; y++) labels.push(String(y));
+
+      const investmentSeries = labels.map(y => {
+        const year = Number(y);
+        return (investments || [])
+          .filter(e => new Date(e.date).getFullYear() === year)
+          .reduce((sum, entry) => {
+            const amount = Number(entry.amount) || 0;
+            const notes = String(entry.notes || '').toLowerCase();
+            const isProfit = entry.subtype === 'profit' || notes.includes('profit');
+            const isSell = entry.subtype === 'sell' || notes.includes(' sell') || notes.includes('sold');
+            if (isProfit) return sum;
+            return sum + (isSell ? -amount : amount);
+          }, 0);
+      });
+
+      const profitSeries = labels.map(y => {
+        const year = Number(y);
+        return (investments || [])
+          .filter(e => new Date(e.date).getFullYear() === year)
+          .reduce((sum, entry) => {
+            const notes = String(entry.notes || '').toLowerCase();
+            if (entry.subtype === 'profit' || notes.includes('profit')) {
+              return sum + (Number(entry.amount) || 0);
+            }
+            return sum;
+          }, 0);
+      });
+
       createOrUpdateChart('mutualFundGrowthChartInstance', mutualFundCanvas, {
         type: 'line',
-        data: { labels, datasets: [{ label: 'Mutual Fund Growth', data, borderColor: '#1abc9c', backgroundColor: 'rgba(26,188,156,0.15)', fill: true, tension: 0.3 }] },
+        data: {
+          labels,
+          datasets: [
+            { label: 'Total Investment', data: investmentSeries, borderColor: '#1abc9c', backgroundColor: 'rgba(26,188,156,0.15)', fill: false, tension: 0.3 },
+            { label: 'Profit', data: profitSeries, borderColor: '#3498db', backgroundColor: 'rgba(52,152,219,0.15)', fill: false, tension: 0.3 }
+          ]
+        },
         options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } } }
       });
     }

@@ -83,8 +83,30 @@
           <!-- Monthly table -->
           <div class="card">
             <h3>Monthly Mutual Fund Summary</h3>
-            <label for="monthYearSelect">Select Month-Year:</label>
-            <select id="monthYearSelect"></select>
+            <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin-bottom:12px;">
+              <div>
+                <label for="summaryYearSelect">Year</label>
+                <select id="summaryYearSelect"></select>
+              </div>
+              <div>
+                <label for="summaryMonthSelect">Month</label>
+                <select id="summaryMonthSelect">
+                  <option value="all">All months</option>
+                  <option value="0">January</option>
+                  <option value="1">February</option>
+                  <option value="2">March</option>
+                  <option value="3">April</option>
+                  <option value="4">May</option>
+                  <option value="5">June</option>
+                  <option value="6">July</option>
+                  <option value="7">August</option>
+                  <option value="8">September</option>
+                  <option value="9">October</option>
+                  <option value="10">November</option>
+                  <option value="11">December</option>
+                </select>
+              </div>
+            </div>
             <table id="mutualFundTable" class="investment-table">
               <thead>
                 <tr>
@@ -122,6 +144,11 @@
               <li>Edelweiss Aggressive Hybrid Fund (G) <span class="fund-value" data-fund="Edelweiss"></span></li>
               <li>360 ONE Multi Asset Allocation Fund (G) <span class="fund-value" data-fund="360One"></span></li>
             </ul>
+
+            <label for="oldFundSelect" style="margin-top:12px; display:block;">Old fund names</label>
+            <select id="oldFundSelect">
+              <option value="all">All old funds</option>
+            </select>
           </div>
 
           <!-- Portfolio Chart -->

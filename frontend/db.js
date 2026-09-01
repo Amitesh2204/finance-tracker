@@ -154,6 +154,19 @@
     }
   };
 
+  // Update an existing entry. Accepts either a full doc or the _id and updates.
+  window.updateEntry = async function(docOrId, patchedData) {
+    try {
+      const id = typeof docOrId === 'string' ? docOrId : docOrId && docOrId._id;
+      if (!id) throw new Error('updateEntry: no _id provided');
+      const latest = await db.get(id);
+      return await db.put({ ...latest, ...patchedData, _id: id, _rev: latest._rev });
+    } catch (err) {
+      console.error("Error updating entry:", err);
+      throw err;
+    }
+  };
+
   // Expose local DB for debugging
   window._localFinanceDB = db;
 })();
