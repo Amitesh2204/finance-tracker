@@ -40,8 +40,26 @@ document.addEventListener('DOMContentLoaded', async () => {
     return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(Number(value) || 0);
   }
 
+  function parseLocalDateValue(dateValue) {
+    if (!dateValue) return new Date();
+    if (dateValue instanceof Date && !Number.isNaN(dateValue.getTime())) return dateValue;
+    if (typeof dateValue === 'string') {
+      const trimmed = dateValue.trim();
+      if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+        const [year, month, day] = trimmed.split('-').map(Number);
+        return new Date(year, month - 1, day);
+      }
+      if (/^\d{4}-\d{2}$/.test(trimmed)) {
+        const [year, month] = trimmed.split('-').map(Number);
+        return new Date(year, month - 1, 1);
+      }
+    }
+    const parsed = new Date(dateValue);
+    return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
+  }
+
   function getMonthYearKey(dateValue) {
-    const date = new Date(dateValue);
+    const date = parseLocalDateValue(dateValue);
     if (Number.isNaN(date.getTime())) return null;
     return `${date.toLocaleString('default', { month: 'short' })}-${date.getFullYear()}`;
   }
@@ -67,6 +85,17 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   function renderSummary(values) {
+    const selected = monthSelect && monthSelect.value ? monthSelect.value : `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
+    const [yearStr, monthStr] = selected.split('-');
+    const year = Number(yearStr);
+    const monthIndex = Number(monthStr) - 1;
+
+    const currentMonthTotal = expenseEntries.reduce((sum, entry) => {
+      const date = parseLocalDateValue(entry.date);
+      if (date.getFullYear() !== year || date.getMonth() !== monthIndex) return sum;
+      return sum + (Number(entry.amount) || 0);
+    }, 0);
+
     const total = Object.values(values).reduce((sum, item) => sum + (Number(item.total) || 0), 0);
     const highest = Object.entries(values).reduce((best, [key, item]) => {
       if ((Number(item.total) || 0) > (best?.amount || 0)) {
@@ -75,7 +104,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       return best;
     }, null);
 
-    if (totalExpenseEl) totalExpenseEl.textContent = formatINR(total);
+    if (totalExpenseEl) totalExpenseEl.textContent = formatINR(currentMonthTotal);
     if (highestMonthEl) highestMonthEl.textContent = highest ? highest.key : '—';
     if (averageExpenseEl) averageExpenseEl.textContent = formatINR(total && values ? total / Object.keys(values).length : 0);
   }
@@ -236,7 +265,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     monthlyData = {};
     expenseEntries.forEach(entry => {
       const amount = Number(entry.amount) || 0;
-      const key = getMonthYearKey(entry.date);
+      const key = getMonthYearKey(parseLocalDateValue(entry.date));
       if (!key) return;
       monthlyData[key] = monthlyData[key] || { total: 0, days: 0 };
       monthlyData[key].total += amount;
@@ -368,6 +397,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       const monthName = new Date(`${year}-${month}-01`).toLocaleString('default',{month:'short'});
       const selectedMonthYear = `${monthName}-${year}`;
       renderDailyChart(selectedMonthYear);
+      renderSummary(monthlyData);
       renderTable(year);
       renderDailyItems(selectedMonthYear);
       // update day selector
