@@ -6,6 +6,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   const growthCard = document.getElementById('totalGrowth');
   const tableBody = document.querySelector('#mutualFundTable tbody');
   const monthYearSelect = document.getElementById('monthYearSelect');
+  const summaryYearSelect = document.getElementById('summaryYearSelect');
+  const summaryMonthSelect = document.getElementById('summaryMonthSelect');
+  const oldFundSelect = document.getElementById('oldFundSelect');
 
   let totalInvested = 0;
   let totalGrowth = 0;
@@ -22,29 +25,49 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   function populateMonthYearDropdown() {
     const months = Object.keys(monthlyData);
-    monthYearSelect.innerHTML = '';
-    if (months.length === 0) {
-      const opt = document.createElement('option');
-      opt.value = '';
-      opt.textContent = 'No data';
-      monthYearSelect.appendChild(opt);
-      return;
+    if (monthYearSelect) {
+      monthYearSelect.innerHTML = '';
+      if (months.length === 0) {
+        const opt = document.createElement('option');
+        opt.value = '';
+        opt.textContent = 'No data';
+        monthYearSelect.appendChild(opt);
+      } else {
+        months.forEach(m => {
+          const opt = document.createElement('option');
+          opt.value = m;
+          opt.textContent = m;
+          monthYearSelect.appendChild(opt);
+        });
+      }
     }
-    months.forEach(m => {
-      const opt = document.createElement('option');
-      opt.value = m;
-      opt.textContent = m;
-      monthYearSelect.appendChild(opt);
-    });
+
+    const years = [...new Set(Object.keys(monthlyData).map(key => key.split('-').pop()))].sort((a, b) => Number(b) - Number(a));
+    if (summaryYearSelect) {
+      summaryYearSelect.innerHTML = '<option value="all">All years</option>' + years.map(y => `<option value="${y}">${y}</option>`).join('');
+      if (!years.length) summaryYearSelect.value = 'all';
+      else summaryYearSelect.value = String(new Date().getFullYear());
+    }
   }
 
-  function renderTable(selectedMonthYear = null) {
+  function renderTable(selectedMonthYear = null, selectedYear = 'all', selectedMonth = 'all') {
     const months = Object.keys(monthlyData);
     if (months.length === 0) {
       tableBody.innerHTML = '<tr><td colspan="5">No data yet</td></tr>';
       return;
     }
-    const filtered = selectedMonthYear ? [selectedMonthYear] : months;
+
+    const filtered = months.filter(m => {
+      const [monthLabel, yearValue] = m.split('-');
+      if (selectedYear !== 'all' && String(yearValue) !== String(selectedYear)) return false;
+      if (selectedMonth !== 'all') {
+        const monthIndex = new Date(`${monthLabel} 1, ${yearValue}`).getMonth();
+        if (String(monthIndex) !== String(selectedMonth)) return false;
+      }
+      if (selectedMonthYear && m !== selectedMonthYear) return false;
+      return true;
+    });
+
     tableBody.innerHTML = filtered.map(m => {
       const d = monthlyData[m];
       const growthPct = d.profit && d.invested ? ((d.profit / d.invested) * 100).toFixed(2) : "0.00";
@@ -55,7 +78,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         <td>${formatINR(d.profit)}</td>
         <td>${growthPct}%</td>
       </tr>`;
-    }).join('');
+    }).join('') || '<tr><td colspan="5">No data for the chosen filters</td></tr>';
   }
 
   function renderChart(mfEntries) {
@@ -70,8 +93,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       window.mfChart.destroy();
     }
 
-    // Build a continuous year range from the earliest entry to the current
-    // year, instead of a hardcoded year, so this reflects real data.
     const years = mfEntries
       .map(e => new Date(e.date).getFullYear())
       .filter(y => !Number.isNaN(y));
@@ -85,29 +106,40 @@ document.addEventListener('DOMContentLoaded', async () => {
       const notes = String(e.notes || '').toLowerCase();
       if (e.subtype === 'profit' || notes.includes('profit')) return 'profit';
       if (e.subtype === 'sell' || notes.includes(' sell') || notes.includes('sold')) return 'sell';
+      if (e.subtype === 'yearly-total' || notes.includes('yearly total') || notes.includes('year total')) return 'yearly-total';
       return 'buy';
     }
 
     const investedByYear = labels.map(y => {
       const yearNum = Number(y);
       return mfEntries
-        .filter(e => new Date(e.date).getFullYear() === yearNum && classify(e) !== 'profit')
-        .reduce((s, e) => s + (classify(e) === 'sell' ? -1 : 1) * (Number(e.amount) || 0), 0);
+        .filter(e => new Date(e.date).getFullYear() === yearNum)
+        .reduce((sum, e) => {
+          const kind = classify(e);
+          if (kind === 'profit') return sum;
+          const amount = Number(e.amount) || 0;
+          if (kind === 'sell') return sum - amount;
+          return sum + amount;
+        }, 0);
     });
+
     const growthByYear = labels.map(y => {
       const yearNum = Number(y);
       return mfEntries
-        .filter(e => new Date(e.date).getFullYear() === yearNum && classify(e) === 'profit')
-        .reduce((s, e) => s + (Number(e.amount) || 0), 0);
+        .filter(e => new Date(e.date).getFullYear() === yearNum)
+        .reduce((sum, e) => {
+          const kind = classify(e);
+          return kind === 'profit' ? sum + (Number(e.amount) || 0) : sum;
+        }, 0);
     });
 
     window.mfChart = new Chart(ctx, {
-      type: 'bar',
+      type: 'line',
       data: {
         labels,
         datasets: [
-          { label: 'Invested (year)', data: investedByYear, backgroundColor: '#1abc9c' },
-          { label: 'Growth (year)', data: growthByYear, backgroundColor: '#3498db' }
+          { label: 'Total Investment', data: investedByYear, borderColor: '#1abc9c', backgroundColor: 'rgba(26,188,156,0.15)', fill: false, tension: 0.3 },
+          { label: 'Profit', data: growthByYear, borderColor: '#3498db', backgroundColor: 'rgba(52,152,219,0.15)', fill: false, tension: 0.3 }
         ]
       },
       options: {
@@ -145,6 +177,14 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     });
 
+    if (oldFundSelect) {
+      const oldNames = [...new Set(Object.keys(fundValues).filter(key => fundValues[key] !== 0 || key === 'WhiteOak' || key === 'Bajaj' || key === 'WealthCo' || key === 'Groww' || key === 'JM' || key === 'Abakkus' || key === 'Edelweiss' || key === '360One'))];
+      const currentValue = oldFundSelect.value || 'all';
+      oldFundSelect.innerHTML = '<option value="all">All old funds</option>' + oldNames.map(name => `<option value="${name}">${name}</option>`).join('');
+      if (currentValue !== 'all' && Array.from(oldFundSelect.options).some(opt => opt.value === currentValue)) oldFundSelect.value = currentValue;
+      else oldFundSelect.value = 'all';
+    }
+
     Object.keys(fundValues).forEach(key => {
       const span = document.querySelector(`.fund-value[data-fund="${key}"]`);
       if (span) span.textContent = fundValues[key] > 0 ? formatINR(fundValues[key]) : "₹0.00";
@@ -154,6 +194,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // --- Portfolio chart rendering ---
   function populatePortfolioMonthYear(entries) {
     const select = document.getElementById('portfolioMonthYear');
+    if (!select) return;
     const months = [...new Set(entries.map(e => {
       const d = new Date(e.date);
       return `${d.toLocaleString('default',{month:'short'})}-${d.getFullYear()}`;
@@ -174,7 +215,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  function renderPortfolioChart(entries, selectedMonthYear = null) {
+  function renderPortfolioChart(entries, selectedMonthYear = null, selectedFund = 'all') {
     const canvas = document.getElementById('portfolioChart');
     if (!canvas || typeof Chart === 'undefined') {
       console.warn('Portfolio chart canvas or Chart.js is unavailable.');
@@ -186,13 +227,19 @@ document.addEventListener('DOMContentLoaded', async () => {
       window.portfolioChart.destroy();
     }
 
-    const filtered = selectedMonthYear
-      ? entries.filter(e => {
-          const d = new Date(e.date);
-          const key = `${d.toLocaleString('default',{month:'short'})}-${d.getFullYear()}`;
-          return key === selectedMonthYear;
-        })
-      : entries;
+    const filtered = (entries || []).filter(e => {
+      if (selectedMonthYear) {
+        const d = new Date(e.date);
+        const key = `${d.toLocaleString('default',{month:'short'})}-${d.getFullYear()}`;
+        if (key !== selectedMonthYear) return false;
+      }
+      if (selectedFund !== 'all') {
+        const fundName = String(e.fund || e.notes || '').toLowerCase();
+        const productName = String(e.notes || '').toLowerCase();
+        if (!fundName.includes(selectedFund.toLowerCase()) && !productName.includes(selectedFund.toLowerCase())) return false;
+      }
+      return true;
+    });
 
     const categories = { Equity: { invested:0, profit:0 }, Hybrid: { invested:0, profit:0 } };
     filtered.forEach(e => {
@@ -201,30 +248,31 @@ document.addEventListener('DOMContentLoaded', async () => {
         const hybridFunds = ["Edelweiss","360 ONE"];
 
         let cat = null;
-        if (equityFunds.some(f => e.notes?.includes(f))) {
+        if (equityFunds.some(f => String(e.notes || '').includes(f))) {
           cat = 'Equity';
-        } else if (hybridFunds.some(f => e.notes?.includes(f))) {
+        } else if (hybridFunds.some(f => String(e.notes || '').includes(f))) {
           cat = 'Hybrid';
         }
 
         if (cat) {
-          if (e.subtype === 'investment') categories[cat].invested += e.amount;
-          if (e.subtype === 'profit') categories[cat].profit += e.amount;
+          if (e.subtype === 'investment') categories[cat].invested += Number(e.amount) || 0;
+          if (e.subtype === 'profit') categories[cat].profit += Number(e.amount) || 0;
         }
       }
     });
 
     window.portfolioChart = new Chart(ctx, {
-      type: 'bar',
+      type: 'line',
       data: {
         labels: Object.keys(categories),
         datasets: [
-          { label: 'Invested', data: Object.values(categories).map(c => c.invested), backgroundColor: '#3498db' },
-          { label: 'Profit', data: Object.values(categories).map(c => c.profit), backgroundColor: '#1abc9c' }
+          { label: 'Invested', data: Object.values(categories).map(c => c.invested), borderColor: '#3498db', backgroundColor: 'rgba(52,152,219,0.15)', fill: false, tension: 0.3 },
+          { label: 'Profit', data: Object.values(categories).map(c => c.profit), borderColor: '#1abc9c', backgroundColor: 'rgba(26,188,156,0.15)', fill: false, tension: 0.3 }
         ]
       },
       options: {
         responsive: true,
+        maintainAspectRatio: false,
         plugins: { legend: { position: 'top' } },
         scales: { y: { beginAtZero: true } }
       }
@@ -316,11 +364,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     updateCards();
     populateMonthYearDropdown();
-    renderTable(monthYearSelect.value || null);
+    const selectedYear = summaryYearSelect && summaryYearSelect.value ? summaryYearSelect.value : 'all';
+    const selectedMonth = summaryMonthSelect && summaryMonthSelect.value ? summaryMonthSelect.value : 'all';
+    renderTable(monthYearSelect && monthYearSelect.value ? monthYearSelect.value : null, selectedYear, selectedMonth);
     renderChart(mfEntries);
     updatePortfolio(mfEntries);
     populatePortfolioMonthYear(mfEntries);
-    renderPortfolioChart(mfEntries);
+    renderPortfolioChart(mfEntries, document.getElementById('portfolioMonthYear')?.value || null, oldFundSelect ? oldFundSelect.value || 'all' : 'all');
   }
 
   // Note: the "Add Monthly Investment" and "Update Monthly Profit" forms were
@@ -330,11 +380,28 @@ document.addEventListener('DOMContentLoaded', async () => {
   // an unguarded getElementById(...).addEventListener on a missing form throws
   // and silently stops the rest of this script from running.
 
+  if (summaryYearSelect) {
+    summaryYearSelect.addEventListener('change', () => {
+      const selectedYear = summaryYearSelect.value;
+      const selectedMonth = summaryMonthSelect ? summaryMonthSelect.value : 'all';
+      renderTable(monthYearSelect && monthYearSelect.value ? monthYearSelect.value : null, selectedYear, selectedMonth);
+    });
+  }
+
+  if (summaryMonthSelect) {
+    summaryMonthSelect.addEventListener('change', () => {
+      const selectedYear = summaryYearSelect ? summaryYearSelect.value : 'all';
+      renderTable(monthYearSelect && monthYearSelect.value ? monthYearSelect.value : null, selectedYear, summaryMonthSelect.value);
+    });
+  }
+
   // Month-year dropdown change
-  monthYearSelect.addEventListener('change', () => {
-    const selected = monthYearSelect.value;
-    renderTable(selected);
-  });
+  if (monthYearSelect) {
+    monthYearSelect.addEventListener('change', () => {
+      const selected = monthYearSelect.value;
+      renderTable(selected, summaryYearSelect ? summaryYearSelect.value : 'all', summaryMonthSelect ? summaryMonthSelect.value : 'all');
+    });
+  }
 
   // Toggle expand/collapse for portfolio lists
   document.querySelectorAll(".toggle-btn").forEach(btn => {
@@ -350,14 +417,25 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   });
 
-  document.getElementById('portfolioMonthYear').addEventListener('change', e => {
-    const selected = e.target.value;
-    window.fetchEntries().then(entries => {
-      const mfEntries = entries.filter(entry => typeof window.isMutualFundEntry === 'function' ? window.isMutualFundEntry(entry) : (entry?.type === 'investment' && String(entry?.category || '').toLowerCase().includes('mutual')));
-      renderPortfolioChart(mfEntries, selected);
+  const portfolioMonthYear = document.getElementById('portfolioMonthYear');
+  if (portfolioMonthYear) {
+    portfolioMonthYear.addEventListener('change', e => {
+      const selected = e.target.value;
+      window.fetchEntries().then(entries => {
+        const mfEntries = entries.filter(entry => typeof window.isMutualFundEntry === 'function' ? window.isMutualFundEntry(entry) : (entry?.type === 'investment' && String(entry?.category || '').toLowerCase().includes('mutual')));
+        renderPortfolioChart(mfEntries, selected, oldFundSelect ? oldFundSelect.value || 'all' : 'all');
+      });
     });
-  });
+  }
 
+  if (oldFundSelect) {
+    oldFundSelect.addEventListener('change', () => {
+      window.fetchEntries().then(entries => {
+        const mfEntries = entries.filter(entry => typeof window.isMutualFundEntry === 'function' ? window.isMutualFundEntry(entry) : (entry?.type === 'investment' && String(entry?.category || '').toLowerCase().includes('mutual')));
+        renderPortfolioChart(mfEntries, portfolioMonthYear ? portfolioMonthYear.value : null, oldFundSelect.value || 'all');
+      });
+    });
+  }
 
   // Initial load
   loadEntries();

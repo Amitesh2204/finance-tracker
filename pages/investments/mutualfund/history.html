@@ -13,6 +13,7 @@
   <!-- Core libraries -->
   <script src="https://unpkg.com/pouchdb@7.3.1/dist/pouchdb.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js" defer></script>
 
   <!-- App + DB layer -->
   <script src="../../../config.js" defer></script>
@@ -156,7 +157,14 @@
                 <div class="yearly-bulk" style="margin-top:6px; color:var(--muted);">Tip: Use format YEAR:AMOUNT per line. Commas allowed. Profits should be added separately as Profit entries.</div>
               </div>
 
-              <button type="submit">Add Entry</button>
+              <input type="hidden" id="historyEditingId" value="" />
+              <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:12px;">
+                <button type="submit" id="historySubmitBtn">Add Entry</button>
+                <button type="button" id="historyCancelEdit" class="secondary-btn" style="display:none;">Cancel Edit</button>
+                <button type="button" id="historyExportBtn" class="secondary-btn">Export Excel</button>
+                <label class="secondary-btn" for="historyImportInput" style="display:inline-block; cursor:pointer;">Import Excel</label>
+                <input id="historyImportInput" type="file" accept=".xlsx,.xls,.csv" style="display:none;" />
+              </div>
             </form>
           </div>
 
@@ -177,6 +185,7 @@
                     <th scope="col">Type</th>
                     <th scope="col">Amount</th>
                     <th scope="col">Notes</th>
+                    <th scope="col">Actions</th>
                   </tr>
                 </thead>
                 <tbody><tr><td colspan="5">Loading…</td></tr></tbody>

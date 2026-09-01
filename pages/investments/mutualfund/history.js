@@ -11,6 +11,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   const tableBody = document.querySelector('#historyTable tbody');
   const yearFilter = document.getElementById('historyYearFilter');
   const form = document.getElementById('historyForm');
+  const exportBtn = document.getElementById('historyExportBtn');
+  const importInput = document.getElementById('historyImportInput');
+  const cancelEditBtn = document.getElementById('historyCancelEdit');
+  const editingIdInput = document.getElementById('historyEditingId');
+  const submitBtn = document.getElementById('historySubmitBtn');
 
   // Elements for custom fund support and yearly controls
   const fundSelect = document.getElementById('historyFund');
@@ -81,7 +86,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (!tableBody) return;
 
     if (filtered.length === 0) {
-      tableBody.innerHTML = '<tr><td colspan="5">No transactions yet</td></tr>';
+      tableBody.innerHTML = '<tr><td colspan="6">No transactions yet</td></tr>';
       return;
     }
 
@@ -91,14 +96,50 @@ document.addEventListener('DOMContentLoaded', async () => {
       const fund = e.fund || (e.notes && e.notes.split(' —')[0].replace(/\s(buy|sell|profit)$/i, '')) || e.category || 'Mutual Fund';
       const dateStr = new Date(e.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
       return `
-        <tr>
+        <tr data-id="${e._id || e.id || ''}">
           <td>${dateStr}</td>
           <td>${escapeHtml(String(fund || '—'))}</td>
           <td><span class="tx-type tx-type--${kind === 'yearly-total' ? 'buy' : kind}">${label}</span></td>
           <td>${formatINR(e.amount)}</td>
           <td>${escapeHtml(e.notes || '—')}</td>
+          <td>
+            <button type="button" class="edit-entry-btn" data-id="${e._id || e.id || ''}">Edit</button>
+            <button type="button" class="delete-entry-btn" data-id="${e._id || e.id || ''}">Delete</button>
+          </td>
         </tr>`;
     }).join('');
+
+    tableBody.querySelectorAll('.delete-entry-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const id = btn.dataset.id;
+        if (!id || !confirm('Delete this transaction?')) return;
+        try {
+          await window.deleteEntry(id);
+          await loadAndRender();
+        } catch (err) {
+          console.error('Failed to delete MF history entry', err);
+        }
+      });
+    });
+
+    tableBody.querySelectorAll('.edit-entry-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const id = btn.dataset.id;
+        const entry = allEntries.find(item => (item._id || item.id) === id);
+        if (!entry) return;
+        if (fundSelect) fundSelect.value = entry.fund || 'Other';
+        if (customFundInput && fundSelect && fundSelect.value === 'Other') customFundInput.value = entry.fund || '';
+        if (yearlyToggle) yearlyToggle.checked = classify(entry) === 'yearly-total';
+        if (typeEl) typeEl.value = classify(entry) === 'profit' ? 'profit' : classify(entry) === 'sell' ? 'sell' : 'buy';
+        if (amountEl) amountEl.value = entry.amount || '';
+        if (dateEl) dateEl.value = new Date(entry.date).toISOString().slice(0, 10);
+        if (notesEl) notesEl.value = entry.notes || '';
+        if (editingIdInput) editingIdInput.value = id;
+        if (cancelEditBtn) cancelEditBtn.style.display = 'inline-block';
+        if (submitBtn) submitBtn.textContent = 'Update Entry';
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      });
+    });
   }
 
   function renderYearlyChart(entries) {
@@ -228,6 +269,63 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
+  function exportTransactionsToExcel(entries) {
+    if (!window.XLSX) {
+      alert('Excel export library is not loaded.');
+      return;
+    }
+    const rows = entries.map(e => ({
+      'TXN DATE': new Date(e.date).toISOString().slice(0, 10),
+      'SCHEME NAME': e.fund || e.notes || 'Mutual Fund',
+      'AMOUNT': Number(e.amount) || 0,
+      'BANK': e.bank || e.notes || 'N/A'
+    }));
+    const ws = window.XLSX.utils.json_to_sheet(rows);
+    const wb = window.XLSX.utils.book_new();
+    window.XLSX.utils.book_append_sheet(wb, ws, 'Mutual Fund History');
+    window.XLSX.writeFile(wb, 'mutual-fund-history.xlsx');
+  }
+
+  function importTransactionsFromExcel(file) {
+    if (!file || !window.XLSX) return;
+    const reader = new FileReader();
+    reader.onload = async (evt) => {
+      try {
+        const data = new Uint8Array(evt.target.result);
+        const workbook = window.XLSX.read(data, { type: 'array' });
+        const ws = workbook.Sheets[workbook.SheetNames[0]];
+        const rows = window.XLSX.utils.sheet_to_json(ws, { raw: false, defval: '' });
+        for (const row of rows) {
+          const dateVal = row['TXN DATE'] || row['Txn Date'] || row['Date'] || row['DATE'];
+          const scheme = row['SCHEME NAME'] || row['Scheme Name'] || row['SCHEME'] || row['Fund Name'] || 'Mutual Fund';
+          const amount = Number(String(row['AMOUNT'] || row['Amount'] || 0).replace(/[^0-9.-]/g, ''));
+          const bank = row['BANK'] || row['Bank'] || 'N/A';
+          if (!dateVal || Number.isNaN(amount)) continue;
+          const entry = {
+            type: 'investment',
+            category: 'Mutual Fund',
+            subtype: 'investment',
+            amount: Math.abs(amount),
+            currency: 'INR',
+            date: new Date(dateVal).toISOString(),
+            fund: String(scheme),
+            bank: String(bank),
+            notes: `Imported from Excel - ${String(scheme)}`
+          };
+          await window.addEntry(entry);
+        }
+        await loadAndRender();
+      } catch (err) {
+        console.error('Excel import failed', err);
+        alert('Excel import failed. Please verify the file columns match TXN DATE, SCHEME NAME, AMOUNT, BANK.');
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  }
+
+  if (exportBtn) exportBtn.addEventListener('click', () => exportTransactionsToExcel(allEntries));
+  if (importInput) importInput.addEventListener('change', (e) => { const file = e.target.files && e.target.files[0]; if (file) importTransactionsFromExcel(file); e.target.value = ''; });
+
   // Form submit handler: supports custom fund name, single-year yearly totals, and bulk yearly totals
   if (form) {
     form.addEventListener('submit', async (event) => {
@@ -263,6 +361,28 @@ document.addEventListener('DOMContentLoaded', async () => {
         } else {
           console.error('addEntry is not defined');
         }
+      }
+
+      const editingId = editingIdInput ? editingIdInput.value : '';
+      if (editingId) {
+        const payload = {
+          type: 'investment',
+          category: 'Mutual Fund',
+          subtype: type === 'sell' ? 'sell' : type === 'profit' ? 'profit' : 'investment',
+          amount: Number(amount) || 0,
+          currency: 'INR',
+          date: new Date(dateVal).toISOString(),
+          fund: fundName,
+          notes: notesInput || `Mutual Fund ${type}`,
+          bank: 'N/A'
+        };
+        await window.updateEntry(editingId, payload);
+        form.reset();
+        if (cancelEditBtn) cancelEditBtn.style.display = 'none';
+        if (submitBtn) submitBtn.textContent = 'Add Entry';
+        if (editingIdInput) editingIdInput.value = '';
+        await loadAndRender();
+        return;
       }
 
       // Bulk yearly textarea handling

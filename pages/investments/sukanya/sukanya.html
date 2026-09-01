@@ -14,6 +14,7 @@
   <script src="../../../config.js" defer></script>
   <script src="../../../db.js" defer></script>
   <script src="../../../app.js" defer></script>
+  <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js" defer></script>
 
   <!-- Page-specific logic -->
   <script src="sukanya.js" defer></script>
@@ -93,6 +94,11 @@
           <h3>Monthly Sukanya Summary</h3>
           <label for="sukanyaMonthYearSelect">Select Month-Year:</label>
           <select id="sukanyaMonthYearSelect"></select>
+          <div style="display:flex; gap:10px; flex-wrap:wrap; margin:12px 0;">
+            <button type="button" id="sukanyaExportBtn" class="secondary-btn">Export Excel</button>
+            <label class="secondary-btn" for="sukanyaImportInput" style="display:inline-block; cursor:pointer;">Import Excel</label>
+            <input id="sukanyaImportInput" type="file" accept=".xlsx,.xls,.csv" style="display:none;" />
+          </div>
           <table id="sukanyaTable" class="investment-table">
             <thead>
               <tr>
@@ -101,9 +107,10 @@
                 <th>Monthly Invested</th>
                 <th>Total Profit</th>
                 <th>Growth %</th>
+                <th>Actions</th>
               </tr>
             </thead>
-            <tbody><tr><td colspan="5">No data yet</td></tr></tbody>
+            <tbody><tr><td colspan="6">No data yet</td></tr></tbody>
           </table>
         </div>
       </section>
