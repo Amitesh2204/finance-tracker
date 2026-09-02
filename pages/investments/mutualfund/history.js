@@ -297,21 +297,28 @@ document.addEventListener('DOMContentLoaded', async () => {
         const workbook = window.XLSX.read(data, { type: 'array' });
         const ws = workbook.Sheets[workbook.SheetNames[0]];
         const rows = window.XLSX.utils.sheet_to_json(ws, { raw: false, defval: '' });
-        for (const row of rows) {
-          const dateVal = row['TXN DATE'] || row['Txn Date'] || row['Date'] || row['DATE'];
-          const scheme = row['SCHEME NAME'] || row['Scheme Name'] || row['SCHEME'] || row['Fund Name'] || 'Mutual Fund';
-          const amount = Number(String(row['AMOUNT'] || row['Amount'] || 0).replace(/[^0-9.-]/g, ''));
-          const bank = row['BANK'] || row['Bank'] || 'N/A';
-          if (!dateVal || Number.isNaN(amount)) continue;
+        const validation = window.validateExcelImportRows(rows, {
+          dateAliases: ['TXN DATE', 'Txn Date', 'Date', 'DATE'],
+          amountAliases: ['AMOUNT', 'Amount', 'Policy Amount', 'POLICY AMOUNT'],
+          bankAliases: ['BANK', 'Bank']
+        });
+
+        if (validation.issues.length > 0) {
+          alert(`Mutual Fund Excel import failed. ${validation.issues[0]}`);
+          return;
+        }
+
+        for (const row of validation.validRows) {
+          const scheme = row.raw['SCHEME NAME'] || row.raw['Scheme Name'] || row.raw['SCHEME'] || row.raw['Fund Name'] || 'Mutual Fund';
           const entry = {
             type: 'saving',
             category: 'Mutual Fund',
             subtype: 'investment',
-            amount: Math.abs(amount),
+            amount: row.amount,
             currency: 'INR',
-            date: new Date(dateVal).toISOString(),
+            date: row.date,
             fund: String(scheme),
-            bank: String(bank),
+            bank: String(row.bank || 'N/A'),
             notes: `Imported from Excel - ${String(scheme)}`
           };
           await window.addEntry(entry);
@@ -319,7 +326,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         await loadAndRender();
       } catch (err) {
         console.error('Excel import failed', err);
-        alert('Excel import failed. Please verify the file columns match TXN DATE, SCHEME NAME, AMOUNT, BANK.');
+        alert('Mutual Fund Excel import failed. Please verify the file columns match TXN DATE, SCHEME NAME, AMOUNT, and BANK.');
       }
     };
     reader.readAsArrayBuffer(file);
