@@ -107,7 +107,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const investments = (entries || []).filter(e => {
       const t = String(e.type || '').toLowerCase();
       const cat = String(e.category || '').toLowerCase();
-      return t === 'investment' || cat === 'mutual fund' || cat === 'lic' || cat === 'ppf' || cat.includes('sukanya') || cat.includes('investment');
+      return t === 'investment' || t === 'saving' || cat === 'mutual fund' || cat === 'lic' || cat === 'ppf' || cat.includes('sukanya') || cat.includes('investment');
     });
 
     // If no investments found, still populate totals as zero

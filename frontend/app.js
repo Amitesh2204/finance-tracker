@@ -53,6 +53,20 @@
     return String(entry?.type || '').trim().toLowerCase();
   }
 
+  function isInvestmentCategoryText(value) {
+    return /(mutual|lic|ppf|sukanya|investment)/i.test(String(value || ''));
+  }
+
+  function isInvestmentEntry(entry) {
+    if (!entry) return false;
+    const type = normalizeEntryType(entry);
+    if (type === 'investment') return true;
+    if (type === 'saving') {
+      return isInvestmentCategoryText(entry.category) || isInvestmentCategoryText(entry.notes);
+    }
+    return isInvestmentCategoryText(entry.category) || isInvestmentCategoryText(entry.notes);
+  }
+
   function formatCurrency(amount) {
     const val = Number(amount) || 0;
     try {
@@ -619,6 +633,7 @@
   if (!window.addEntry) {
     window.addEntry = addEntry;
   }
+  window.isInvestmentEntry = isInvestmentEntry;
   window.formatCurrency = formatCurrency;
 
   // --- Summary cards (balance/savings/expenses) ---
@@ -668,7 +683,7 @@
   }
 
   function getInvestmentTotals(entries = []) {
-    const investmentEntries = entries.filter(e => normalizeEntryType(e) === 'investment');
+    const investmentEntries = entries.filter(isInvestmentEntry);
     const totals = { mutualFund: 0, lic: 0, ppf: 0, sukanya: 0 };
     investmentEntries.forEach(e => {
       const cat = String(e.category || '').toLowerCase();
@@ -1042,7 +1057,7 @@
       return;
     }
     const preview = entries
-      .filter(e => ['balance','expense','trip','investment'].includes(normalizeEntryType(e)))
+      .filter(e => ['balance','expense','trip','investment','saving'].includes(normalizeEntryType(e)) || isInvestmentEntry(e))
       .sort((a,b) => new Date(b.date) - new Date(a.date))
       .slice(0, 6)
       .map(entry => {
