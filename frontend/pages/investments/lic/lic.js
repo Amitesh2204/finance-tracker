@@ -255,26 +255,34 @@ document.addEventListener('DOMContentLoaded', async () => {
         const wb = window.XLSX.read(new Uint8Array(evt.target.result), { type: 'array' });
         const ws = wb.Sheets[wb.SheetNames[0]];
         const rows = window.XLSX.utils.sheet_to_json(ws, { raw: false, defval: '' });
-        for (const row of rows) {
-          const dateVal = row['TXN DATE'] || row['Txn Date'] || row['DATE'] || row['Date'];
-          const amount = Number(String(row['AMOUNT'] || row['Amount'] || 0).replace(/[^0-9.-]/g, ''));
-          if (!dateVal || Number.isNaN(amount)) continue;
+        const validation = window.validateExcelImportRows(rows, {
+          dateAliases: ['TXN DATE', 'Txn Date', 'DATE', 'Date'],
+          amountAliases: ['AMOUNT', 'Amount', 'Policy Amount', 'POLICY AMOUNT'],
+          bankAliases: ['BANK', 'Bank']
+        });
+
+        if (validation.issues.length > 0) {
+          alert(`LIC Excel import failed. ${validation.issues[0]}`);
+          return;
+        }
+
+        for (const row of validation.validRows) {
           const entry = {
             type: 'saving',
             category: 'LIC',
             subtype: 'investment',
-            amount: Math.abs(amount),
+            amount: row.amount,
             currency: 'INR',
-            date: new Date(dateVal).toISOString(),
-            bank: String(row['BANK'] || row['Bank'] || 'N/A'),
-            notes: `${getPolicyName({ notes: row['SCHEME NAME'] || row['Scheme Name'] || 'Jeevan Lakshya' })} LIC import`
+            date: row.date,
+            bank: String(row.bank || 'N/A'),
+            notes: `${getPolicyName({ notes: row.raw['SCHEME NAME'] || row.raw['Scheme Name'] || 'Jeevan Lakshya' })} LIC import`
           };
           await window.addEntry(entry);
         }
         await loadEntries();
       } catch (err) {
         console.error('LIC import failed', err);
-        alert('Excel import failed. Please use columns TXN DATE, AMOUNT, BANK.');
+        alert('LIC Excel import failed. Please verify the file columns match TXN DATE, AMOUNT, and BANK.');
       }
     };
     reader.readAsArrayBuffer(file);

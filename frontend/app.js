@@ -67,6 +67,138 @@
     return isInvestmentCategoryText(entry.category) || isInvestmentCategoryText(entry.notes);
   }
 
+  function toIsoDate(dateValue) {
+    const date = dateValue instanceof Date ? dateValue : new Date(dateValue);
+    if (Number.isNaN(date.getTime())) return null;
+    const utcDate = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+    return utcDate.toISOString();
+  }
+
+  function parseExcelDateValue(dateValue) {
+    if (dateValue === null || dateValue === undefined || String(dateValue).trim() === '') return null;
+    if (dateValue instanceof Date && !Number.isNaN(dateValue.getTime())) return dateValue;
+
+    if (typeof dateValue === 'number' && Number.isFinite(dateValue)) {
+      if (dateValue > 1000 && dateValue < 50000) {
+        return new Date(Date.UTC(1899, 11, 30) + (dateValue * 86400000));
+      }
+      return new Date(dateValue);
+    }
+
+    const raw = String(dateValue).trim();
+    if (!raw) return null;
+
+    if (/^\d+(?:\.\d+)?$/.test(raw)) {
+      const serial = Number(raw);
+      if (serial > 1000 && serial < 50000) {
+        return new Date(Date.UTC(1899, 11, 30) + (serial * 86400000));
+      }
+    }
+
+    const parsed = new Date(raw);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+
+  function parseAmountValue(value) {
+    if (value === null || value === undefined || String(value).trim() === '') return null;
+    const token = String(value).replace(/[₹,\s]/g, '');
+    const match = token.match(/[-+]?\d+(?:\.\d+)?/);
+    if (!match) return null;
+    const parsed = Number(match[0]);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  function normalizeColumnName(value) {
+    return String(value || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+  }
+
+  function getRowValueByAliases(row, aliases) {
+    if (!row || !aliases || aliases.length === 0) return undefined;
+    const normalizedMap = Object.keys(row || {}).reduce((acc, key) => {
+      acc[normalizeColumnName(key)] = row[key];
+      return acc;
+    }, {});
+
+    for (const alias of aliases) {
+      const normalizedAlias = normalizeColumnName(alias);
+      if (normalizedAlias in normalizedMap) {
+        const value = normalizedMap[normalizedAlias];
+        if (value !== undefined && value !== null && String(value).trim() !== '') return value;
+      }
+    }
+
+    return undefined;
+  }
+
+  function validateExcelImportRows(rows, options = {}) {
+    const dateAliases = Array.isArray(options.dateAliases) ? options.dateAliases : [];
+    const amountAliases = Array.isArray(options.amountAliases) ? options.amountAliases : [];
+    const bankAliases = Array.isArray(options.bankAliases) ? options.bankAliases : [];
+    const validRows = [];
+    const issues = [];
+
+    const usableRows = rows.filter(row => Object.values(row || {}).some(value => String(value ?? '').trim() !== ''));
+    if (usableRows.length === 0) {
+      return { validRows, issues: ['The Excel file is empty or contains only blank rows.'] };
+    }
+
+    usableRows.forEach((row, index) => {
+      const dateValue = getRowValueByAliases(row, dateAliases);
+      const amountValue = getRowValueByAliases(row, amountAliases);
+
+      if (dateValue === undefined || dateValue === null || String(dateValue).trim() === '') {
+        issues.push(`Row ${index + 2}: missing date value.`);
+        return;
+      }
+
+      if (amountValue === undefined || amountValue === null || String(amountValue).trim() === '') {
+        issues.push(`Row ${index + 2}: missing amount value.`);
+        return;
+      }
+
+      const parsedDate = parseExcelDateValue(dateValue);
+      const parsedAmount = parseAmountValue(amountValue);
+
+      if (!parsedDate) {
+        issues.push(`Row ${index + 2}: invalid date '${dateValue}'.`);
+        return;
+      }
+
+      if (parsedAmount === null || !Number.isFinite(parsedAmount)) {
+        issues.push(`Row ${index + 2}: invalid amount '${amountValue}'.`);
+        return;
+      }
+
+      const normalizedAmount = Math.abs(parsedAmount);
+      if (normalizedAmount <= 0) {
+        issues.push(`Row ${index + 2}: amount must be greater than zero.`);
+        return;
+      }
+
+      const bankValue = bankAliases
+        .map(alias => getRowValueByAliases(row, [alias]))
+        .find(value => value !== undefined && value !== null && String(value).trim() !== '');
+
+      validRows.push({
+        date: toIsoDate(parsedDate),
+        amount: normalizedAmount,
+        bank: bankValue !== undefined && bankValue !== null ? String(bankValue) : 'N/A',
+        raw: row,
+        rowNumber: index + 2
+      });
+    });
+
+    if (issues.length > 0) {
+      return { validRows: [], issues };
+    }
+
+    return { validRows, issues: [] };
+  }
+
+  window.parseExcelDateValue = parseExcelDateValue;
+  window.parseAmountValue = parseAmountValue;
+  window.validateExcelImportRows = validateExcelImportRows;
+
   function formatCurrency(amount) {
     const val = Number(amount) || 0;
     try {
