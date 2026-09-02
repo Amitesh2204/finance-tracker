@@ -188,7 +188,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           const amount = Number(String(row['AMOUNT'] || row['Amount'] || 0).replace(/[^0-9.-]/g, ''));
           if (!dateVal || Number.isNaN(amount)) continue;
           await window.addEntry({
-            type: 'investment',
+            type: 'saving',
             category: 'PPF',
             subtype: 'investment',
             amount: Math.abs(amount),
@@ -209,7 +209,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   async function loadEntries() {
     const entries = await window.fetchEntries().catch(() => []);
-    allEntries = entries.filter(e => e.type === 'investment' && e.category === 'PPF');
+    allEntries = entries.filter(e => (e.type === 'investment' || e.type === 'saving') && e.category === 'PPF');
 
     totalInvested = 0;
     totalGrowth = 0;
@@ -247,7 +247,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (Number.isNaN(amt) || amt <= 0) return;
       const docId = ppfInvestmentEditId?.value || '';
       const payload = {
-        type: 'investment',
+        type: 'saving',
         category: 'PPF',
         subtype: 'investment',
         amount: amt,
@@ -273,7 +273,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (Number.isNaN(amt) || amt <= 0) return;
       const docId = ppfProfitEditId?.value || '';
       const payload = {
-        type: 'investment',
+        type: 'saving',
         category: 'PPF',
         subtype: 'profit',
         amount: amt,

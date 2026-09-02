@@ -31,7 +31,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   function isMutualFundEntry(e) {
     if (typeof window.isMutualFundEntry === 'function') return window.isMutualFundEntry(e);
-    if (!e || e.type !== 'investment') return false;
+    if (!e) return false;
+    const type = String(e.type || '').toLowerCase();
+    if (type !== 'investment' && type !== 'saving') return false;
     const category = String(e.category || '').toLowerCase();
     const notes = String(e.notes || '').toLowerCase();
     return category === 'mutual fund' || category.includes('mutual') || notes.includes('mutual fund') || notes.includes('mutual');
@@ -302,7 +304,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           const bank = row['BANK'] || row['Bank'] || 'N/A';
           if (!dateVal || Number.isNaN(amount)) continue;
           const entry = {
-            type: 'investment',
+            type: 'saving',
             category: 'Mutual Fund',
             subtype: 'investment',
             amount: Math.abs(amount),
@@ -366,7 +368,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       const editingId = editingIdInput ? editingIdInput.value : '';
       if (editingId) {
         const payload = {
-          type: 'investment',
+          type: 'saving',
           category: 'Mutual Fund',
           subtype: type === 'sell' ? 'sell' : type === 'profit' ? 'profit' : 'investment',
           amount: Number(amount) || 0,
@@ -406,7 +408,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         for (const p of parsed) {
           const entry = {
-            type: 'investment',
+            type: 'saving',
             category: 'Mutual Fund',
             subtype: 'yearly-total',
             amount: p.amount,
@@ -434,7 +436,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           return;
         }
         const entry = {
-          type: 'investment',
+          type: 'saving',
           category: 'Mutual Fund',
           subtype: 'yearly-total',
           amount: yrAmt,
@@ -461,7 +463,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       const notes = `${fundName} ${actionLabel}${notesInput ? ' — ' + notesInput : ''}`;
 
       const entry = {
-        type: 'investment',
+        type: 'saving',
         category: 'Mutual Fund',
         subtype,
         amount,

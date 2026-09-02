@@ -12,7 +12,7 @@ async function getEntries() {
 // Finance Chart (Budget integration)
 async function renderInvestmentGrowthChart(selectedYear) {
   const entries = await window.fetchEntries().catch(() => []);
-  const investments = entries.filter(e => e.type === 'investment');
+  const investments = entries.filter(e => (window.isInvestmentEntry ? window.isInvestmentEntry(e) : (e.type === 'investment' || e.type === 'saving')));
 
   // Group by month for the selected year
   const monthlyTotals = {};

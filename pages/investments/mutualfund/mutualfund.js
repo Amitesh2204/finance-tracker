@@ -281,7 +281,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   function buildMutualFundSummary(entries) {
     const mfEntries = (entries || []).filter(entry => {
-      if (!entry || entry.type !== 'investment') return false;
+      if (!entry) return false;
+      const type = String(entry.type || '').toLowerCase();
+      if (type !== 'investment' && type !== 'saving') return false;
       const category = String(entry.category || '').toLowerCase();
       const notes = String(entry.notes || '').toLowerCase();
       return category === 'mutual fund' || category.includes('mutual') || notes.includes('mutual fund') || notes.includes('mutual');
@@ -326,7 +328,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   async function loadEntries() {
     const entries = await window.fetchEntries().catch(() => []);
     const mfEntries = (entries || []).filter(entry => {
-      if (!entry || entry.type !== 'investment') return false;
+      if (!entry) return false;
+      const type = String(entry.type || '').toLowerCase();
+      if (type !== 'investment' && type !== 'saving') return false;
       const category = String(entry.category || '').toLowerCase();
       const notes = String(entry.notes || '').toLowerCase();
       return category === 'mutual fund' || category.includes('mutual') || notes.includes('mutual fund') || notes.includes('mutual');

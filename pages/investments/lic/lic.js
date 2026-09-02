@@ -260,7 +260,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           const amount = Number(String(row['AMOUNT'] || row['Amount'] || 0).replace(/[^0-9.-]/g, ''));
           if (!dateVal || Number.isNaN(amount)) continue;
           const entry = {
-            type: 'investment',
+            type: 'saving',
             category: 'LIC',
             subtype: 'investment',
             amount: Math.abs(amount),
@@ -282,7 +282,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   async function loadEntries() {
     const entries = await window.fetchEntries().catch(() => []);
-    allEntries = entries.filter(e => e.type === 'investment' && e.category === 'LIC');
+    allEntries = entries.filter(e => (e.type === 'investment' || e.type === 'saving') && e.category === 'LIC');
 
     totalInvested = 0;
     totalGrowth = 0;
@@ -324,7 +324,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       const policyName = document.getElementById('policyName').value || 'Jeevan Lakshya';
       const docId = licInvestmentEditId?.value || '';
       const payload = {
-        type: 'investment',
+        type: 'saving',
         category: 'LIC',
         subtype: 'investment',
         amount: amt,
@@ -350,7 +350,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (Number.isNaN(amt) || amt <= 0) return;
       const docId = licProfitEditId?.value || '';
       const payload = {
-        type: 'investment',
+        type: 'saving',
         category: 'LIC',
         subtype: 'profit',
         amount: amt,
