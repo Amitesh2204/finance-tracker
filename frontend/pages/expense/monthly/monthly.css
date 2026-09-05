@@ -42,6 +42,19 @@
   text-align: center;
 }
 
+.total-expense-card { grid-column:span 1; text-align:left; }
+.summary-card-title { display:flex; justify-content:space-between; align-items:baseline; gap:10px; }
+.summary-card-title h3 { margin-bottom:6px; }
+.summary-card-title > strong { color:var(--muted); font-size:.85rem; }
+.total-expense-card > p { color:var(--accent); font-size:1.8rem; }
+.bank-expense-grid { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:8px; margin-top:14px; }
+.bank-expense-item { min-width:0; padding:9px; border-radius:9px; background:var(--accent-soft); }
+.bank-expense-item > span { display:block; color:var(--muted); font-size:.72rem; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.bank-expense-item > strong { display:block; color:var(--text); font-size:.82rem; overflow-wrap:anywhere; }
+.bank-mini-chart { height:48px; margin-top:5px; position:relative; }
+.bank-mini-chart canvas { width:100% !important; height:100% !important; }
+.summary-month-labels { color:var(--muted); font-size:.58rem; letter-spacing:.01em; margin-top:8px; white-space:nowrap; text-align:center; }
+
 .card h3 {
   color: var(--text);
   margin: 0 0 12px;
@@ -120,6 +133,8 @@
 .investment-table tr:nth-child(even) {
   background: var(--bg);
 }
+.investment-table tr.highest-expense-row { background:color-mix(in srgb, var(--warning) 22%, var(--surface-raised)) !important; color:var(--text); font-weight:700; }
+.monthly-chart-total { color:var(--text); font-size:1.1rem; font-weight:800; padding:8px 0 2px; }
 
 .chart.same-size {
   height: 340px;
@@ -164,6 +179,15 @@
   text-align: left;
 }
 .daily-items th { background:var(--accent-soft); font-weight:700; }
+.daily-items tr[class^="category-"] td:nth-child(2) { font-weight:700; }
+.daily-items tr.category-food-fruit { background:color-mix(in srgb, #f39c12 14%, var(--surface-raised)); }
+.daily-items tr.category-vegetables { background:color-mix(in srgb, #27ae60 14%, var(--surface-raised)); }
+.daily-items tr.category-rent { background:color-mix(in srgb, #2ecc71 14%, var(--surface-raised)); }
+.daily-items tr.category-school-fees, .daily-items tr.category-doctor-fees { background:color-mix(in srgb, #3498db 14%, var(--surface-raised)); }
+.daily-items tr.category-loan, .daily-items tr.category-medicine-tests { background:color-mix(in srgb, #e67e22 14%, var(--surface-raised)); }
+.daily-items tr.category-saving { background:color-mix(in srgb, #1abc9c 14%, var(--surface-raised)); }
+.daily-items tr.category-other { background:color-mix(in srgb, #95a5a6 12%, var(--surface-raised)); }
+.daily-items tr:hover { background:var(--accent-soft); }
 
 /* small responsive tweaks */
 @media (max-width: 1024px) {
@@ -190,6 +214,19 @@
   .collapsible-header { padding:10px 12px; }
   .collapsible-content { padding: 8px 12px; }
   .collapsible.open .collapsible-content { padding: 10px 12px 14px 12px; }
+  .bank-expense-grid { gap:5px; }
+  .bank-expense-item { padding:7px 5px; }
+  .bank-expense-item > strong { font-size:.72rem; }
+  .summary-month-labels { font-size:.49rem; letter-spacing:-.02em; }
+  .collapsible-header .controls { width:100%; margin-left:0; justify-content:space-between; flex-wrap:wrap; }
+  .collapsible-header .controls select { min-width:0; max-width:45%; }
+  .investment-table { display:table; table-layout:fixed; min-width:0 !important; width:100%; }
+  .investment-table th, .investment-table td { padding:8px 5px; font-size:.75rem; overflow-wrap:anywhere; }
+  .daily-items { display:block; overflow-x:auto; white-space:nowrap; min-width:0; }
+  .daily-items th, .daily-items td { padding:8px 7px; font-size:.76rem; }
+  #dailyItemsSection.all-days-view .daily-items { max-height:300px; overflow:auto; }
+  #dailyItemsSection:not(.all-days-view) .daily-items { overflow-x:auto; }
+  .monthly-chart-total { font-size:1rem; }
 }
 
 /* right panel offset */
