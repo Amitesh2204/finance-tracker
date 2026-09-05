@@ -75,13 +75,16 @@
 .saving-bank-list div { min-width:0; padding:6px; border-radius:8px; background:var(--accent-soft); }
 .saving-bank-list span { display:block; color:var(--muted); font-size:.68rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .saving-bank-list strong { display:block; color:var(--accent); font-size:.78rem; overflow-wrap:anywhere; }
-.saving-trend-chart { height:135px; margin-top:10px; position:relative; }
-.saving-trend-chart canvas { width:100% !important; height:100% !important; }
-.category-section { width:100%; max-width:520px; padding:16px 20px; }
-.category-controls { display:flex; align-items:center; gap:12px; margin-top:8px; }
-.category-controls label { color:var(--muted); font-weight:700; }
-.category-controls select { flex:1; min-width:0; padding:8px 10px; border-radius:8px; }
-.category-controls p { margin:0; white-space:nowrap; }
+
+/* Row that places the Add Total Balance form beside the Monthly Expense
+   Overview chart so the page is more compact and the chart is easier to see. */
+.balance-overview-row {
+  display: grid;
+  grid-template-columns: minmax(280px, 380px) minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+.balance-overview-row .collapsible { margin-bottom: 0; }
 
 .card h3 {
   color: var(--text);
@@ -110,6 +113,10 @@
   color: var(--muted);
   font-size: 0.85rem;
   margin-top: 4px;
+}
+.card .sub strong {
+  color: var(--text);
+  font-weight: 700;
 }
 
 /* Section card spacing */
@@ -165,7 +172,9 @@
 /* Charts */
 /* Add spacing above charts so they don't overlap with top cards */
 .chart.same-size { height:360px; margin-top:22px; position:relative; z-index:1; }
-.daily-chart-layout { display:grid; grid-template-columns:minmax(0, 1fr) minmax(180px, 240px); gap:16px; align-items:start; }
+/* align-items must be stretch (not start) so the canvas' height:100% has an
+   actual resolved height to fill instead of collapsing to Chart.js defaults. */
+.daily-chart-layout { display:grid; grid-template-columns:minmax(0, 1fr) minmax(180px, 240px); gap:16px; align-items:stretch; }
 .daily-chart-canvas { min-width:0; height:100%; position:relative; }
 .daily-chart-canvas canvas { width:100% !important; height:100% !important; }
 
@@ -215,20 +224,26 @@
 @media (max-width:1024px) {
   .expense-layout { grid-template-columns: 1fr; }
   .summary-cards { grid-template-columns: repeat(3,1fr); gap:12px; }
-  .pie-legend-wrap { flex-direction: column; }
   .right-panel { margin-top: 0; }
   .summary-cards { grid-template-columns:repeat(3, minmax(0, 1fr)); }
   .daily-chart-layout { grid-template-columns:minmax(0, 1fr) 200px; }
+  .balance-overview-row { grid-template-columns: 1fr; }
 }
 @media (max-width:600px) {
   .summary-cards { grid-template-columns: 1fr; }
   .chart.same-size { height:300px; }
   .summary-card { min-height:0; }
-  .saving-trend-chart { height:150px; }
-  .daily-chart-layout { grid-template-columns:1fr; height:auto !important; min-height:420px; }
-  .daily-chart-canvas { height:260px; }
-  .pie-legend-wrap { width:100%; }
-  .pie-legend { width:100%; max-width:none; max-height:150px; }
+  .balance-overview-row { grid-template-columns: 1fr; gap:16px; }
+  /* Keep the pie chart + legend side-by-side on mobile (legend scrolls on
+     its own) instead of collapsing to a single stacked column. The extra
+     class in the selector raises specificity so it wins over ".chart.same-size"
+     above without needing !important. */
+  .daily-chart-layout.chart.same-size { grid-template-columns:minmax(0, 1fr) 130px; height:260px; gap:10px; }
+  .daily-chart-canvas { height:100%; }
+  .pie-legend-wrap { width:auto; align-items:stretch; }
+  .pie-legend { width:130px; max-width:130px; max-height:240px; overflow-y:auto; padding-right:4px; }
+  .pie-legend .legend-item { padding:5px 6px; font-size:.72rem; }
+  .pie-legend .legend-label { white-space:normal; font-size:.68rem; }
   .collapsible-header { padding:10px 12px; }
   .collapsible-content { padding:8px 12px; }
   #dailyMonthYearSelect, #yearlyBankSelect, #yearlyExpenseSelect, #expenseYearSelect { min-width: 140px; font-size:0.95rem; padding:8px 10px; }
@@ -244,20 +259,17 @@
 .expense-layout > .left-panel #addBalanceCollapsible { max-width:520px; }
 .expense-layout > .right-panel { width:100%; max-width:none; margin-top:24px; }
 .summary-cards .summary-card { min-width:0; }
-.expense-layout > .left-panel .summary-cards { grid-template-columns:repeat(5, minmax(0, 1fr)); }
+.expense-layout > .left-panel .summary-cards { grid-template-columns:repeat(4, minmax(0, 1fr)); }
 
 @media (max-width:600px) {
   .expense-layout > .left-panel #addBalanceCollapsible { max-width:none; }
   .expense-layout > .right-panel { margin-top:12px; }
   .saving-bank-list { gap:4px; }
   .saving-bank-list div { padding:5px 4px; }
-  .category-section { max-width:none; }
-  .category-controls { align-items:stretch; flex-wrap:wrap; }
-  .category-controls select { flex:1 1 150px; }
 }
 
 @media (min-width:601px) and (max-width:1024px) {
-  .expense-layout > .left-panel .summary-cards { grid-template-columns:repeat(3, minmax(0, 1fr)); }
+  .expense-layout > .left-panel .summary-cards { grid-template-columns:repeat(2, minmax(0, 1fr)); }
 }
 
 @media (max-width:600px) {

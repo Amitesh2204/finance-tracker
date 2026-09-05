@@ -55,107 +55,101 @@
             <article class="card summary-card">
               <div class="summary-card-title"><h3>ICICI Total Balance</h3><strong class="expense-card-year"></strong></div>
               <p id="iciciBalance" class="monthly-amount">₹0.00</p>
+              <p class="sub">Monthly Expense: <strong id="iciciMonthlyExpense">₹0.00</strong></p>
             </article>
 
             <article class="card summary-card">
               <div class="summary-card-title"><h3>SBI Total Balance</h3><strong class="expense-card-year"></strong></div>
               <p id="sbiBalance" class="monthly-amount">₹0.00</p>
+              <p class="sub">Monthly Expense: <strong id="sbiMonthlyExpense">₹0.00</strong></p>
             </article>
 
             <article class="card summary-card">
               <div class="summary-card-title"><h3>Bank of Baroda Total Balance</h3><strong class="expense-card-year"></strong></div>
               <p id="bobBalance" class="monthly-amount">₹0.00</p>
+              <p class="sub">Monthly Expense: <strong id="bobMonthlyExpense">₹0.00</strong></p>
             </article>
 
-            <article class="card summary-card">
-              <div class="summary-card-title"><h3>Total Expense</h3><strong class="expense-card-year"></strong></div>
-              <p id="totalExpense" class="monthly-amount" style="color:#e74c3c">₹0.00</p>
-            </article>
-
-            <article class="card summary-card">
-              <div class="summary-card-title"><h3>Total Saving</h3><strong class="expense-card-year"></strong></div>
+            <article class="card summary-card" id="totalSavingCard">
+              <div class="summary-card-title"><h3>Total Monthly Saving</h3><strong class="expense-card-year"></strong></div>
               <p id="totalSaving" class="monthly-amount" style="color:#1abc9c">₹0.00</p>
+              <p class="sub">Total Expense: <strong id="totalExpense" style="color:#e74c3c">₹0.00</strong></p>
               <div class="saving-bank-list">
                 <div><span>ICICI</span><strong id="iciciSaving">₹0.00</strong></div>
                 <div><span>SBI</span><strong id="sbiSaving">₹0.00</strong></div>
                 <div><span>Bank of Baroda</span><strong id="bobSaving">₹0.00</strong></div>
               </div>
-              <div class="saving-trend-chart"><canvas id="savingTrendChart" aria-label="Yearly savings by bank"></canvas></div>
             </article>
-
           </div>
 
-          <div class="category-section card" aria-label="Expense category totals">
-            <div class="summary-card-title"><h3>Category</h3><strong class="expense-card-year"></strong></div>
-            <div class="category-controls">
-              <label for="expenseCategorySelect">Category</label>
-              <select id="expenseCategorySelect" aria-label="Select expense category">
-                <option value="Salary">Salary</option>
-                <option value="Saving">Saving</option>
-                <option value="Other" selected>Other</option>
-              </select>
-              <p id="categoryTotal" class="monthly-amount">₹0.00</p>
-            </div>
-          </div>
-
-          <!-- Collapsible: Add Total Balance -->
-          <div class="collapsible" data-default-open="true" id="addBalanceCollapsible">
-            <div class="collapsible-header" role="button" tabindex="0" aria-expanded="true">
-              <div class="title">Add Total Balance</div>
-              <div class="controls">
-                <select id="balanceBankQuick" aria-label="Select bank (quick)">
-                  <option value="ICICI">ICICI</option>
-                  <option value="SBI">SBI</option>
-                  <option value="Bank of Baroda">Bank of Baroda</option>
-                  <option value="Other">Other</option>
-                </select>
-                <div class="chev">▲</div>
-              </div>
-            </div>
-            <div class="collapsible-content">
-              <article class="card section-card" style="background:transparent; box-shadow:none; padding:0;">
-                <form id="balanceForm" class="investment-form" aria-label="Add total balance form">
-                  <label for="balanceAmount">Balance Amount</label>
-                  <input id="balanceAmount" type="number" min="0" step="0.01" required />
-
-                  <label for="balanceMonth">Month</label>
-                  <input id="balanceMonth" type="month" />
-
-                  <label for="balanceBank">Bank</label>
-                  <select id="balanceBank">
+          <!-- Row: Add Total Balance (left) + Monthly Expense Overview (right) -->
+          <div class="balance-overview-row">
+            <!-- Collapsible: Add Total Balance -->
+            <div class="collapsible" data-default-open="true" id="addBalanceCollapsible">
+              <div class="collapsible-header" role="button" tabindex="0" aria-expanded="true">
+                <div class="title">Add Total Balance</div>
+                <div class="controls">
+                  <select id="balanceBankQuick" aria-label="Select bank (quick)">
                     <option value="ICICI">ICICI</option>
                     <option value="SBI">SBI</option>
                     <option value="Bank of Baroda">Bank of Baroda</option>
                     <option value="Other">Other</option>
                   </select>
+                  <div class="chev">▲</div>
+                </div>
+              </div>
+              <div class="collapsible-content">
+                <article class="card section-card" style="background:transparent; box-shadow:none; padding:0;">
+                  <form id="balanceForm" class="investment-form" aria-label="Add total balance form">
+                    <label for="balanceAmount">Balance Amount</label>
+                    <input id="balanceAmount" type="number" min="0" step="0.01" required />
 
-                  <button type="submit">Add Balance</button>
-                </form>
-              </article>
+                    <label for="balanceMonth">Month</label>
+                    <input id="balanceMonth" type="month" />
+
+                    <label for="balanceBank">Bank</label>
+                    <select id="balanceBank">
+                      <option value="ICICI">ICICI</option>
+                      <option value="SBI">SBI</option>
+                      <option value="Bank of Baroda">Bank of Baroda</option>
+                      <option value="Other">Other</option>
+                    </select>
+
+                    <label for="balanceCategory">Category</label>
+                    <select id="balanceCategory">
+                      <option value="Salary">Salary</option>
+                      <option value="Saving">Saving</option>
+                      <option value="Other" selected>Other</option>
+                    </select>
+
+                    <button type="submit">Add Balance</button>
+                  </form>
+                </article>
+              </div>
+            </div>
+
+            <!-- Collapsible: Monthly Expense Overview -->
+            <div class="collapsible" data-default-open="true" id="monthlyCollapsible">
+              <div class="collapsible-header" role="button" tabindex="0" aria-expanded="true">
+                <div class="title">Monthly Expense Overview</div>
+                <div class="controls">
+                  <label for="expenseYearSelect" class="sr-only">Year</label>
+                  <select id="expenseYearSelect" aria-label="Select year"></select>
+                  <div class="chev">▲</div>
+                </div>
+              </div>
+              <div class="collapsible-content">
+                <article class="card section-card" style="background:transparent; box-shadow:none; padding:0;">
+                  <div class="chart same-size">
+                    <canvas id="monthlyExpenseChart"></canvas>
+                  </div>
+                </article>
+              </div>
             </div>
           </div>
         </aside>
 
         <section class="content-panel right-panel">
-          <!-- Collapsible: Monthly Expense Overview -->
-          <div class="collapsible" data-default-open="true" id="monthlyCollapsible">
-            <div class="collapsible-header" role="button" tabindex="0" aria-expanded="true">
-              <div class="title">Monthly Expense Overview</div>
-              <div class="controls">
-                <label for="expenseYearSelect" class="sr-only">Year</label>
-                <select id="expenseYearSelect" aria-label="Select year"></select>
-                <div class="chev">▲</div>
-              </div>
-            </div>
-            <div class="collapsible-content">
-              <article class="card section-card" style="background:transparent; box-shadow:none; padding:0;">
-                <div class="chart same-size">
-                  <canvas id="monthlyExpenseChart"></canvas>
-                </div>
-              </article>
-            </div>
-          </div>
-
           <!-- Collapsible: Daily Expense Details -->
           <div class="collapsible" data-default-open="true" id="dailyCollapsible">
             <div class="collapsible-header" role="button" tabindex="0" aria-expanded="true">
