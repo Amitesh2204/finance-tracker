@@ -31,7 +31,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   const bobEl = document.getElementById('bobBalance');
   const totalExpenseEl = document.getElementById('totalExpense');
   const totalSavingEl = document.getElementById('totalSaving');
-  const allBankBalanceEl = document.getElementById('allBankBalance');
   const categorySelect = document.getElementById('expenseCategorySelect');
   const categoryTotalEl = document.getElementById('categoryTotal');
   const savingEls = {
@@ -132,14 +131,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Total Saving = SBI + Bank of Baroda only (savings accounts). ICICI is the
     // primary/checking account and is intentionally excluded here.
     const totalSaving = sbiNet + bobNet;
-    const totalBalance = ['ICICI', 'SBI', 'Bank of Baroda'].reduce((sum, bank) => sum + computeRawBankBalance(bank), 0);
 
     if (iciciEl) iciciEl.textContent = formatINR(iciciNet);
     if (sbiEl) sbiEl.textContent = formatINR(sbiNet);
     if (bobEl) bobEl.textContent = formatINR(bobNet);
     if (totalExpenseEl) totalExpenseEl.textContent = formatINR(totalExpense);
     if (totalSavingEl) totalSavingEl.textContent = formatINR(totalSaving);
-    if (allBankBalanceEl) allBankBalanceEl.textContent = formatINR(totalBalance);
     if (savingEls.ICICI) savingEls.ICICI.textContent = formatINR(computeMonthlyBankSaving('ICICI'));
     if (savingEls.SBI) savingEls.SBI.textContent = formatINR(computeMonthlyBankSaving('SBI'));
     if (savingEls['Bank of Baroda']) savingEls['Bank of Baroda'].textContent = formatINR(computeMonthlyBankSaving('Bank of Baroda'));
@@ -164,14 +161,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     return balanceSum - expenseSum;
   }
 
-  function computeRawBankBalance(bankName) {
-    return allEntries.reduce((sum, entry) => {
-      const bank = entry.bank || 'ICICI';
-      return bank === bankName && String(entry.type || '').toLowerCase() === 'balance'
-        ? sum + (Number(entry.amount) || 0) : sum;
-    }, 0);
-  }
-
   function computeMonthlyBankSaving(bankName) {
     const now = new Date();
     return allEntries.reduce((sum, entry) => {
@@ -192,9 +181,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     const total = allEntries.reduce((sum, entry) => {
       const date = parseLocalDateValue(entry.date);
       const type = String(entry.type || '').toLowerCase();
-      if (type !== 'expense' || date.getFullYear() !== now.getFullYear() || date.getMonth() !== now.getMonth()) return sum;
-      const category = normalizeCategory(entry.category || entry.notes || 'Other');
-      return category === selected ? sum + (Number(entry.amount) || 0) : sum;
+      if (date.getFullYear() !== now.getFullYear() || date.getMonth() !== now.getMonth()) return sum;
+      const rawCategory = String(entry.category || entry.notes || '').toLowerCase();
+      const category = rawCategory.includes('salary') ? 'Salary' : normalizeCategory(entry.category || entry.notes || 'Other');
+      const isSelectedSalary = selected === 'Salary' && (type === 'income' || category === 'Salary');
+      const isSelectedExpense = selected !== 'Salary' && type === 'expense' && category === selected;
+      return isSelectedSalary || isSelectedExpense ? sum + (Number(entry.amount) || 0) : sum;
     }, 0);
     categoryTotalEl.textContent = formatINR(total);
   }

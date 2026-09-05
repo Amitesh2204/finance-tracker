@@ -77,7 +77,11 @@
 .saving-bank-list strong { display:block; color:var(--accent); font-size:.78rem; overflow-wrap:anywhere; }
 .saving-trend-chart { height:135px; margin-top:10px; position:relative; }
 .saving-trend-chart canvas { width:100% !important; height:100% !important; }
-.category-card select { width:100%; margin:4px 0 6px; padding:8px 10px; border-radius:8px; }
+.category-section { width:100%; max-width:520px; padding:16px 20px; }
+.category-controls { display:flex; align-items:center; gap:12px; margin-top:8px; }
+.category-controls label { color:var(--muted); font-weight:700; }
+.category-controls select { flex:1; min-width:0; padding:8px 10px; border-radius:8px; }
+.category-controls p { margin:0; white-space:nowrap; }
 
 .card h3 {
   color: var(--text);
@@ -240,10 +244,22 @@
 .expense-layout > .left-panel #addBalanceCollapsible { max-width:520px; }
 .expense-layout > .right-panel { width:100%; max-width:none; margin-top:24px; }
 .summary-cards .summary-card { min-width:0; }
+.expense-layout > .left-panel .summary-cards { grid-template-columns:repeat(5, minmax(0, 1fr)); }
 
 @media (max-width:600px) {
   .expense-layout > .left-panel #addBalanceCollapsible { max-width:none; }
   .expense-layout > .right-panel { margin-top:12px; }
   .saving-bank-list { gap:4px; }
   .saving-bank-list div { padding:5px 4px; }
+  .category-section { max-width:none; }
+  .category-controls { align-items:stretch; flex-wrap:wrap; }
+  .category-controls select { flex:1 1 150px; }
+}
+
+@media (min-width:601px) and (max-width:1024px) {
+  .expense-layout > .left-panel .summary-cards { grid-template-columns:repeat(3, minmax(0, 1fr)); }
+}
+
+@media (max-width:600px) {
+  .expense-layout > .left-panel .summary-cards { grid-template-columns:1fr; }
 }

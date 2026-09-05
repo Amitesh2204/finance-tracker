@@ -83,20 +83,19 @@
               <div class="saving-trend-chart"><canvas id="savingTrendChart" aria-label="Yearly savings by bank"></canvas></div>
             </article>
 
-            <article class="card summary-card">
-              <div class="summary-card-title"><h3>Total Balance</h3><strong class="expense-card-year"></strong></div>
-              <p id="allBankBalance" class="monthly-amount">₹0.00</p>
-            </article>
+          </div>
 
-            <article class="card summary-card category-card">
-              <div class="summary-card-title"><h3>Category</h3><strong class="expense-card-year"></strong></div>
+          <div class="category-section card" aria-label="Expense category totals">
+            <div class="summary-card-title"><h3>Category</h3><strong class="expense-card-year"></strong></div>
+            <div class="category-controls">
+              <label for="expenseCategorySelect">Category</label>
               <select id="expenseCategorySelect" aria-label="Select expense category">
                 <option value="Salary">Salary</option>
                 <option value="Saving">Saving</option>
                 <option value="Other" selected>Other</option>
               </select>
               <p id="categoryTotal" class="monthly-amount">₹0.00</p>
-            </article>
+            </div>
           </div>
 
           <!-- Collapsible: Add Total Balance -->
