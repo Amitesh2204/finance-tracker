@@ -53,28 +53,49 @@
           <!-- Top summary: three bank totals + total expense + total saving -->
           <div class="cards summary-cards" aria-label="Bank balances and totals">
             <article class="card summary-card">
-              <h3>ICICI Total Balance</h3>
+              <div class="summary-card-title"><h3>ICICI Total Balance</h3><strong class="expense-card-year"></strong></div>
               <p id="iciciBalance" class="monthly-amount">₹0.00</p>
             </article>
 
             <article class="card summary-card">
-              <h3>SBI Total Balance</h3>
+              <div class="summary-card-title"><h3>SBI Total Balance</h3><strong class="expense-card-year"></strong></div>
               <p id="sbiBalance" class="monthly-amount">₹0.00</p>
             </article>
 
             <article class="card summary-card">
-              <h3>Bank of Baroda Total Balance</h3>
+              <div class="summary-card-title"><h3>Bank of Baroda Total Balance</h3><strong class="expense-card-year"></strong></div>
               <p id="bobBalance" class="monthly-amount">₹0.00</p>
             </article>
 
             <article class="card summary-card">
-              <h3>Total Expense</h3>
+              <div class="summary-card-title"><h3>Total Expense</h3><strong class="expense-card-year"></strong></div>
               <p id="totalExpense" class="monthly-amount" style="color:#e74c3c">₹0.00</p>
             </article>
 
             <article class="card summary-card">
-              <h3>Total Saving</h3>
+              <div class="summary-card-title"><h3>Total Saving</h3><strong class="expense-card-year"></strong></div>
               <p id="totalSaving" class="monthly-amount" style="color:#1abc9c">₹0.00</p>
+              <div class="saving-bank-list">
+                <div><span>ICICI</span><strong id="iciciSaving">₹0.00</strong></div>
+                <div><span>SBI</span><strong id="sbiSaving">₹0.00</strong></div>
+                <div><span>Bank of Baroda</span><strong id="bobSaving">₹0.00</strong></div>
+              </div>
+              <div class="saving-trend-chart"><canvas id="savingTrendChart" aria-label="Yearly savings by bank"></canvas></div>
+            </article>
+
+            <article class="card summary-card">
+              <div class="summary-card-title"><h3>Total Balance</h3><strong class="expense-card-year"></strong></div>
+              <p id="allBankBalance" class="monthly-amount">₹0.00</p>
+            </article>
+
+            <article class="card summary-card category-card">
+              <div class="summary-card-title"><h3>Category</h3><strong class="expense-card-year"></strong></div>
+              <select id="expenseCategorySelect" aria-label="Select expense category">
+                <option value="Salary">Salary</option>
+                <option value="Saving">Saving</option>
+                <option value="Other" selected>Other</option>
+              </select>
+              <p id="categoryTotal" class="monthly-amount">₹0.00</p>
             </article>
           </div>
 
@@ -148,11 +169,11 @@
             </div>
             <div class="collapsible-content">
               <article class="card section-card" style="background:transparent; box-shadow:none; padding:0;">
-                <div class="chart same-size" style="display:flex; gap:12px; align-items:flex-start;">
-                  <div style="flex:1 1 60%;">
+                <div class="chart same-size daily-chart-layout">
+                  <div class="daily-chart-canvas">
                     <canvas id="dailyExpenseChart"></canvas>
                   </div>
-                  <div class="pie-legend-wrap" style="flex:0 0 220px;">
+                  <div class="pie-legend-wrap">
                     <div class="pie-legend" id="dailyLegend"></div>
                   </div>
                 </div>
@@ -169,7 +190,7 @@
                 <select id="yearlyExpenseSelect" aria-label="Select year for summary"></select>
                 <label for="yearlyBankSelect" class="sr-only">Bank</label>
                 <select id="yearlyBankSelect" aria-label="Select bank for summary">
-                  <option value="All">All</option>
+                  <option value="All">Select All</option>
                   <option value="ICICI">ICICI</option>
                   <option value="SBI">SBI</option>
                   <option value="Bank of Baroda">Bank of Baroda</option>

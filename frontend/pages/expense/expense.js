@@ -31,6 +31,15 @@ document.addEventListener('DOMContentLoaded', async () => {
   const bobEl = document.getElementById('bobBalance');
   const totalExpenseEl = document.getElementById('totalExpense');
   const totalSavingEl = document.getElementById('totalSaving');
+  const allBankBalanceEl = document.getElementById('allBankBalance');
+  const categorySelect = document.getElementById('expenseCategorySelect');
+  const categoryTotalEl = document.getElementById('categoryTotal');
+  const savingEls = {
+    ICICI: document.getElementById('iciciSaving'),
+    SBI: document.getElementById('sbiSaving'),
+    'Bank of Baroda': document.getElementById('bobSaving')
+  };
+  const yearBadgeEls = document.querySelectorAll('.expense-card-year');
 
   // Forms and selectors
   const balanceForm = document.getElementById('balanceForm');
@@ -81,7 +90,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   function getMonthYearKey(dateValue) {
     const date = parseLocalDateValue(dateValue);
     if (Number.isNaN(date.getTime())) return null;
-    return `${date.toLocaleString('default',{month:'short'})}-${date.getFullYear()}`;
+    return `${monthNames[date.getMonth()]}-${date.getFullYear()}`;
   }
 
   function formatLocalDateInput(date) {
@@ -123,12 +132,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Total Saving = SBI + Bank of Baroda only (savings accounts). ICICI is the
     // primary/checking account and is intentionally excluded here.
     const totalSaving = sbiNet + bobNet;
+    const totalBalance = ['ICICI', 'SBI', 'Bank of Baroda'].reduce((sum, bank) => sum + computeRawBankBalance(bank), 0);
 
     if (iciciEl) iciciEl.textContent = formatINR(iciciNet);
     if (sbiEl) sbiEl.textContent = formatINR(sbiNet);
     if (bobEl) bobEl.textContent = formatINR(bobNet);
     if (totalExpenseEl) totalExpenseEl.textContent = formatINR(totalExpense);
     if (totalSavingEl) totalSavingEl.textContent = formatINR(totalSaving);
+    if (allBankBalanceEl) allBankBalanceEl.textContent = formatINR(totalBalance);
+    if (savingEls.ICICI) savingEls.ICICI.textContent = formatINR(computeMonthlyBankSaving('ICICI'));
+    if (savingEls.SBI) savingEls.SBI.textContent = formatINR(computeMonthlyBankSaving('SBI'));
+    if (savingEls['Bank of Baroda']) savingEls['Bank of Baroda'].textContent = formatINR(computeMonthlyBankSaving('Bank of Baroda'));
+    yearBadgeEls.forEach(el => { el.textContent = new Date().getFullYear(); });
+    updateCategoryTotal();
+    renderSavingTrend(new Date().getFullYear());
   }
 
   // Net balance for a bank: sum of its "balance" entries minus sum of its
@@ -145,6 +162,41 @@ document.addEventListener('DOMContentLoaded', async () => {
       else if (t === 'expense' || t === 'trip') expenseSum += Number(e.amount) || 0;
     });
     return balanceSum - expenseSum;
+  }
+
+  function computeRawBankBalance(bankName) {
+    return allEntries.reduce((sum, entry) => {
+      const bank = entry.bank || 'ICICI';
+      return bank === bankName && String(entry.type || '').toLowerCase() === 'balance'
+        ? sum + (Number(entry.amount) || 0) : sum;
+    }, 0);
+  }
+
+  function computeMonthlyBankSaving(bankName) {
+    const now = new Date();
+    return allEntries.reduce((sum, entry) => {
+      const date = parseLocalDateValue(entry.date);
+      if ((entry.bank || 'ICICI') !== bankName || date.getFullYear() !== now.getFullYear() || date.getMonth() !== now.getMonth()) return sum;
+      const type = String(entry.type || '').toLowerCase();
+      const amount = Number(entry.amount) || 0;
+      if (type === 'balance' || type === 'income') return sum + amount;
+      if (type === 'expense' || type === 'trip') return sum - amount;
+      return sum;
+    }, 0);
+  }
+
+  function updateCategoryTotal() {
+    if (!categoryTotalEl) return;
+    const selected = categorySelect ? categorySelect.value : 'Other';
+    const now = new Date();
+    const total = allEntries.reduce((sum, entry) => {
+      const date = parseLocalDateValue(entry.date);
+      const type = String(entry.type || '').toLowerCase();
+      if (type !== 'expense' || date.getFullYear() !== now.getFullYear() || date.getMonth() !== now.getMonth()) return sum;
+      const category = normalizeCategory(entry.category || entry.notes || 'Other');
+      return category === selected ? sum + (Number(entry.amount) || 0) : sum;
+    }, 0);
+    categoryTotalEl.textContent = formatINR(total);
   }
 
   function computeTotalBalance() {
@@ -183,7 +235,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           const x = bar.x;
           const y = bar.y - 8; // slightly above bar
           ctx.save();
-          ctx.fillStyle = '#ffffff';
+          ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--text').trim() || '#17322c';
           ctx.font = '700 12px Inter, system-ui, Arial';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'bottom';
@@ -193,6 +245,39 @@ document.addEventListener('DOMContentLoaded', async () => {
       });
     }
   };
+
+  function renderSavingTrend(selectedYear) {
+    const canvas = document.getElementById('savingTrendChart');
+    if (!canvas || typeof Chart === 'undefined') return;
+    if (window.savingTrendChart && typeof window.savingTrendChart.destroy === 'function') window.savingTrendChart.destroy();
+    const banks = ['ICICI', 'SBI', 'Bank of Baroda'];
+    const colors = ['#087f5b', '#2f7fb8', '#c46632'];
+    window.savingTrendChart = new Chart(canvas.getContext('2d'), {
+      type: 'line',
+      data: {
+        labels: monthNames,
+        datasets: banks.map((bank, index) => ({
+          label: bank,
+          data: monthNames.map(month => {
+            const values = monthlyData[`${month}-${selectedYear}`]?.byBank?.[bank] || { balance: 0, expense: 0 };
+            return (Number(values.balance) || 0) - (Number(values.expense) || 0);
+          }),
+          borderColor: colors[index],
+          backgroundColor: 'transparent',
+          tension: .3,
+          pointRadius: 2,
+          pointHoverRadius: 5,
+          borderWidth: 3
+        }))
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: true, position: 'bottom', labels: { color: getComputedStyle(document.documentElement).getPropertyValue('--text').trim() || '#17322c', usePointStyle: true, boxWidth: 8 } }, tooltip: { callbacks: { label: context => `${context.dataset.label}: ${formatINR(context.raw)}` } } },
+        scales: { x: { ticks: { color: getComputedStyle(document.documentElement).getPropertyValue('--muted').trim() || '#6d7f79' } }, y: { beginAtZero: true, ticks: { color: getComputedStyle(document.documentElement).getPropertyValue('--muted').trim() || '#6d7f79', callback: value => formatINR(value) } } }
+      }
+    });
+  }
 
   // Monthly bar chart (monthlyExpenseChart) with visible data labels and totals on top
   function renderMonthlyExpenseChart(selectedYear) {
@@ -207,6 +292,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       const key = `${month}-${selectedYear}`;
       return monthlyData[key]?.expense || 0;
     });
+    const textColor = getComputedStyle(document.documentElement).getPropertyValue('--text').trim() || '#17322c';
+    const mutedColor = getComputedStyle(document.documentElement).getPropertyValue('--muted').trim() || '#6d7f79';
 
     window.monthlyExpenseChart = new Chart(ctx, {
       type: 'bar',
@@ -215,7 +302,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         datasets: [{
           label: 'Monthly Expense',
           data: expenseData,
-          backgroundColor: '#e74c3c'
+          backgroundColor: '#c94b3c',
+          borderColor: '#9f3028',
+          borderWidth: 1,
+          borderRadius: 5
         }]
       },
       options: {
@@ -226,7 +316,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         },
         plugins: {
           datalabels: {
-            color: '#ffffff',
+            color: textColor,
             anchor: 'end',
             align: 'start',
             offset: -6,
@@ -242,7 +332,8 @@ document.addEventListener('DOMContentLoaded', async () => {
           }
         },
         scales: {
-          y: { beginAtZero: true, ticks: { callback: v => formatINR(v) } }
+          x: { ticks: { color: mutedColor, maxRotation: 0, autoSkip: true, maxTicksLimit: 12 } },
+          y: { beginAtZero: true, ticks: { color: mutedColor, callback: v => formatINR(v) }, grid: { color: `${mutedColor}33` } }
         }
       },
       plugins: [ChartDataLabels, drawBarTotalsPlugin]
@@ -378,13 +469,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Yearly table rendering with bank filter
   function renderYearlyTable(selectedYear, bankFilter = 'All') {
+    const supportedBanks = ['ICICI', 'SBI', 'Bank of Baroda'];
     const rows = monthNames.map(month => {
       const key = `${month}-${selectedYear}`;
       const values = monthlyData[key] || { balance: 0, expense: 0, byBank: {} };
       let balance = 0, expense = 0;
       if (bankFilter === 'All') {
-        balance = values.balance || 0;
-        expense = values.expense || 0;
+        balance = supportedBanks.reduce((sum, bank) => sum + (values.byBank?.[bank]?.balance || 0), 0);
+        expense = supportedBanks.reduce((sum, bank) => sum + (values.byBank?.[bank]?.expense || 0), 0);
       } else {
         const b = values.byBank && values.byBank[bankFilter];
         balance = b ? (b.balance || 0) : 0;
@@ -519,8 +611,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (expenseYearSelect) {
     expenseYearSelect.addEventListener('change', () => {
       renderMonthlyExpenseChart(expenseYearSelect.value);
+      renderSavingTrend(expenseYearSelect.value);
     });
   }
+
+  if (categorySelect) categorySelect.addEventListener('change', updateCategoryTotal);
 
   if (dailyMonthYearSelect) {
     dailyMonthYearSelect.addEventListener('change', () => {
