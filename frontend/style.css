@@ -424,6 +424,7 @@ button { cursor:pointer; }
 .bank-balance-list span { color:var(--muted); font-size:.7rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .bank-balance-list strong { font-size:.82rem; overflow-wrap:anywhere; }
 .mini-chart-wrap { position:relative; height:82px; min-height:82px; margin-top:auto; }
+.home-summary-card.balance .mini-chart-wrap { height:112px; min-height:112px; }
 .mini-chart-wrap canvas { display:block; width:100% !important; height:100% !important; }
 .financial-stat-content { display:grid; grid-template-columns:minmax(250px, .9fr) minmax(280px, 1.1fr); gap:24px; align-items:center; padding:6px 8px 18px; }
 .financial-stat-chart { position:relative; height:330px; min-width:0; }
@@ -439,6 +440,14 @@ button { cursor:pointer; }
 #lastTxSection .tx-scroll { border:0; border-radius:10px; background:var(--surface); }
 #lastTxSection .tx-scroll td { padding:13px 14px; border-bottom:1px solid var(--border); }
 #lastTxSection .tx-scroll tr:first-child td { font-weight:700; }
+#lastTxSection .tx-scroll tr { transition:background-color 140ms ease; }
+#lastTxSection .tx-scroll tr.transaction-income { background:color-mix(in srgb, var(--accent-soft) 72%, var(--surface-raised)); }
+#lastTxSection .tx-scroll tr.transaction-expense { background:color-mix(in srgb, var(--danger) 12%, var(--surface-raised)); }
+#lastTxSection .tx-scroll tr.transaction-neutral { background:color-mix(in srgb, var(--info) 9%, var(--surface-raised)); }
+#lastTxSection .tx-scroll tr:hover { background:var(--accent-soft); }
+#lastTxSection .tx-scroll tr.transaction-income td:last-child { color:var(--accent); font-weight:700; }
+#lastTxSection .tx-scroll tr.transaction-expense td:last-child { color:var(--danger); font-weight:700; }
+.card-caption strong { color:var(--text); font-size:.82rem; }
 .activity-card .selector-inline select { max-width:170px; }
 .activity-card .selector-inline label { color:var(--muted); }
 
@@ -451,6 +460,7 @@ button { cursor:pointer; }
   .home-summary-cards { display:grid; grid-template-columns:1fr; }
   .home-summary-card.balance { grid-column:auto; }
   .home-summary-card { padding:18px; }
+  .home-summary-card.balance .mini-chart-wrap { height:124px; min-height:124px; }
   .bank-balance-list { gap:6px; }
   .bank-balance-list div { padding:7px 6px; }
   .bank-balance-list strong { font-size:.74rem; }
