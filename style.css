@@ -470,3 +470,55 @@ button { cursor:pointer; }
   #financeSection .collapsible-header .controls { justify-content:space-between; }
   #financeSection .collapsible-header input { width:150px; }
 }
+
+/* Shared responsive foundation for every page. */
+html, body { min-width:0; }
+body { overflow-x:hidden; }
+.app, .main, .content, .content-panel, .cards, .card, .chart, .collapsible,
+.section-card, .activity-card, .transactions, .investment-form { min-width:0; }
+.main { width:calc(100% - 260px); max-width:none; min-height:100vh; }
+.content { width:100%; max-width:none; }
+.topbar, .content { margin-inline:auto; }
+.topbar { width:100%; }
+.cards { width:100%; }
+img, canvas, video, svg { max-width:100%; }
+input, select, textarea, button { max-width:100%; }
+
+@media (min-width:1440px) {
+  .main { padding:clamp(28px, 2.5vw, 48px); }
+  .content { width:100%; }
+  .topbar { margin-bottom:clamp(26px, 2vw, 40px); }
+  .card, .chart, .activity-card { border-radius:clamp(12px, .8vw, 18px); }
+}
+
+@media (min-width:1025px) and (max-width:1280px) {
+  .main { padding:24px; }
+  .topbar-right { gap:8px; }
+  .topbar .search { min-width:180px; }
+}
+
+@media (max-width:1024px) {
+  .main { width:100%; max-width:100%; margin-left:0; }
+  .content { width:100%; }
+  .content-panel, .right-panel, .left-panel { width:100%; max-width:100%; }
+  .cards { width:100%; }
+  .card, .chart, .activity-card, .collapsible { max-width:100%; }
+  .right-panel { margin-top:0 !important; }
+  .content-panel { gap:16px; }
+}
+
+@media (max-width:600px) {
+  .main { padding:14px; }
+  .topbar { gap:12px; }
+  .topbar-right { width:100%; min-width:0; }
+  .topbar-right > * { min-width:0; }
+  .cards { gap:12px; }
+  .card, .chart, .activity-card, .collapsible { border-radius:10px; }
+  .collapsible-header { gap:8px; }
+  .collapsible-header .controls { min-width:0; max-width:100%; }
+  .collapsible-header select, .collapsible-header input { min-width:0; max-width:100%; }
+  .chart, .chart.card, .chart.same-size { width:100%; }
+  .transactions, .investment-table-wrap, .tx-scroll { max-width:100%; overflow-x:auto; }
+  .investment-table, .transactions table { min-width:0; }
+  .content { gap:16px; }
+}
