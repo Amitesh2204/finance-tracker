@@ -770,29 +770,13 @@
 
   // --- Summary cards (balance/savings/expenses) ---
   function getExpenseTotals(entries = []) {
-    const isBalanceEntry = (e) => {
-      const type = normalizeEntryType(e);
-      const cat = String(e.category || '').toLowerCase();
-      const notes = String(e.notes || '').toLowerCase();
-      return type === 'balance' || type === 'income' || cat.includes('balance') || notes.includes('total balance') || notes.includes('monthly total');
-    };
-
-    const isExpenseEntry = (e) => {
-      const type = normalizeEntryType(e);
-      const cat = String(e.category || '').toLowerCase();
-      const notes = String(e.notes || '').toLowerCase();
-      return type === 'expense' || type === 'trip' || cat.includes('expense') || notes.includes('expense') || notes.includes('monthly expense');
-    };
-
-    const balanceEntries = entries.filter(isBalanceEntry);
-    const currentMonthExpenseEntries = entries.filter(e => isExpenseEntry(e) && isCurrentMonthEntry(e.date));
-
-    // Same bank-aware netting as the Expense page: entries with no bank tag
-    // default to ICICI, so old (pre-bank-field) data keeps working unchanged.
+    // Keep this formula identical to Expense's computeBankTotal: all balance
+    // entries less all expense/trip entries, with missing banks as ICICI.
     const bankOf = (e) => e.bank || 'ICICI';
     const netForBank = (bankName) => {
-      const bal = balanceEntries.filter(e => bankOf(e) === bankName).reduce((s, e) => s + (Number(e.amount) || 0), 0);
-      const exp = currentMonthExpenseEntries.filter(e => bankOf(e) === bankName).reduce((s, e) => s + Math.abs(Number(e.amount) || 0), 0);
+      const bankEntries = entries.filter(e => bankOf(e) === bankName);
+      const bal = bankEntries.filter(e => String(e.type || '').toLowerCase() === 'balance').reduce((s, e) => s + (Number(e.amount) || 0), 0);
+      const exp = bankEntries.filter(e => ['expense', 'trip'].includes(String(e.type || '').toLowerCase())).reduce((s, e) => s + (Number(e.amount) || 0), 0);
       return bal - exp;
     };
 
@@ -800,7 +784,9 @@
     const sbiNet = netForBank('SBI');
     const bobNet = netForBank('Bank of Baroda');
 
-    const totalExpense = currentMonthExpenseEntries.reduce((s, e) => s + Math.abs(Number(e.amount) || 0), 0);
+    const totalExpense = entries
+      .filter(e => ['expense', 'trip'].includes(String(e.type || '').toLowerCase()) && isCurrentMonthEntry(e.date))
+      .reduce((s, e) => s + (Number(e.amount) || 0), 0);
 
     return {
       // Home "Balance" card: all three banks, net of each bank's expenses.
@@ -908,19 +894,23 @@
   const HOME_BANKS = ['ICICI', 'SBI', 'Bank of Baroda'];
   const monthLabels = Array.from({ length: 12 }, (_, i) => new Date(0, i).toLocaleString('en-IN', { month: 'short' }));
 
-  function getMonthlyBankTotals(entries = [], year, month = null) {
+  function getExpensePageMonthlyTotals(entries = [], year, month = null) {
     const totals = Object.fromEntries(HOME_BANKS.map(bank => [bank, { balance: 0, expense: 0 }]));
     (entries || []).forEach(entry => {
       const date = new Date(entry.date);
       if (Number.isNaN(date.getTime()) || date.getFullYear() !== Number(year)) return;
       if (month !== null && date.getMonth() !== Number(month)) return;
       const bank = HOME_BANKS.includes(entry.bank) ? entry.bank : 'ICICI';
+      const type = String(entry.type || '').toLowerCase();
       const amount = Number(entry.amount) || 0;
-      const type = normalizeEntryType(entry);
       if (type === 'balance' || type === 'income') totals[bank].balance += amount;
-      if (type === 'expense' || type === 'trip') totals[bank].expense += Math.abs(amount);
+      if (type === 'expense' || type === 'trip') totals[bank].expense += amount;
     });
     return totals;
+  }
+
+  function getMonthlyBankTotals(entries = [], year, month = null) {
+    return getExpensePageMonthlyTotals(entries, year, month);
   }
 
   function getMonthlySeries(entries = [], year, bank = null) {
@@ -937,7 +927,7 @@
     }
   }
 
-  function renderMiniTrend(canvasId, instanceName, entries, year, values, color, label) {
+  function renderMiniTrend(canvasId, instanceName, entries, year, values, color, label, showLegend = false) {
     const canvas = document.getElementById(canvasId);
     if (!canvas || !window.Chart) return;
     destroyChart(instanceName);
@@ -947,7 +937,7 @@
       options: {
         responsive: true,
         maintainAspectRatio: false,
-        plugins: { legend: { display: false }, tooltip: { enabled: true } },
+        plugins: { legend: { display: showLegend, position: 'bottom', labels: { usePointStyle: true, boxWidth: 8, padding: 10 } }, tooltip: { enabled: true } },
         scales: { x: { display: false }, y: { display: false, beginAtZero: true } }
       }
     });
@@ -955,7 +945,7 @@
 
   function updateHomeSummaryCharts(entries = [], year) {
     const totalsByBank = HOME_BANKS.map(bank => getMonthlySeries(entries, year, bank));
-    renderMiniTrend('balanceTrendChart', 'balanceTrendChartInstance', entries, year, totalsByBank[0], '#087f5b', 'ICICI');
+    renderMiniTrend('balanceTrendChart', 'balanceTrendChartInstance', entries, year, totalsByBank[0], '#087f5b', 'ICICI', true);
     const balanceCanvas = document.getElementById('balanceTrendChart');
     if (balanceCanvas && window.balanceTrendChartInstance) {
       window.balanceTrendChartInstance.data.datasets = HOME_BANKS.map((bank, index) => ({
@@ -975,7 +965,8 @@
       if (!ctx) return;
 
       const totals = getMonthlyBankTotals(entries, year, month);
-      const balanceValues = HOME_BANKS.map(bank => totals[bank].balance);
+      const expenseTotals = getExpenseTotals(entries);
+      const balanceValues = [expenseTotals.iciciNet, expenseTotals.sbiNet, expenseTotals.bobNet];
       const expenseValues = HOME_BANKS.map(bank => totals[bank].expense);
       const values = [...balanceValues, ...expenseValues];
       const labels = HOME_BANKS.map(bank => `${bank} balance`).concat(HOME_BANKS.map(bank => `${bank} expense`));
@@ -1030,7 +1021,9 @@
       const amount = Number(entry.amount) || 0;
       const label = entry.category || entry.notes || entry.type || 'Entry';
       const sign = amount < 0 ? '-' : '';
-      return `<tr><td>${label}</td><td>${entry.date || ''}</td><td>${sign}${formatCurrency(Math.abs(amount))}</td></tr>`;
+      const type = String(entry.type || '').toLowerCase();
+      const rowClass = type === 'balance' || type === 'income' ? 'transaction-income' : (type === 'expense' || type === 'trip' ? 'transaction-expense' : 'transaction-neutral');
+      return `<tr class="${rowClass}"><td>${label}</td><td>${entry.date || ''}</td><td>${sign}${formatCurrency(Math.abs(amount))}</td></tr>`;
     }).join('');
   }
 
@@ -1159,6 +1152,10 @@
       const [chartYear, chartMonth] = period.split('-').map(Number);
       updateFinanceChartYear(entries, chartYear, chartMonth - 1);
       updateHomeSummaryCharts(entries, chartYear);
+      const savingsCardYear = document.getElementById('savingsCardYear');
+      const expensesCardYear = document.getElementById('expensesCardYear');
+      if (savingsCardYear) savingsCardYear.textContent = chartYear;
+      if (expensesCardYear) expensesCardYear.textContent = chartYear;
     }
 
     if (lastTxDateInput) lastTxDateInput.addEventListener('change', refreshAll);
