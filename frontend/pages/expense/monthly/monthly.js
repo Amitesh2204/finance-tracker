@@ -8,6 +8,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const averageExpenseEl = document.getElementById('averageExpense');
   const monthSelect = document.getElementById('expenseMonthSelect');
   const expenseYearSelect = document.getElementById('expenseYearSelect');
+  const dailyMonthSelect = document.getElementById('dailyMonthSelect');
   const chartTotalEl = document.getElementById('monthlyChartTotal');
   const expenseCardYearEl = document.getElementById('expenseCardYear');
   const tableBody = document.querySelector('#monthlyExpenseTable tbody');
@@ -65,7 +66,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   function getMonthYearKey(dateValue) {
     const date = parseLocalDateValue(dateValue);
     if (Number.isNaN(date.getTime())) return null;
-    return `${date.toLocaleString('default', { month: 'short' })}-${date.getFullYear()}`;
+    const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    return `${monthNames[date.getMonth()]}-${date.getFullYear()}`;
   }
 
   // Normalize category names to canonical list
@@ -135,7 +137,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           const x = bar.x;
           const y = bar.y - 6; // slightly above bar
           ctx.save();
-          ctx.fillStyle = '#ffffff';
+          ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--text').trim() || '#17322c';
           ctx.font = '700 12px Inter, system-ui, Arial';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'bottom';
@@ -164,7 +166,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Aggregate totals per day
     const totalsByDay = new Array(daysCount).fill(0);
     expenseEntries.forEach(entry => {
-      const d = new Date(entry.date);
+      const d = parseLocalDateValue(entry.date);
       if (d.getFullYear() !== year || d.getMonth() !== monthIndex) return;
       const day = d.getDate();
       totalsByDay[day - 1] += Number(entry.amount) || 0;
@@ -199,7 +201,8 @@ document.addEventListener('DOMContentLoaded', async () => {
           }
         },
         scales: {
-          y: { beginAtZero: true, ticks: { callback: v => formatINR(v) } }
+          x: { ticks: { color: getComputedStyle(document.documentElement).getPropertyValue('--muted').trim() || '#6d7f79', maxRotation: 0, autoSkip: false } },
+          y: { beginAtZero: true, ticks: { color: getComputedStyle(document.documentElement).getPropertyValue('--muted').trim() || '#6d7f79', callback: v => formatINR(v) } }
         }
       },
       plugins: [drawBarTotalsPlugin]
@@ -221,7 +224,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       window[instanceName] = new Chart(canvas.getContext('2d'), {
         type: 'line',
         data: { labels: ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'], datasets: [{ data: values, borderColor: color, backgroundColor: `${color}22`, fill: true, tension: .35, pointRadius: 2, pointBackgroundColor: color, borderWidth: 3 }] },
-        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: context => formatINR(context.raw) } } }, scales: { x: { display: false }, y: { display: false, beginAtZero: true } } }
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: context => formatINR(context.raw) } } }, scales: { x: { display: true, ticks: { color: getComputedStyle(document.documentElement).getPropertyValue('--muted').trim() || '#6d7f79', font: { size: 8 }, maxRotation: 0, autoSkip: false } }, y: { display: false, beginAtZero: true } } }
       });
     });
   }
@@ -254,7 +257,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const filtered = expenseEntries
       .filter(e => {
-        const d = new Date(e.date);
+        const d = parseLocalDateValue(e.date);
         if (d.getFullYear() !== year || d.getMonth() !== monthIndex) return false;
         if (selectedDay) return d.getDate() === Number(selectedDay);
         return true;
@@ -335,16 +338,22 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (yearSelect) {
       const years = Array.from(new Set(Object.keys(monthlyData).map(k => k.split('-')[1]))).sort((a,b) => b - a);
       if (!years.length) years.push(String(now.getFullYear()));
+      if (!years.includes(String(now.getFullYear()))) years.unshift(String(now.getFullYear()));
       yearSelect.innerHTML = years.map(y => `<option value="${y}">${y}</option>`).join(''); 
-      yearSelect.value = String(now.getFullYear());
+      const defaultYear = years.includes(String(now.getFullYear())) ? String(now.getFullYear()) : years[0];
+      yearSelect.value = defaultYear;
       if (expenseYearSelect) {
         expenseYearSelect.innerHTML = yearSelect.innerHTML;
-        expenseYearSelect.value = String(now.getFullYear());
+        expenseYearSelect.value = defaultYear;
       }
     }
 
     // populate daySelect (will be updated on month change)
     populateDaySelectFromMonth(now.getFullYear(), now.getMonth(), now.getDate());
+    if (dailyMonthSelect) {
+      dailyMonthSelect.value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+      dailyMonthSelect.max = dailyMonthSelect.value;
+    }
 
     renderSummary(monthlyData);
     renderBankExpenseCharts(now.getFullYear());
@@ -448,6 +457,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       const month = String(Number(monthSelect.value) + 1).padStart(2, '0');
       const monthName = new Date(`${year}-${month}-01`).toLocaleString('default',{month:'short'});
       const selectedMonthYear = `${monthName}-${year}`;
+      if (dailyMonthSelect) dailyMonthSelect.value = `${year}-${month}`;
       renderDailyChart(selectedMonthYear);
       renderSummary(monthlyData);
       renderTable(year);
@@ -463,6 +473,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       const month = monthSelect ? monthSelect.value : String(new Date().getMonth());
       const monthName = new Date(Number(year), Number(month), 1).toLocaleString('default', { month: 'short' });
       const selectedMonthYear = `${monthName}-${year}`;
+      if (dailyMonthSelect) dailyMonthSelect.value = `${year}-${String(Number(month) + 1).padStart(2, '0')}`;
       renderDailyChart(selectedMonthYear);
       renderSummary(monthlyData);
       renderBankExpenseCharts(Number(year));
@@ -492,6 +503,21 @@ document.addEventListener('DOMContentLoaded', async () => {
       const dailySection = document.getElementById('dailyItemsSection');
       if (dailySection) dailySection.classList.toggle('all-days-view', !dayVal);
       renderDailyItems(selectedMonthYear, dayVal);
+    });
+  }
+
+  if (dailyMonthSelect) {
+    dailyMonthSelect.addEventListener('change', () => {
+      if (!dailyMonthSelect.value) return;
+      const [year, month] = dailyMonthSelect.value.split('-').map(Number);
+      if (expenseYearSelect) expenseYearSelect.value = String(year);
+      if (monthSelect) monthSelect.value = String(month - 1);
+      const monthName = new Date(year, month - 1, 1).toLocaleString('default', { month: 'short' });
+      const selectedMonthYear = `${monthName}-${year}`;
+      renderDailyChart(selectedMonthYear);
+      renderSummary(monthlyData);
+      renderDailyItems(selectedMonthYear, null);
+      populateDaySelectFromMonth(year, month - 1);
     });
   }
 

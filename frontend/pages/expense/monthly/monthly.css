@@ -51,9 +51,10 @@
 .bank-expense-item { min-width:0; padding:9px; border-radius:9px; background:var(--accent-soft); }
 .bank-expense-item > span { display:block; color:var(--muted); font-size:.72rem; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .bank-expense-item > strong { display:block; color:var(--text); font-size:.82rem; overflow-wrap:anywhere; }
-.bank-mini-chart { height:48px; margin-top:5px; position:relative; }
+.bank-mini-chart { height:72px; margin-top:5px; position:relative; }
 .bank-mini-chart canvas { width:100% !important; height:100% !important; }
-.summary-month-labels { color:var(--muted); font-size:.58rem; letter-spacing:.01em; margin-top:8px; white-space:nowrap; text-align:center; }
+.left-panel .summary-cards { grid-template-columns:1fr; }
+.bank-expense-item { min-height:136px; }
 
 .card h3 {
   color: var(--text);
@@ -216,8 +217,8 @@
   .collapsible.open .collapsible-content { padding: 10px 12px 14px 12px; }
   .bank-expense-grid { gap:5px; }
   .bank-expense-item { padding:7px 5px; }
+  .bank-mini-chart { height:68px; }
   .bank-expense-item > strong { font-size:.72rem; }
-  .summary-month-labels { font-size:.49rem; letter-spacing:-.02em; }
   .collapsible-header .controls { width:100%; margin-left:0; justify-content:space-between; flex-wrap:wrap; }
   .collapsible-header .controls select { min-width:0; max-width:45%; }
   .investment-table { display:table; table-layout:fixed; min-width:0 !important; width:100%; }

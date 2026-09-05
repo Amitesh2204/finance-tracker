@@ -51,7 +51,6 @@
                 <div class="bank-expense-item"><span>SBI</span><strong id="monthlySbiExpense">₹0.00</strong><div class="bank-mini-chart"><canvas id="monthlySbiChart"></canvas></div></div>
                 <div class="bank-expense-item"><span>Bank of Baroda</span><strong id="monthlyBobExpense">₹0.00</strong><div class="bank-mini-chart"><canvas id="monthlyBobChart"></canvas></div></div>
               </div>
-              <div class="summary-month-labels">Jan&nbsp;&nbsp; Feb&nbsp;&nbsp; Mar&nbsp;&nbsp; Apr&nbsp;&nbsp; May&nbsp;&nbsp; Jun&nbsp;&nbsp; Jul&nbsp;&nbsp; Aug&nbsp;&nbsp; Sep&nbsp;&nbsp; Oct&nbsp;&nbsp; Nov&nbsp;&nbsp; Dec</div>
             </article>
             <article class="card summary-card">
               <h3>Highest Month</h3>
@@ -190,6 +189,8 @@
             <div class="collapsible-header" role="button" tabindex="0" aria-expanded="false">
               <div class="title">Daily Purchases (Name, Category, Date, Amount)</div>
               <div class="controls">
+                <label for="dailyMonthSelect">Month</label>
+                <input id="dailyMonthSelect" type="month" aria-label="Select daily purchase month" />
                   <label for="dayFilterSelect">Day</label>
                 <select id="dayFilterSelect" style="padding:6px 8px; border-radius:6px; background:#1e1e1e; color:#ecf0f1; border:1px solid #333;">
                   <option value="all">All days</option>
