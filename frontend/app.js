@@ -803,8 +803,8 @@
     const totalExpense = currentMonthExpenseEntries.reduce((s, e) => s + Math.abs(Number(e.amount) || 0), 0);
 
     return {
-      // Home "Balance" card: ICICI only, net of ICICI's own expenses.
-      totalBalance: iciciNet,
+      // Home "Balance" card: all three banks, net of each bank's expenses.
+      totalBalance: iciciNet + sbiNet + bobNet,
       totalExpense,
       // Home "Savings" card: SBI + Bank of Baroda, net of their own expenses.
       totalSaving: sbiNet + bobNet,
@@ -837,6 +837,11 @@
       const balanceEl = getElementByAnyId('totalBalance');
       const savingsEl = getElementByAnyId('savings');
       const expensesEl = getElementByAnyId('expenses');
+      const bankEls = {
+        ICICI: document.getElementById('homeIciciBalance'),
+        SBI: document.getElementById('homeSbiBalance'),
+        'Bank of Baroda': document.getElementById('homeBobBalance')
+      };
 
       if (balanceEl) balanceEl.textContent = 'Loading…';
       if (savingsEl) savingsEl.textContent = 'Loading…';
@@ -846,6 +851,7 @@
         if (balanceEl) balanceEl.textContent = '₹0.00';
         if (savingsEl) savingsEl.textContent = '₹0.00';
         if (expensesEl) expensesEl.textContent = '₹0.00';
+        Object.values(bankEls).forEach(el => { if (el) el.textContent = '₹0.00'; });
         return;
       }
 
@@ -860,6 +866,9 @@
       if (balanceEl) balanceEl.textContent = formatCurrency(expenseTotals.totalBalance);
       if (expensesEl) expensesEl.textContent = formatCurrency(expenseTotals.totalExpense);
       if (savingsEl) savingsEl.textContent = formatCurrency(savingsValue);
+      if (bankEls.ICICI) bankEls.ICICI.textContent = formatCurrency(expenseTotals.iciciNet);
+      if (bankEls.SBI) bankEls.SBI.textContent = formatCurrency(expenseTotals.sbiNet);
+      if (bankEls['Bank of Baroda']) bankEls['Bank of Baroda'].textContent = formatCurrency(expenseTotals.bobNet);
 
       console.debug('Financial stats updated:', {
         totalBalance: expenseTotals.totalBalance,
@@ -896,58 +905,98 @@
     selectEl.innerHTML = arr.map(y => `<option value="${y}">${y}</option>`).join('');
   }
 
-  function updateFinanceChartYear(entries = [], year = (new Date()).getFullYear()) {
+  const HOME_BANKS = ['ICICI', 'SBI', 'Bank of Baroda'];
+  const monthLabels = Array.from({ length: 12 }, (_, i) => new Date(0, i).toLocaleString('en-IN', { month: 'short' }));
+
+  function getMonthlyBankTotals(entries = [], year, month = null) {
+    const totals = Object.fromEntries(HOME_BANKS.map(bank => [bank, { balance: 0, expense: 0 }]));
+    (entries || []).forEach(entry => {
+      const date = new Date(entry.date);
+      if (Number.isNaN(date.getTime()) || date.getFullYear() !== Number(year)) return;
+      if (month !== null && date.getMonth() !== Number(month)) return;
+      const bank = HOME_BANKS.includes(entry.bank) ? entry.bank : 'ICICI';
+      const amount = Number(entry.amount) || 0;
+      const type = normalizeEntryType(entry);
+      if (type === 'balance' || type === 'income') totals[bank].balance += amount;
+      if (type === 'expense' || type === 'trip') totals[bank].expense += Math.abs(amount);
+    });
+    return totals;
+  }
+
+  function getMonthlySeries(entries = [], year, bank = null) {
+    return Array.from({ length: 12 }, (_, month) => {
+      const totals = getMonthlyBankTotals(entries, year, month);
+      const banks = Array.isArray(bank) ? bank : (bank ? [bank] : HOME_BANKS);
+      return banks.reduce((sum, name) => sum + totals[name].balance - totals[name].expense, 0);
+    });
+  }
+
+  function destroyChart(name) {
+    if (window[name]) {
+      try { window[name].destroy(); } catch (e) { /* ignore */ }
+    }
+  }
+
+  function renderMiniTrend(canvasId, instanceName, entries, year, values, color, label) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas || !window.Chart) return;
+    destroyChart(instanceName);
+    window[instanceName] = new Chart(canvas.getContext('2d'), {
+      type: 'line',
+      data: { labels: monthLabels, datasets: [{ label, data: values, borderColor: color, backgroundColor: `${color}22`, fill: true, tension: 0.35, pointRadius: 0, borderWidth: 2 }] },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false }, tooltip: { enabled: true } },
+        scales: { x: { display: false }, y: { display: false, beginAtZero: true } }
+      }
+    });
+  }
+
+  function updateHomeSummaryCharts(entries = [], year) {
+    const totalsByBank = HOME_BANKS.map(bank => getMonthlySeries(entries, year, bank));
+    renderMiniTrend('balanceTrendChart', 'balanceTrendChartInstance', entries, year, totalsByBank[0], '#087f5b', 'ICICI');
+    const balanceCanvas = document.getElementById('balanceTrendChart');
+    if (balanceCanvas && window.balanceTrendChartInstance) {
+      window.balanceTrendChartInstance.data.datasets = HOME_BANKS.map((bank, index) => ({
+        label: bank, data: totalsByBank[index], borderColor: ['#087f5b', '#2f7fb8', '#c97a2e'][index], backgroundColor: 'transparent', fill: false, tension: 0.35, pointRadius: 0, borderWidth: 2
+      }));
+      window.balanceTrendChartInstance.update();
+    }
+    renderMiniTrend('savingsTrendChart', 'savingsTrendChartInstance', entries, year, getMonthlySeries(entries, year, 'Bank of Baroda').map((value, i) => value + getMonthlySeries(entries, year, 'SBI')[i]), '#2f7fb8', 'Savings');
+    renderMiniTrend('expenseTrendChart', 'expenseTrendChartInstance', entries, year, Array.from({ length: 12 }, (_, month) => HOME_BANKS.reduce((sum, bank) => sum + getMonthlyBankTotals(entries, year, month)[bank].expense, 0)), '#d1503f', 'Expenses');
+  }
+
+  function updateFinanceChartYear(entries = [], year = (new Date()).getFullYear(), month = (new Date()).getMonth()) {
     try {
       const canvas = document.getElementById('financeChart');
       if (!canvas) return;
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
 
-      const incomeByMonth = new Array(12).fill(0);
-      const expenseByMonth = new Array(12).fill(0);
-
-      (entries || []).forEach(e => {
-        const d = new Date(e.date);
-        if (Number.isNaN(d.getTime())) return;
-        if (d.getFullYear() !== Number(year)) return;
-        const m = d.getMonth();
-        const amt = Number(e.amount) || 0;
-        const type = normalizeEntryType(e);
-        if (type === 'balance' || type === 'income') incomeByMonth[m] += amt;
-        if (type === 'expense' || type === 'trip') expenseByMonth[m] += Math.abs(amt);
-      });
-
-      const monthLabels = Array.from({ length: 12 }, (_, i) => new Date(0, i).toLocaleString('en-IN', { month: 'short' }));
-
-      if (window.financeChartInstance) {
-        try { window.financeChartInstance.destroy(); } catch (e) { /* ignore */ }
-      }
+      const totals = getMonthlyBankTotals(entries, year, month);
+      const balanceValues = HOME_BANKS.map(bank => totals[bank].balance);
+      const expenseValues = HOME_BANKS.map(bank => totals[bank].expense);
+      const values = [...balanceValues, ...expenseValues];
+      const labels = HOME_BANKS.map(bank => `${bank} balance`).concat(HOME_BANKS.map(bank => `${bank} expense`));
+      const colors = ['#087f5b', '#2f7fb8', '#c97a2e', '#66b89a', '#74aeda', '#e48b49'];
+      destroyChart('financeChartInstance');
 
       window.financeChartInstance = new Chart(ctx, {
-        type: 'bar',
-        data: {
-          labels: monthLabels,
-          datasets: [
-            {
-              label: 'Income',
-              data: incomeByMonth,
-              backgroundColor: '#1abc9c'
-            },
-            {
-              label: 'Expense',
-              data: expenseByMonth,
-              backgroundColor: '#e74c3c'
-            }
-          ]
-        },
+        type: 'pie',
+        data: { labels, datasets: [{ data: values, backgroundColor: colors, borderColor: 'var(--surface-raised)', borderWidth: 3 }] },
         options: {
           responsive: true,
           maintainAspectRatio: false,
-          scales: {
-            y: { beginAtZero: true }
-          }
+          plugins: { legend: { position: 'bottom' }, tooltip: { callbacks: { label: context => `${context.label}: ${formatCurrency(context.raw)}` } } }
         }
       });
+      const totalBalance = balanceValues.reduce((sum, value) => sum + value, 0);
+      const totalExpense = expenseValues.reduce((sum, value) => sum + value, 0);
+      const summary = document.getElementById('financeSummary');
+      if (summary) {
+        summary.innerHTML = `<div class="stat-total"><span>Total balance</span><strong>${formatCurrency(totalBalance)}</strong></div><div class="stat-total"><span>Total expense</span><strong>${formatCurrency(totalExpense)}</strong></div>${HOME_BANKS.map((bank, index) => `<div class="stat-bank"><span><i style="background:${colors[index]}"></i>${bank}</span><span>${formatCurrency(balanceValues[index])} <small>${totalBalance ? Math.round(balanceValues[index] / totalBalance * 100) : 0}% balance</small><br>${formatCurrency(expenseValues[index])} <small>${totalExpense ? Math.round(expenseValues[index] / totalExpense * 100) : 0}% expense</small></span></div>`).join('')}`;
+      }
     } catch (err) {
       console.warn('updateFinanceChartYear failed', err);
     }
@@ -1034,38 +1083,22 @@
     }
   }
 
-  function updateSavingsChart(entries = [], year = (new Date()).getFullYear()) {
+  function updateSavingsChart(entries = [], year = (new Date()).getFullYear(), bank = 'All') {
     try {
       const canvas = document.getElementById('savingsChart');
       if (!canvas) return;
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
 
-      const balanceByMonth = new Array(12).fill(0);
-      const expenseByMonth = new Array(12).fill(0);
-
-      (entries || []).forEach(e => {
-        const d = new Date(e.date);
-        if (Number.isNaN(d.getTime())) return;
-        if (d.getFullYear() !== Number(year)) return;
-        const t = normalizeEntryType(e);
-        if (t === 'balance' || t === 'income') balanceByMonth[d.getMonth()] += Number(e.amount) || 0;
-        if (t === 'expense' || t === 'trip') expenseByMonth[d.getMonth()] += Math.abs(Number(e.amount) || 0);
-      });
-
-      const savingsByMonth = balanceByMonth.map((b,i) => b - expenseByMonth[i]);
-      const monthLabels = Array.from({length:12}, (_,i) => new Date(0,i).toLocaleString('en-IN',{month:'short'}));
-
-      if (window.savingsChartInstance) {
-        try { window.savingsChartInstance.destroy(); } catch(e){/*ignore*/} 
-      }
+      const savingsByMonth = getMonthlySeries(entries, year, bank === 'All' ? ['ICICI', 'Bank of Baroda'] : bank);
+      destroyChart('savingsChartInstance');
 
       window.savingsChartInstance = new Chart(ctx, {
         type: 'bar',
         data: {
           labels: monthLabels,
           datasets: [{
-            label: `Monthly Savings ${year}`,
+            label: `${bank === 'All' ? 'ICICI + Bank of Baroda' : bank} savings ${year}`,
             data: savingsByMonth,
             backgroundColor: '#3498db'
           }]
@@ -1086,7 +1119,8 @@
     const lastTxDateInput = document.getElementById('lastTxDate');
     const activityYearSelector = document.getElementById('activityYear');
     const savingsYearSelector = document.getElementById('savingsYear');
-    const chartYearSelector = document.getElementById('chartYear');
+    const savingsBankSelector = document.getElementById('savingsBank');
+    const chartPeriodSelector = document.getElementById('chartPeriod');
 
     const now = new Date();
     const todayISO = now.toISOString().slice(0,10);
@@ -1094,6 +1128,7 @@
       lastTxDateInput.value = todayISO;
       lastTxDateInput.max = todayISO;
     }
+    if (chartPeriodSelector) chartPeriodSelector.value = todayISO.slice(0, 7);
 
     const yearsSet = new Set((entries || []).map(e => {
       const d = new Date(e.date);
@@ -1105,11 +1140,9 @@
     const yearOptionsHtml = years.map(y => `<option value="${y}">${y}</option>`).join('');
     if (activityYearSelector) activityYearSelector.innerHTML = yearOptionsHtml;
     if (savingsYearSelector) savingsYearSelector.innerHTML = yearOptionsHtml;
-    if (chartYearSelector) chartYearSelector.innerHTML = yearOptionsHtml;
 
     if (activityYearSelector && !activityYearSelector.value) activityYearSelector.value = now.getFullYear();
     if (savingsYearSelector && !savingsYearSelector.value) savingsYearSelector.value = now.getFullYear();
-    if (chartYearSelector && !chartYearSelector.value) chartYearSelector.value = now.getFullYear();
 
     function refreshAll() {
       const dateVal = lastTxDateInput ? lastTxDateInput.value : todayISO;
@@ -1119,18 +1152,20 @@
       updateRecentActivityChart(entries, actYear);
 
       const savYear = savingsYearSelector ? Number(savingsYearSelector.value) : now.getFullYear();
-      updateSavingsChart(entries, savYear);
+      const savingsBank = savingsBankSelector ? savingsBankSelector.value : 'All';
+      updateSavingsChart(entries, savYear, savingsBank);
 
-      if (chartYearSelector) {
-        const chartYear = Number(chartYearSelector.value);
-        updateFinanceChartYear(entries, chartYear);
-      }
+      const period = chartPeriodSelector && chartPeriodSelector.value ? chartPeriodSelector.value : `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+      const [chartYear, chartMonth] = period.split('-').map(Number);
+      updateFinanceChartYear(entries, chartYear, chartMonth - 1);
+      updateHomeSummaryCharts(entries, chartYear);
     }
 
     if (lastTxDateInput) lastTxDateInput.addEventListener('change', refreshAll);
     if (activityYearSelector) activityYearSelector.addEventListener('change', refreshAll);
     if (savingsYearSelector) savingsYearSelector.addEventListener('change', refreshAll);
-    if (chartYearSelector) chartYearSelector.addEventListener('change', refreshAll);
+    if (savingsBankSelector) savingsBankSelector.addEventListener('change', refreshAll);
+    if (chartPeriodSelector) chartPeriodSelector.addEventListener('change', refreshAll);
 
     refreshAll();
 

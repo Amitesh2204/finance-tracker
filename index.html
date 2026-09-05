@@ -109,18 +109,26 @@
 
       <section class="content">
         <!-- Summary cards -->
-        <div class="cards">
-          <div class="card balance">
-            <h3>Balance</h3>
+        <div class="cards home-summary-cards">
+          <div class="card balance home-summary-card">
+            <div class="summary-card-heading"><h3>Balance</h3><span class="card-caption">Net by bank</span></div>
             <p id="totalBalance">₹0.00</p>
+            <div class="bank-balance-list" aria-label="Bank balances">
+              <div><span>ICICI</span><strong id="homeIciciBalance">₹0.00</strong></div>
+              <div><span>SBI</span><strong id="homeSbiBalance">₹0.00</strong></div>
+              <div><span>Bank of Baroda</span><strong id="homeBobBalance">₹0.00</strong></div>
+            </div>
+            <div class="mini-chart-wrap"><canvas id="balanceTrendChart" aria-label="Monthly balance trends"></canvas></div>
           </div>
-          <div class="card savings">
-            <h3>Savings</h3>
+          <div class="card savings home-summary-card">
+            <div class="summary-card-heading"><h3>Savings</h3><span class="card-caption">Yearly trend</span></div>
             <p id="savings">₹0.00</p>
+            <div class="mini-chart-wrap"><canvas id="savingsTrendChart" aria-label="Yearly savings trend"></canvas></div>
           </div>
-          <div class="card expenses">
-            <h3>Expenses</h3>
+          <div class="card expenses home-summary-card">
+            <div class="summary-card-heading"><h3>Expenses</h3><span class="card-caption">Yearly trend</span></div>
             <p id="expenses">₹0.00</p>
+            <div class="mini-chart-wrap"><canvas id="expenseTrendChart" aria-label="Yearly expense trend"></canvas></div>
           </div>
         </div>
 
@@ -129,16 +137,17 @@
           <div class="collapsible-header" role="button" aria-expanded="true" tabindex="0">
             <div class="title">Financial Statistics</div>
             <div class="controls">
-              <label for="chartYear" style="font-weight:600; color:#ecf0f1; font-size:0.95rem; margin-right:8px;">Year</label>
-              <select id="chartYear" style="padding:6px 8px; border-radius:6px; background:#1e1e1e; color:#ecf0f1; border:1px solid #333;"></select>
+              <label for="chartPeriod">Period</label>
+              <input id="chartPeriod" type="month" aria-label="Select financial statistics month" />
               <div class="chev">▲</div>
             </div>
           </div>
           <div class="collapsible-content">
-            <div class="chart card same-size" style="background:transparent; box-shadow:none; padding:0;">
-              <div style="height:320px;">
+            <div class="financial-stat-content">
+              <div class="financial-stat-chart">
                 <canvas id="financeChart"></canvas>
               </div>
+              <div id="financeSummary" class="financial-stat-summary" aria-live="polite"></div>
             </div>
           </div>
         </div>
@@ -184,6 +193,12 @@
               <div style="margin-left:auto; display:flex; gap:8px; align-items:center;">
                 <label for="savingsYear">Year</label>
                 <select id="savingsYear" style="padding:6px 8px; border-radius:6px; background:#1e1e1e; color:#ecf0f1; border:1px solid #333;"></select>
+                <label for="savingsBank">Bank</label>
+                <select id="savingsBank" aria-label="Select savings bank">
+                  <option value="All">ICICI + Bank of Baroda</option>
+                  <option value="ICICI">ICICI</option>
+                  <option value="Bank of Baroda">Bank of Baroda</option>
+                </select>
               </div>
             </div>
             <div style="height:220px;">
