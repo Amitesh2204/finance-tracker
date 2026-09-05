@@ -137,21 +137,26 @@ document.addEventListener('DOMContentLoaded', async () => {
     const bobNet = computeBankTotal('Bank of Baroda');
 
     const totalExpense = computeTotalExpense();
-    // Total Saving = SBI + Bank of Baroda only (savings accounts). ICICI is the
-    // primary/checking account and is intentionally excluded here.
-    const totalSaving = sbiNet + bobNet;
+    const iciciMonthlyExpense = computeCurrentMonthBankExpense('ICICI');
+    const sbiMonthlyExpense = computeCurrentMonthBankExpense('SBI');
+    const bobMonthlyExpense = computeCurrentMonthBankExpense('Bank of Baroda');
+    // Total Monthly Saving = ICICI + SBI + Bank of Baroda Total Balance (the
+    // three top cards), all three banks included.
+    const totalSaving = iciciNet + sbiNet + bobNet;
 
     if (iciciEl) iciciEl.textContent = formatINR(iciciNet);
     if (sbiEl) sbiEl.textContent = formatINR(sbiNet);
     if (bobEl) bobEl.textContent = formatINR(bobNet);
     if (totalExpenseEl) totalExpenseEl.textContent = formatINR(totalExpense);
     if (totalSavingEl) totalSavingEl.textContent = formatINR(totalSaving);
-    if (savingEls.ICICI) savingEls.ICICI.textContent = formatINR(computeMonthlyBankSaving('ICICI'));
-    if (savingEls.SBI) savingEls.SBI.textContent = formatINR(computeMonthlyBankSaving('SBI'));
-    if (savingEls['Bank of Baroda']) savingEls['Bank of Baroda'].textContent = formatINR(computeMonthlyBankSaving('Bank of Baroda'));
-    if (bankExpenseEls.ICICI) bankExpenseEls.ICICI.textContent = formatINR(computeCurrentMonthBankExpense('ICICI'));
-    if (bankExpenseEls.SBI) bankExpenseEls.SBI.textContent = formatINR(computeCurrentMonthBankExpense('SBI'));
-    if (bankExpenseEls['Bank of Baroda']) bankExpenseEls['Bank of Baroda'].textContent = formatINR(computeCurrentMonthBankExpense('Bank of Baroda'));
+    // Per-bank saving = that bank's Total Balance card minus that bank's
+    // Monthly Expense card (per updated spec).
+    if (savingEls.ICICI) savingEls.ICICI.textContent = formatINR(iciciNet - iciciMonthlyExpense);
+    if (savingEls.SBI) savingEls.SBI.textContent = formatINR(sbiNet - sbiMonthlyExpense);
+    if (savingEls['Bank of Baroda']) savingEls['Bank of Baroda'].textContent = formatINR(bobNet - bobMonthlyExpense);
+    if (bankExpenseEls.ICICI) bankExpenseEls.ICICI.textContent = formatINR(iciciMonthlyExpense);
+    if (bankExpenseEls.SBI) bankExpenseEls.SBI.textContent = formatINR(sbiMonthlyExpense);
+    if (bankExpenseEls['Bank of Baroda']) bankExpenseEls['Bank of Baroda'].textContent = formatINR(bobMonthlyExpense);
     yearBadgeEls.forEach(el => { el.textContent = new Date().getFullYear(); });
     updateCategoryTotal();
   }
@@ -253,8 +258,12 @@ document.addEventListener('DOMContentLoaded', async () => {
       const key = `${month}-${selectedYear}`;
       return monthlyData[key]?.expense || 0;
     });
-    const textColor = getComputedStyle(document.documentElement).getPropertyValue('--text').trim() || '#17322c';
     const mutedColor = getComputedStyle(document.documentElement).getPropertyValue('--muted').trim() || '#6d7f79';
+    // Headroom above the tallest bar so its label never gets clipped by the
+    // chart's top edge (previously the label for the tallest bar could be
+    // cut off since the y-axis max matched the bar height almost exactly).
+    const maxValue = Math.max(0, ...expenseData);
+    const suggestedMax = maxValue > 0 ? maxValue * 1.2 : undefined;
 
     window.monthlyExpenseChart = new Chart(ctx, {
       type: 'bar',
@@ -273,14 +282,21 @@ document.addEventListener('DOMContentLoaded', async () => {
         responsive: true,
         maintainAspectRatio: false,
         layout: {
-          padding: { top: 12, bottom: 8 }
+          padding: { top: 24, bottom: 8 }
         },
         plugins: {
           datalabels: {
-            color: textColor,
+            // Fixed-contrast pill (white text on a dark chip) instead of a
+            // theme color, so the total is readable above every bar in both
+            // light mode and the custom/dark theme, regardless of what the
+            // page's --text variable currently resolves to.
+            color: '#ffffff',
+            backgroundColor: 'rgba(23, 28, 26, 0.78)',
+            borderRadius: 4,
+            padding: { top: 3, bottom: 3, left: 6, right: 6 },
             anchor: 'end',
-            align: 'start',
-            offset: -6,
+            align: 'top',
+            offset: 4,
             clamp: true,
             font: { weight: '800', size: 11 },
             formatter: (value) => value ? formatINR(value) : ''
@@ -294,7 +310,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         },
         scales: {
           x: { ticks: { color: mutedColor, maxRotation: 0, autoSkip: true, maxTicksLimit: 12 } },
-          y: { beginAtZero: true, ticks: { color: mutedColor, callback: v => formatINR(v) }, grid: { color: `${mutedColor}33` } }
+          y: { beginAtZero: true, suggestedMax, ticks: { color: mutedColor, callback: v => formatINR(v) }, grid: { color: `${mutedColor}33` } }
         }
       },
       plugins: [ChartDataLabels]
@@ -381,12 +397,20 @@ document.addEventListener('DOMContentLoaded', async () => {
           legend: { display: false }, // custom legend used
           datalabels: {
             color: '#fff',
+            textStrokeColor: 'rgba(0,0,0,0.45)',
+            textStrokeWidth: 2,
             formatter: (value, ctx) => {
               const dataset = ctx.chart.data.datasets[0].data;
               const total = dataset.reduce((s, v) => s + v, 0);
-              return total ? ( (value / total * 100).toFixed(1) + '%' ) : '';
+              if (!total) return '';
+              const pct = (value / total) * 100;
+              // Slices under ~4% are too thin to fit a readable label and
+              // just overlap each other; their exact percentage is still
+              // shown in the legend and tooltip, so hide the in-slice text.
+              if (pct < 4) return '';
+              return pct.toFixed(1) + '%';
             },
-            font: { weight: '600', size: 12 }
+            font: { weight: '700', size: 12 }
           },
           tooltip: {
             callbacks: {
@@ -431,18 +455,30 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Yearly table rendering with bank filter
   function renderYearlyTable(selectedYear, bankFilter = 'All') {
     const supportedBanks = ['ICICI', 'SBI', 'Bank of Baroda'];
+    // Total Balance column mirrors the top card section's Total Balance
+    // figures (same net balance shown on the ICICI/SBI/Bank of Baroda cards),
+    // so it's a single constant applied to every month row - not a
+    // month-specific sum of that month's balance entries.
+    const cardBalances = {
+      ICICI: computeBankTotal('ICICI'),
+      SBI: computeBankTotal('SBI'),
+      'Bank of Baroda': computeBankTotal('Bank of Baroda')
+    };
+    const cardTotalBalance = bankFilter === 'All'
+      ? supportedBanks.reduce((sum, bank) => sum + cardBalances[bank], 0)
+      : (cardBalances[bankFilter] || 0);
+
     const rows = monthNames.map(month => {
       const key = `${month}-${selectedYear}`;
-      const values = monthlyData[key] || { balance: 0, expense: 0, byBank: {} };
-      let balance = 0, expense = 0;
+      const values = monthlyData[key] || { expense: 0, byBank: {} };
+      let expense = 0;
       if (bankFilter === 'All') {
-        balance = supportedBanks.reduce((sum, bank) => sum + (values.byBank?.[bank]?.balance || 0), 0);
         expense = supportedBanks.reduce((sum, bank) => sum + (values.byBank?.[bank]?.expense || 0), 0);
       } else {
         const b = values.byBank && values.byBank[bankFilter];
-        balance = b ? (b.balance || 0) : 0;
         expense = b ? (b.expense || 0) : 0;
       }
+      const balance = cardTotalBalance;
       const saving = (Number(balance) || 0) - (Number(expense) || 0);
       return `
         <tr>
