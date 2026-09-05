@@ -43,9 +43,15 @@
       <section class="content expense-subpage">
         <aside class="content-panel left-panel">
           <div class="cards summary-cards">
-            <article class="card summary-card">
-              <h3>Total Monthly Expense</h3>
+            <article class="card summary-card total-expense-card">
+              <div class="summary-card-title"><h3>Total Monthly Expense</h3><strong id="expenseCardYear"></strong></div>
               <p id="totalMonthlyExpense">₹0.00</p>
+              <div class="bank-expense-grid">
+                <div class="bank-expense-item"><span>ICICI</span><strong id="monthlyIciciExpense">₹0.00</strong><div class="bank-mini-chart"><canvas id="monthlyIciciChart"></canvas></div></div>
+                <div class="bank-expense-item"><span>SBI</span><strong id="monthlySbiExpense">₹0.00</strong><div class="bank-mini-chart"><canvas id="monthlySbiChart"></canvas></div></div>
+                <div class="bank-expense-item"><span>Bank of Baroda</span><strong id="monthlyBobExpense">₹0.00</strong><div class="bank-mini-chart"><canvas id="monthlyBobChart"></canvas></div></div>
+              </div>
+              <div class="summary-month-labels">Jan&nbsp;&nbsp; Feb&nbsp;&nbsp; Mar&nbsp;&nbsp; Apr&nbsp;&nbsp; May&nbsp;&nbsp; Jun&nbsp;&nbsp; Jul&nbsp;&nbsp; Aug&nbsp;&nbsp; Sep&nbsp;&nbsp; Oct&nbsp;&nbsp; Nov&nbsp;&nbsp; Dec</div>
             </article>
             <article class="card summary-card">
               <h3>Highest Month</h3>
@@ -113,6 +119,14 @@
                     <option value="Other">Other</option>
                   </select>
 
+                  <label for="monthlyExpensePayment">Payment Method</label>
+                  <select id="monthlyExpensePayment">
+                    <option value="Bhim" selected>Bhim</option>
+                    <option value="PhonePe">PhonePe</option>
+                    <option value="Google Pay">Google Pay</option>
+                    <option value="Bank">Bank</option>
+                  </select>
+
                   <button type="submit">Add Expense</button>
                 </form>
               </article>
@@ -126,13 +140,16 @@
             <div class="collapsible-header" role="button" tabindex="0" aria-expanded="true">
               <div class="title">Monthly Expense</div>
               <div class="controls">
-                <label for="expenseMonthSelect" style="font-weight:600; color:#ecf0f1; font-size:0.95rem; margin-right:8px;">Month</label>
-                <input id="expenseMonthSelect" type="month" />
+                <label for="expenseMonthSelect">Month</label>
+                <select id="expenseMonthSelect" aria-label="Select expense month"></select>
+                <label for="expenseYearSelect">Year</label>
+                <select id="expenseYearSelect" aria-label="Select expense year"></select>
                 <div class="chev">▲</div>
               </div>
             </div>
             <div class="collapsible-content">
               <article class="card section-card" style="background:transparent; box-shadow:none; padding:0;">
+                <div id="monthlyChartTotal" class="monthly-chart-total">Total: ₹0.00</div>
                 <div class="chart same-size" style="padding:8px 0;">
                   <canvas id="monthlyExpenseChart"></canvas>
                 </div>
@@ -173,7 +190,7 @@
             <div class="collapsible-header" role="button" tabindex="0" aria-expanded="false">
               <div class="title">Daily Purchases (Name, Category, Date, Amount)</div>
               <div class="controls">
-                <label for="dayFilterSelect" style="font-weight:600; color:#ecf0f1; font-size:0.95rem; margin-right:8px;">Day</label>
+                  <label for="dayFilterSelect">Day</label>
                 <select id="dayFilterSelect" style="padding:6px 8px; border-radius:6px; background:#1e1e1e; color:#ecf0f1; border:1px solid #333;">
                   <option value="all">All days</option>
                 </select>
@@ -190,10 +207,11 @@
                       <th>Bank</th>
                       <th>Date</th>
                       <th>Amount</th>
+                      <th>Payment Type</th>
                     </tr>
                   </thead>
                   <tbody>
-                    <tr><td colspan="5">No purchases for selected month</td></tr>
+                    <tr><td colspan="6">No purchases for selected month</td></tr>
                   </tbody>
                 </table>
               </article>

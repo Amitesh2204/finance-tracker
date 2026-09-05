@@ -6,7 +6,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   const totalExpenseEl = document.getElementById('totalMonthlyExpense');
   const highestMonthEl = document.getElementById('highestExpenseMonth');
   const averageExpenseEl = document.getElementById('averageExpense');
-  const monthSelect = document.getElementById('expenseMonthSelect'); // month-year selector (input[type=month])
+  const monthSelect = document.getElementById('expenseMonthSelect');
+  const expenseYearSelect = document.getElementById('expenseYearSelect');
+  const chartTotalEl = document.getElementById('monthlyChartTotal');
+  const expenseCardYearEl = document.getElementById('expenseCardYear');
   const tableBody = document.querySelector('#monthlyExpenseTable tbody');
   const dailyItemsTbody = document.querySelector('#dailyItemsTable tbody');
   const yearSelect = document.getElementById('summaryYearSelect'); // new year selector for summary table
@@ -14,6 +17,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   let expenseEntries = [];
   let monthlyData = {};
+  let monthlyBankData = {};
 
   // Canonical categories and colors (kept local to this file)
   const EXPENSE_CATEGORIES = [
@@ -85,10 +89,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   function renderSummary(values) {
-    const selected = monthSelect && monthSelect.value ? monthSelect.value : `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
-    const [yearStr, monthStr] = selected.split('-');
-    const year = Number(yearStr);
-    const monthIndex = Number(monthStr) - 1;
+    const year = Number(expenseYearSelect && expenseYearSelect.value) || new Date().getFullYear();
+    const monthIndex = monthSelect ? Number(monthSelect.value) : new Date().getMonth();
 
     const currentMonthTotal = expenseEntries.reduce((sum, entry) => {
       const date = parseLocalDateValue(entry.date);
@@ -96,17 +98,24 @@ document.addEventListener('DOMContentLoaded', async () => {
       return sum + (Number(entry.amount) || 0);
     }, 0);
 
-    const total = Object.values(values).reduce((sum, item) => sum + (Number(item.total) || 0), 0);
-    const highest = Object.entries(values).reduce((best, [key, item]) => {
+    const yearValues = Object.fromEntries(Object.entries(values).filter(([key]) => key.endsWith(`-${year}`)));
+    const total = Object.values(yearValues).reduce((sum, item) => sum + (Number(item.total) || 0), 0);
+    const highest = Object.entries(yearValues).reduce((best, [key, item]) => {
       if ((Number(item.total) || 0) > (best?.amount || 0)) {
         return { key, amount: Number(item.total) || 0 };
       }
       return best;
     }, null);
 
+    const selectedBankTotals = monthlyBankData[`${year}-${monthIndex}`] || {};
     if (totalExpenseEl) totalExpenseEl.textContent = formatINR(currentMonthTotal);
     if (highestMonthEl) highestMonthEl.textContent = highest ? highest.key : '—';
-    if (averageExpenseEl) averageExpenseEl.textContent = formatINR(total && values ? total / Object.keys(values).length : 0);
+    if (averageExpenseEl) averageExpenseEl.textContent = formatINR(total && yearValues ? total / Object.keys(yearValues).length : 0);
+    if (expenseCardYearEl) expenseCardYearEl.textContent = year;
+    [['ICICI', 'monthlyIciciExpense'], ['SBI', 'monthlySbiExpense'], ['Bank of Baroda', 'monthlyBobExpense']].forEach(([bank, id]) => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = formatINR(selectedBankTotals[bank] || 0);
+    });
   }
 
   function daysInMonth(year, monthIndex) {
@@ -162,11 +171,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     const labels = Array.from({ length: daysCount }, (_, i) => String(i + 1));
+    const chartTotal = totalsByDay.reduce((sum, amount) => sum + amount, 0);
+    if (chartTotalEl) chartTotalEl.textContent = `Total for ${selectedMonthYear}: ${formatINR(chartTotal)}`;
     const dataset = {
       label: `Total per day (${selectedMonthYear})`,
       data: totalsByDay,
-      backgroundColor: '#e74c3c',
-      borderColor: '#c0392b',
+      backgroundColor: totalsByDay.map(value => value >= chartTotal * 0.75 ? '#b8322b' : (value >= chartTotal * 0.35 ? '#d97724' : '#2f7fb8')),
+      borderColor: totalsByDay.map(value => value >= chartTotal * 0.75 ? '#8f211d' : (value >= chartTotal * 0.35 ? '#a65318' : '#1e5e91')),
       borderWidth: 1
     };
 
@@ -195,6 +206,26 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
+  function renderBankExpenseCharts(selectedYear) {
+    const banks = [
+      ['ICICI', 'monthlyIciciChart', '#087f5b'],
+      ['SBI', 'monthlySbiChart', '#2f7fb8'],
+      ['Bank of Baroda', 'monthlyBobChart', '#c46632']
+    ];
+    banks.forEach(([bank, canvasId, color]) => {
+      const canvas = document.getElementById(canvasId);
+      if (!canvas || typeof Chart === 'undefined') return;
+      const instanceName = `${canvasId}Instance`;
+      if (window[instanceName]) window[instanceName].destroy();
+      const values = Array.from({ length: 12 }, (_, month) => (monthlyBankData[`${selectedYear}-${month}`] || {})[bank] || 0);
+      window[instanceName] = new Chart(canvas.getContext('2d'), {
+        type: 'line',
+        data: { labels: ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'], datasets: [{ data: values, borderColor: color, backgroundColor: `${color}22`, fill: true, tension: .35, pointRadius: 2, pointBackgroundColor: color, borderWidth: 3 }] },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: context => formatINR(context.raw) } } }, scales: { x: { display: false }, y: { display: false, beginAtZero: true } } }
+      });
+    });
+  }
+
   function renderTable(selectedYear) {
     const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
     const rows = monthNames.map(month => {
@@ -202,8 +233,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       const value = monthlyData[key] || { total: 0, days: 0 };
       const averagePerDay = value.days ? (Number(value.total) / Number(value.days)) || 0 : 0;
 
+      const isHighest = value.total > 0 && value.total === Math.max(...monthNames.map(monthName => (monthlyData[`${monthName}-${selectedYear}`] || { total: 0 }).total));
       return `
-        <tr>
+        <tr class="${isHighest ? 'highest-expense-row' : ''}">
           <td>${month}</td>
           <td>${formatINR(value.total || 0)}</td>
           <td>${formatINR(averagePerDay)}</td>
@@ -230,7 +262,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       .sort((a,b) => new Date(a.date) - new Date(b.date));
 
     if (!filtered.length) {
-      dailyItemsTbody.innerHTML = '<tr><td colspan="5">No purchases for selected month/day</td></tr>';
+      dailyItemsTbody.innerHTML = '<tr><td colspan="6">No purchases for selected month/day</td></tr>';
       return;
     }
 
@@ -240,7 +272,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       const bank = e.bank || 'ICICI';
       const amt = Number(e.amount) || 0;
       const dateStr = new Date(e.date).toLocaleDateString();
-      return `<tr><td>${name}</td><td>${cat}</td><td>${bank}</td><td>${dateStr}</td><td>${formatINR(amt)}</td></tr>`;
+      const payment = e.paymentMethod || e.paymentType || 'Bhim';
+      const categoryClass = `category-${cat.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
+      return `<tr class="${categoryClass}"><td>${name}</td><td>${cat}</td><td>${bank}</td><td>${dateStr}</td><td>${formatINR(amt)}</td><td>${payment}</td></tr>`;
     }).join('');
 
     dailyItemsTbody.innerHTML = rows;
@@ -263,6 +297,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Build monthlyData
     monthlyData = {};
+    monthlyBankData = {};
     expenseEntries.forEach(entry => {
       const amount = Number(entry.amount) || 0;
       const key = getMonthYearKey(parseLocalDateValue(entry.date));
@@ -270,13 +305,18 @@ document.addEventListener('DOMContentLoaded', async () => {
       monthlyData[key] = monthlyData[key] || { total: 0, days: 0 };
       monthlyData[key].total += amount;
       monthlyData[key].days += 1;
+      const date = parseLocalDateValue(entry.date);
+      const bank = entry.bank || 'ICICI';
+      const bankKey = `${date.getFullYear()}-${date.getMonth()}`;
+      monthlyBankData[bankKey] = monthlyBankData[bankKey] || { ICICI: 0, SBI: 0, 'Bank of Baroda': 0 };
+      if (Object.prototype.hasOwnProperty.call(monthlyBankData[bankKey], bank)) monthlyBankData[bankKey][bank] += amount;
     });
 
     // Default to current month-year
     const now = new Date();
     const defaultMonthYear = `${now.toLocaleString('default',{month:'short'})}-${now.getFullYear()}`;
 
-    // populate monthSelect with available months (or current month)
+    // Populate distinct month and year selectors from the available data.
     const months = Object.keys(monthlyData).sort((a,b) => {
       const [ma, ya] = a.split('-'); const [mb, yb] = b.split('-');
       const da = new Date(`${ma} 1, ${ya}`), db = new Date(`${mb} 1, ${yb}`);
@@ -285,10 +325,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     // ensure current month present
     if (!months.includes(defaultMonthYear)) months.unshift(defaultMonthYear);
 
-    // set monthSelect value to current month
+    const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
     if (monthSelect) {
-      const mm = String(now.getMonth() + 1).padStart(2, '0');
-      monthSelect.value = `${now.getFullYear()}-${mm}`;
+      monthSelect.innerHTML = monthNames.map((name, index) => `<option value="${index}">${name}</option>`).join('');
+      monthSelect.value = String(now.getMonth());
     }
 
     // populate yearSelect for summary table
@@ -297,15 +337,20 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (!years.length) years.push(String(now.getFullYear()));
       yearSelect.innerHTML = years.map(y => `<option value="${y}">${y}</option>`).join(''); 
       yearSelect.value = String(now.getFullYear());
+      if (expenseYearSelect) {
+        expenseYearSelect.innerHTML = yearSelect.innerHTML;
+        expenseYearSelect.value = String(now.getFullYear());
+      }
     }
 
     // populate daySelect (will be updated on month change)
-    populateDaySelectFromMonth(now.getFullYear(), now.getMonth());
+    populateDaySelectFromMonth(now.getFullYear(), now.getMonth(), now.getDate());
 
     renderSummary(monthlyData);
+    renderBankExpenseCharts(now.getFullYear());
     renderDailyChart(defaultMonthYear);
     renderTable(now.getFullYear());
-    renderDailyItems(defaultMonthYear);
+    renderDailyItems(defaultMonthYear, now.getDate());
   }
 
   // Form handling: add name and subcategory logic
@@ -315,6 +360,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const customWrapper = document.getElementById('customCategoryWrapper');
   const customInput = document.getElementById('customCategoryInput');
   const nameInput = document.getElementById('monthlyExpenseName');
+  const paymentSelect = document.getElementById('monthlyExpensePayment');
 
   // When subcategory selected, mark main category as 'custom' and populate custom input
   if (subcategorySelect) {
@@ -349,6 +395,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       const date = document.getElementById('monthlyExpenseDate').value || new Date().toISOString();
       const bankSelect = document.getElementById('monthlyExpenseBank');
       const bank = bankSelect ? bankSelect.value : 'ICICI';
+      const paymentMethod = paymentSelect ? paymentSelect.value : 'Bhim';
       const name = (nameInput && nameInput.value) ? nameInput.value.trim() : '';
       let category = categorySelect ? categorySelect.value : 'Other';
       if (category === 'custom') {
@@ -364,6 +411,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         amount,
         date,
         bank,
+        paymentMethod,
         notes: 'Monthly expense'
       };
 
@@ -374,34 +422,52 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       event.target.reset();
       if (bankSelect) bankSelect.value = 'ICICI';
+      if (paymentSelect) paymentSelect.value = 'Bhim';
       if (customWrapper) customWrapper.style.display = 'none';
       if (subcategorySelect) subcategorySelect.value = 'none';
     });
   }
 
-  // monthSelect change handler (input[type=month] -> YYYY-MM)
-  function populateDaySelectFromMonth(year, monthIndex) {
+  // Separate month and year dropdown handlers.
+  function populateDaySelectFromMonth(year, monthIndex, selectedDay = null) {
     if (!daySelect) return;
     const daysCount = daysInMonth(year, monthIndex);
     const options = ['<option value="all">All days</option>']
       .concat(Array.from({ length: daysCount }, (_, i) => `<option value="${i+1}">${i+1}</option>`))
       .join('');
     daySelect.innerHTML = options;
-    daySelect.value = 'all';
+    daySelect.value = selectedDay ? String(selectedDay) : 'all';
+    const dailySection = document.getElementById('dailyItemsSection');
+    if (dailySection) dailySection.classList.toggle('all-days-view', !selectedDay);
   }
 
   if (monthSelect) {
     monthSelect.addEventListener('change', () => {
       if (!monthSelect.value) return;
-      const [year, month] = monthSelect.value.split('-');
+      const year = expenseYearSelect ? expenseYearSelect.value : String(new Date().getFullYear());
+      const month = String(Number(monthSelect.value) + 1).padStart(2, '0');
       const monthName = new Date(`${year}-${month}-01`).toLocaleString('default',{month:'short'});
       const selectedMonthYear = `${monthName}-${year}`;
       renderDailyChart(selectedMonthYear);
       renderSummary(monthlyData);
       renderTable(year);
-      renderDailyItems(selectedMonthYear);
+      renderDailyItems(selectedMonthYear, null);
       // update day selector
       populateDaySelectFromMonth(Number(year), Number(month) - 1);
+    });
+  }
+
+  if (expenseYearSelect) {
+    expenseYearSelect.addEventListener('change', () => {
+      const year = expenseYearSelect.value;
+      const month = monthSelect ? monthSelect.value : String(new Date().getMonth());
+      const monthName = new Date(Number(year), Number(month), 1).toLocaleString('default', { month: 'short' });
+      const selectedMonthYear = `${monthName}-${year}`;
+      renderDailyChart(selectedMonthYear);
+      renderSummary(monthlyData);
+      renderBankExpenseCharts(Number(year));
+      renderDailyItems(selectedMonthYear, null);
+      populateDaySelectFromMonth(Number(year), Number(month));
     });
   }
 
@@ -416,12 +482,15 @@ document.addEventListener('DOMContentLoaded', async () => {
   // daySelect change handler to filter daily items
   if (daySelect) {
     daySelect.addEventListener('change', () => {
-      const monthVal = monthSelect && monthSelect.value ? monthSelect.value : null;
+      const monthVal = monthSelect && monthSelect.value !== '' ? monthSelect.value : null;
       if (!monthVal) return;
-      const [year, month] = monthVal.split('-');
+      const year = expenseYearSelect ? expenseYearSelect.value : String(new Date().getFullYear());
+      const month = String(Number(monthVal) + 1).padStart(2, '0');
       const monthName = new Date(`${year}-${month}-01`).toLocaleString('default',{month:'short'});
       const selectedMonthYear = `${monthName}-${year}`;
       const dayVal = daySelect.value === 'all' ? null : daySelect.value;
+      const dailySection = document.getElementById('dailyItemsSection');
+      if (dailySection) dailySection.classList.toggle('all-days-view', !dayVal);
       renderDailyItems(selectedMonthYear, dayVal);
     });
   }
