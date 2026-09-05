@@ -11,6 +11,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   const dailyMonthSelect = document.getElementById('dailyMonthSelect');
   const chartTotalEl = document.getElementById('monthlyChartTotal');
   const expenseCardYearEl = document.getElementById('expenseCardYear');
+  const highestCardYearEl = document.getElementById('highestCardYear');
+  const averageCardYearEl = document.getElementById('averageCardYear');
   const tableBody = document.querySelector('#monthlyExpenseTable tbody');
   const dailyItemsTbody = document.querySelector('#dailyItemsTable tbody');
   const yearSelect = document.getElementById('summaryYearSelect'); // new year selector for summary table
@@ -114,6 +116,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (highestMonthEl) highestMonthEl.textContent = highest ? highest.key : '—';
     if (averageExpenseEl) averageExpenseEl.textContent = formatINR(total && yearValues ? total / Object.keys(yearValues).length : 0);
     if (expenseCardYearEl) expenseCardYearEl.textContent = year;
+    if (highestCardYearEl) highestCardYearEl.textContent = year;
+    if (averageCardYearEl) averageCardYearEl.textContent = year;
     [['ICICI', 'monthlyIciciExpense'], ['SBI', 'monthlySbiExpense'], ['Bank of Baroda', 'monthlyBobExpense']].forEach(([bank, id]) => {
       const el = document.getElementById(id);
       if (el) el.textContent = formatINR(selectedBankTotals[bank] || 0);
@@ -131,9 +135,11 @@ document.addEventListener('DOMContentLoaded', async () => {
       const ctx = chart.ctx;
       chart.data.datasets.forEach((dataset, dsIndex) => {
         const meta = chart.getDatasetMeta(dsIndex);
+        const nonZeroIndexes = dataset.data.reduce((indexes, item, index) => item ? indexes.concat(index) : indexes, []);
+        const labelStep = Math.max(1, Math.ceil(nonZeroIndexes.length / 8));
         meta.data.forEach((bar, index) => {
           const value = dataset.data[index] || 0;
-          if (value === 0) return;
+          if (value === 0 || nonZeroIndexes.indexOf(index) % labelStep !== 0) return;
           const x = bar.x;
           const y = bar.y - 6; // slightly above bar
           ctx.save();
@@ -201,7 +207,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           }
         },
         scales: {
-          x: { ticks: { color: getComputedStyle(document.documentElement).getPropertyValue('--muted').trim() || '#6d7f79', maxRotation: 0, autoSkip: false } },
+          x: { ticks: { color: getComputedStyle(document.documentElement).getPropertyValue('--muted').trim() || '#6d7f79', maxRotation: 0, autoSkip: true, maxTicksLimit: 10 } },
           y: { beginAtZero: true, ticks: { color: getComputedStyle(document.documentElement).getPropertyValue('--muted').trim() || '#6d7f79', callback: v => formatINR(v) } }
         }
       },
