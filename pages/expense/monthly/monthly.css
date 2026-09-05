@@ -171,7 +171,13 @@
   margin-top: 12px;
   width: 100%;
   border-collapse: collapse;
+  display: block;
+  max-height: 320px;
+  overflow: auto;
 }
+.daily-items thead, .daily-items tbody { width:100%; }
+.daily-items tr { display:table; width:100%; table-layout:fixed; }
+.daily-items thead { position:sticky; top:0; z-index:1; }
 .daily-items th, .daily-items td {
   padding: 8px 10px;
   border-bottom: 1px solid var(--border);
@@ -223,10 +229,8 @@
   .collapsible-header .controls select { min-width:0; max-width:45%; }
   .investment-table { display:table; table-layout:fixed; min-width:0 !important; width:100%; }
   .investment-table th, .investment-table td { padding:8px 5px; font-size:.75rem; overflow-wrap:anywhere; }
-  .daily-items { display:block; overflow-x:auto; white-space:nowrap; min-width:0; }
+  .daily-items { display:block; max-height:260px; overflow:auto; white-space:nowrap; min-width:0; }
   .daily-items th, .daily-items td { padding:8px 7px; font-size:.76rem; }
-  #dailyItemsSection.all-days-view .daily-items { max-height:300px; overflow:auto; }
-  #dailyItemsSection:not(.all-days-view) .daily-items { overflow-x:auto; }
   .monthly-chart-total { font-size:1rem; }
 }
 
