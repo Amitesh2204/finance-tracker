@@ -128,32 +128,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     return new Date(year, monthIndex + 1, 0).getDate();
   }
 
-  // Custom Chart.js plugin to draw totals on top of bars
-  const drawBarTotalsPlugin = {
-    id: 'drawBarTotals',
-    afterDatasetsDraw(chart) {
-      const ctx = chart.ctx;
-      chart.data.datasets.forEach((dataset, dsIndex) => {
-        const meta = chart.getDatasetMeta(dsIndex);
-        const nonZeroIndexes = dataset.data.reduce((indexes, item, index) => item ? indexes.concat(index) : indexes, []);
-        const labelStep = Math.max(1, Math.ceil(nonZeroIndexes.length / 8));
-        meta.data.forEach((bar, index) => {
-          const value = dataset.data[index] || 0;
-          if (value === 0 || nonZeroIndexes.indexOf(index) % labelStep !== 0) return;
-          const x = bar.x;
-          const y = bar.y - 6; // slightly above bar
-          ctx.save();
-          ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--text').trim() || '#17322c';
-          ctx.font = '700 12px Inter, system-ui, Arial';
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'bottom';
-          ctx.fillText(formatINR(value), x, y);
-          ctx.restore();
-        });
-      });
-    }
-  };
-
   function renderDailyChart(selectedMonthYear) {
     const canvas = document.getElementById('monthlyExpenseChart');
     if (!canvas || typeof Chart === 'undefined') return;
@@ -184,13 +158,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     const dataset = {
       label: `Total per day (${selectedMonthYear})`,
       data: totalsByDay,
-      backgroundColor: totalsByDay.map(value => value >= chartTotal * 0.75 ? '#b8322b' : (value >= chartTotal * 0.35 ? '#d97724' : '#2f7fb8')),
-      borderColor: totalsByDay.map(value => value >= chartTotal * 0.75 ? '#8f211d' : (value >= chartTotal * 0.35 ? '#a65318' : '#1e5e91')),
-      borderWidth: 1
+      backgroundColor: 'rgba(47, 127, 184, .14)',
+      borderColor: '#1e5e91',
+      pointBackgroundColor: totalsByDay.map(value => value >= chartTotal * 0.75 ? '#b8322b' : (value >= chartTotal * 0.35 ? '#d97724' : '#2f7fb8')),
+      pointBorderColor: totalsByDay.map(value => value >= chartTotal * 0.75 ? '#8f211d' : (value >= chartTotal * 0.35 ? '#a65318' : '#1e5e91')),
+      pointRadius: 3,
+      pointHoverRadius: 6,
+      borderWidth: 3,
+      fill: true,
+      tension: .25,
+      cubicInterpolationMode: 'monotone'
     };
 
     window.monthlyExpenseChart = new Chart(ctx, {
-      type: 'bar',
+      type: 'line',
       data: {
         labels,
         datasets: [dataset]
@@ -211,7 +192,6 @@ document.addEventListener('DOMContentLoaded', async () => {
           y: { beginAtZero: true, ticks: { color: getComputedStyle(document.documentElement).getPropertyValue('--muted').trim() || '#6d7f79', callback: v => formatINR(v) } }
         }
       },
-      plugins: [drawBarTotalsPlugin]
     });
   }
 
