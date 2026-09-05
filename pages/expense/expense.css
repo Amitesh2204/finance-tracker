@@ -68,6 +68,16 @@
   text-align: left;
   gap: 6px;
 }
+.summary-card-title { display:flex; justify-content:space-between; align-items:baseline; gap:10px; }
+.summary-card-title h3 { min-width:0; }
+.summary-card-title > strong { color:var(--muted); font-size:.8rem; white-space:nowrap; }
+.saving-bank-list { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:6px; margin-top:10px; }
+.saving-bank-list div { min-width:0; padding:6px; border-radius:8px; background:var(--accent-soft); }
+.saving-bank-list span { display:block; color:var(--muted); font-size:.68rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.saving-bank-list strong { display:block; color:var(--accent); font-size:.78rem; overflow-wrap:anywhere; }
+.saving-trend-chart { height:135px; margin-top:10px; position:relative; }
+.saving-trend-chart canvas { width:100% !important; height:100% !important; }
+.category-card select { width:100%; margin:4px 0 6px; padding:8px 10px; border-radius:8px; }
 
 .card h3 {
   color: var(--text);
@@ -151,6 +161,9 @@
 /* Charts */
 /* Add spacing above charts so they don't overlap with top cards */
 .chart.same-size { height:360px; margin-top:22px; position:relative; z-index:1; }
+.daily-chart-layout { display:grid; grid-template-columns:minmax(0, 1fr) minmax(180px, 240px); gap:16px; align-items:start; }
+.daily-chart-canvas { min-width:0; height:100%; position:relative; }
+.daily-chart-canvas canvas { width:100% !important; height:100% !important; }
 
 /* Pie legend */
 .pie-legend-wrap { display:flex; gap:18px; align-items:flex-start; }
@@ -200,10 +213,18 @@
   .summary-cards { grid-template-columns: repeat(3,1fr); gap:12px; }
   .pie-legend-wrap { flex-direction: column; }
   .right-panel { margin-top: 0; }
+  .summary-cards { grid-template-columns:repeat(3, minmax(0, 1fr)); }
+  .daily-chart-layout { grid-template-columns:minmax(0, 1fr) 200px; }
 }
 @media (max-width:600px) {
   .summary-cards { grid-template-columns: 1fr; }
   .chart.same-size { height:300px; }
+  .summary-card { min-height:0; }
+  .saving-trend-chart { height:150px; }
+  .daily-chart-layout { grid-template-columns:1fr; height:auto !important; min-height:420px; }
+  .daily-chart-canvas { height:260px; }
+  .pie-legend-wrap { width:100%; }
+  .pie-legend { width:100%; max-width:none; max-height:150px; }
   .collapsible-header { padding:10px 12px; }
   .collapsible-content { padding:8px 12px; }
   #dailyMonthYearSelect, #yearlyBankSelect, #yearlyExpenseSelect, #expenseYearSelect { min-width: 140px; font-size:0.95rem; padding:8px 10px; }
@@ -211,3 +232,18 @@
 
 /* Right panel offset so charts don't overlap top cards on tall left column */
 .right-panel { margin-top: 162px; }
+
+/* Expense dashboard uses the full content width for its summary row. */
+.expense-layout { display:block; }
+.expense-layout > .left-panel { width:100%; max-width:none; }
+.expense-layout > .left-panel .summary-cards { grid-template-columns:repeat(auto-fit, minmax(190px, 1fr)); }
+.expense-layout > .left-panel #addBalanceCollapsible { max-width:520px; }
+.expense-layout > .right-panel { width:100%; max-width:none; margin-top:24px; }
+.summary-cards .summary-card { min-width:0; }
+
+@media (max-width:600px) {
+  .expense-layout > .left-panel #addBalanceCollapsible { max-width:none; }
+  .expense-layout > .right-panel { margin-top:12px; }
+  .saving-bank-list { gap:4px; }
+  .saving-bank-list div { padding:5px 4px; }
+}
