@@ -455,23 +455,45 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Yearly table rendering with bank filter
   function renderYearlyTable(selectedYear, bankFilter = 'All') {
     const supportedBanks = ['ICICI', 'SBI', 'Bank of Baroda'];
-    // Total Balance is computed per month (not a single constant repeated on
-    // every row): for "All" it's the sum of ICICI + SBI + Bank of Baroda's
-    // balance entries recorded that month; for a single bank it's that
-    // bank's balance entries for that month. Months with no entries
-    // correctly show ₹0.00, same as the Total Expense column already does.
+    const now = new Date();
+    const isCurrentYear = Number(selectedYear) === now.getFullYear();
+    const currentMonthName = monthNames[now.getMonth()];
+
+    // Live top-card totals - only used to override the CURRENT month's row
+    // (the card is an "as of now" figure, so it only makes sense to line up
+    // with the month that's actually happening now).
+    const cardBalances = {
+      ICICI: computeBankTotal('ICICI'),
+      SBI: computeBankTotal('SBI'),
+      'Bank of Baroda': computeBankTotal('Bank of Baroda')
+    };
+    const currentCardTotal = bankFilter === 'All'
+      ? supportedBanks.reduce((sum, bank) => sum + cardBalances[bank], 0)
+      : (cardBalances[bankFilter] || 0);
+
     const rows = monthNames.map(month => {
       const key = `${month}-${selectedYear}`;
       const values = monthlyData[key] || { balance: 0, expense: 0, byBank: {} };
       let balance = 0, expense = 0;
       if (bankFilter === 'All') {
-        balance = supportedBanks.reduce((sum, bank) => sum + (values.byBank?.[bank]?.balance || 0), 0);
         expense = supportedBanks.reduce((sum, bank) => sum + (values.byBank?.[bank]?.expense || 0), 0);
       } else {
         const b = values.byBank && values.byBank[bankFilter];
-        balance = b ? (b.balance || 0) : 0;
         expense = b ? (b.expense || 0) : 0;
       }
+
+      const isThisTheCurrentMonth = isCurrentYear && month === currentMonthName;
+      if (isThisTheCurrentMonth) {
+        // Current month: Total Balance = the top card section directly, not
+        // mixed with any other month's figures.
+        balance = currentCardTotal;
+      } else if (bankFilter === 'All') {
+        balance = supportedBanks.reduce((sum, bank) => sum + (values.byBank?.[bank]?.balance || 0), 0);
+      } else {
+        const b = values.byBank && values.byBank[bankFilter];
+        balance = b ? (b.balance || 0) : 0;
+      }
+
       const saving = (Number(balance) || 0) - (Number(expense) || 0);
       return `
         <tr>
