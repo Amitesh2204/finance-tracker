@@ -96,7 +96,7 @@
 }
 
 .portfolio-period select,
-#oldFundSelect {
+#portfolioFundSelect {
   width: 100%;
   box-sizing: border-box;
   padding: 10px 12px;
@@ -139,13 +139,6 @@
 .fund-value {
   font-weight: 700;
   color: var(--accent);
-}
-
-.history-funds-heading {
-  margin-top: 8px;
-  color: var(--muted);
-  font-size: 0.88rem;
-  font-weight: 600;
 }
 
 .history-fund-details {
