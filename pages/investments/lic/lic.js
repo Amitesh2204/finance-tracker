@@ -85,30 +85,28 @@ document.addEventListener('DOMContentLoaded', async () => {
   function renderTable(period = selectedPeriod(summaryYearSelect, summaryMonthSelect)) {
     if (!tableBody) return;
     const key = periodKey(period);
-    const data = monthlyData[key];
-    if (!data) {
-      tableBody.innerHTML = '<tr><td colspan="6">No data yet</td></tr>';
-      return;
-    }
-    const invested = data.invested || 0;
-    const profit = data.profit || 0;
-    const growthPct = invested > 0 ? ((profit / invested) * 100).toFixed(2) : '0.00';
-    tableBody.innerHTML = `<tr>
+    const data = monthlyData[key] || { policies: {} };
+    const policies = ['Jeevan Lakshya', 'New Jeevan Labh'];
+    tableBody.innerHTML = policies.map(policy => {
+      const policyData = data.policies?.[policy] || { invested: 0, profit: 0 };
+      const growthPct = policyData.invested > 0 ? ((policyData.profit / policyData.invested) * 100).toFixed(2) : '0.00';
+      return `<tr>
         <td>${key}</td>
-        <td>LIC</td>
-        <td>${formatINR(invested)}</td>
-        <td>${formatINR(profit)}</td>
+        <td>LIC ${policy === 'New Jeevan Labh' ? 'New Jeevan Labh Plan' : 'Jeevan Lakshya'}</td>
+        <td>${formatINR(policyData.invested)}</td>
+        <td>${formatINR(policyData.profit)}</td>
         <td>${growthPct}%</td>
         <td>
-          <button type="button" class="edit-entry-btn" data-id="${key}">Edit</button>
-          <button type="button" class="delete-entry-btn" data-id="${key}">Delete</button>
+          <button type="button" class="edit-entry-btn" data-id="${key}" data-policy="${policy}">Edit</button>
+          <button type="button" class="delete-entry-btn" data-id="${key}" data-policy="${policy}">Delete</button>
         </td>
       </tr>`;
+    }).join('');
 
     tableBody.querySelectorAll('.delete-entry-btn').forEach(btn => {
       btn.addEventListener('click', async () => {
         const key = btn.dataset.id;
-        const doc = allEntries.find(e => `${new Date(e.date).toLocaleString('default', { month: 'short' })}-${new Date(e.date).getFullYear()}` === key);
+        const doc = allEntries.find(e => `${new Date(e.date).toLocaleString('default', { month: 'short' })}-${new Date(e.date).getFullYear()}` === key && getPolicyName(e) === btn.dataset.policy);
         if (!doc || !confirm('Delete this LIC entry?')) return;
         await window.deleteEntry(doc._id);
         await loadEntries();
@@ -118,7 +116,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     tableBody.querySelectorAll('.edit-entry-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         const key = btn.dataset.id;
-        const doc = allEntries.find(e => `${new Date(e.date).toLocaleString('default', { month: 'short' })}-${new Date(e.date).getFullYear()}` === key);
+        const doc = allEntries.find(e => `${new Date(e.date).toLocaleString('default', { month: 'short' })}-${new Date(e.date).getFullYear()}` === key && getPolicyName(e) === btn.dataset.policy);
         if (!doc) return;
         const policyField = document.getElementById('policyName');
         const amountField = document.getElementById('licAmount');
@@ -195,17 +193,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (window.policyChart && typeof window.policyChart.destroy === 'function') {
       window.policyChart.destroy();
     }
-    const years = [...new Set(entries.map(e => new Date(e.date).getFullYear()).filter(Number.isFinite))].sort((a, b) => a - b);
+    const years = [...new Set(Object.keys(monthlyData).map(key => Number(key.split('-')[1])).filter(Number.isFinite))].sort((a, b) => a - b);
     const startYear = years[0] || 2022;
     const endYear = new Date().getFullYear();
     const labels = Array.from({ length: endYear - startYear + 1 }, (_, index) => startYear + index);
     const totals = { 'Jeevan Lakshya': 0, 'New Jeevan Labh': 0 };
     const data = labels.map(year => {
-      entries.forEach(e => {
-        const date = new Date(e.date);
-        if (e.category !== 'LIC' || date.getFullYear() !== year || e.subtype === 'profit') return;
-        const policy = getPolicyName(e);
-        if (totals[policy] !== undefined) totals[policy] += Number(e.amount) || 0;
+      Object.entries(monthlyData).forEach(([key, monthData]) => {
+        if (Number(key.split('-')[1]) !== year) return;
+        Object.keys(totals).forEach(policy => {
+          totals[policy] += monthData.policies?.[policy]?.invested || 0;
+        });
       });
       return { lakshya: totals['Jeevan Lakshya'], labh: totals['New Jeevan Labh'] };
     });
@@ -289,13 +287,20 @@ document.addEventListener('DOMContentLoaded', async () => {
       const month = d.toLocaleString('default', { month: 'short' });
       const year = d.getFullYear();
       const key = `${month}-${year}`;
-      monthlyData[key] = monthlyData[key] || { invested: 0, profit: 0 };
+      monthlyData[key] = monthlyData[key] || { invested: 0, profit: 0, policies: {
+        'Jeevan Lakshya': { invested: 0, profit: 0 },
+        'New Jeevan Labh': { invested: 0, profit: 0 }
+      } };
+      const policy = getPolicyName(e);
+      const policyData = monthlyData[key].policies[policy];
       if (e.subtype === 'profit') {
         monthlyData[key].profit += Number(e.amount) || 0;
         totalGrowth += Number(e.amount) || 0;
+        if (policyData) policyData.profit += Number(e.amount) || 0;
       } else {
         monthlyData[key].invested += Number(e.amount) || 0;
         totalInvested += Number(e.amount) || 0;
+        if (policyData) policyData.invested += Number(e.amount) || 0;
       }
     });
 
