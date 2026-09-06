@@ -8,7 +8,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const monthYearSelect = document.getElementById('monthYearSelect');
   const summaryYearSelect = document.getElementById('summaryYearSelect');
   const summaryMonthSelect = document.getElementById('summaryMonthSelect');
-  const oldFundSelect = document.getElementById('oldFundSelect');
+  const portfolioFundSelect = document.getElementById('portfolioFundSelect');
   const portfolioYearSelect = document.getElementById('portfolioYearSelect');
   const portfolioMonthSelect = document.getElementById('portfolioMonthSelect');
   const historyFundDetails = document.getElementById('historyFundDetails');
@@ -16,6 +16,19 @@ document.addEventListener('DOMContentLoaded', async () => {
   let totalInvested = 0;
   let totalGrowth = 0;
   let monthlyData = {}; // { "Jul-2026": { invested: X, profit: Y } }
+
+  const fundAliases = [
+    ['Abakkus Small Cap Fund (G)', ['abakkus small cap fund', 'abakkus']],
+    ['Edelweiss Aggressive Hybrid Fund (G)', ['edelweiss aggressive hybrid fund', 'edelweiss']],
+    ['Groww Multi Cap Fund Reg (G)', ['groww multi cap fund', 'groww']],
+    ['The Wealth Company Flexi Cap Fund Reg (G)', ['the wealth company flexi cap fund', 'wealthco', 'wealth company']],
+    ['WhiteOak Capital Large & Mid Cap Fund Reg (G)', ['whiteoak capital large', 'whiteoak']],
+    ['Canara Robeco Equity Taxsaver Fund Reg (G)', ['canara robeco equity taxsaver']],
+    ['Sundaram Tax Savings Fund Reg (G)', ['sundaram tax savings fund']],
+    ['Bajaj Finserv Small Cap Fund (G)', ['bajaj finserv small cap fund', 'bajaj']],
+    ['JM Large & Mid Cap Fund Reg (G)', ['jm large', 'jm']],
+    ['360 ONE Multi Asset Allocation Fund (G)', ['360 one', '360one']]
+  ];
 
   function formatINR(amount) {
     return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(amount);
@@ -39,11 +52,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   function getFundName(entry) {
-    if (entry.fund && !String(entry.fund).startsWith('Yearly Total')) return String(entry.fund);
-    const source = `${entry.fund || ''} ${entry.notes || ''}`;
-    const match = ['WhiteOak', 'Bajaj', 'WealthCo', 'Groww', 'JM', 'Abakkus', 'Edelweiss', '360 ONE', '360One']
-      .find(name => source.toLowerCase().includes(name.toLowerCase()));
-    return match || String(entry.fund || 'Mutual Fund');
+    if (String(entry.fund || '').startsWith('Yearly Total')) return 'Mutual Fund';
+    const source = `${entry.fund || ''} ${entry.notes || ''}`.toLowerCase();
+    const match = fundAliases.find(([, aliases]) => aliases.some(alias => source.includes(alias)));
+    return match ? match[0] : String(entry.fund || 'Mutual Fund');
   }
 
   function monthStart(year, month) {
@@ -169,51 +181,38 @@ document.addEventListener('DOMContentLoaded', async () => {
   
     // --- Portfolio rendering ---
   function updatePortfolio(entries, selectedDate = new Date()) {
-    const fundValues = {
-      WhiteOak: 0, Bajaj: 0, WealthCo: 0, Groww: 0, JM: 0, Abakkus: 0,
-      Edelweiss: 0, "360One": 0
-    };
+    const fundValues = {};
 
     entries.forEach(e => {
       if (typeof window.isMutualFundEntry === 'function' ? window.isMutualFundEntry(e) : (e?.type === 'investment' && String(e?.category || '').toLowerCase().includes('mutual'))) {
         if (new Date(e.date) > selectedDate || classify(e) === 'profit' || classify(e) === 'yearly-total') return;
-        const fund = getFundName(e).toLowerCase();
-        const key = Object.keys(fundValues).find(name => fund.includes(name.toLowerCase()) || (name === 'WealthCo' && fund.includes('wealth')) || (name === '360One' && fund.includes('360 one')));
-        if (!key) return;
+        const key = getFundName(e);
+        if (key === 'Mutual Fund') return;
         const signedAmount = (classify(e) === 'sell' ? -1 : 1) * (Number(e.amount) || 0);
-        fundValues[key] += signedAmount;
+        fundValues[key] = (fundValues[key] || 0) + signedAmount;
       }
     });
 
-    const historyFunds = {};
     entries.forEach(e => {
       if (classify(e) === 'profit' || classify(e) === 'yearly-total' || new Date(e.date) > selectedDate) return;
       const name = getFundName(e);
       if (!name || name === 'Mutual Fund') return;
-      const amount = (classify(e) === 'sell' ? -1 : 1) * (Number(e.amount) || 0);
-      historyFunds[name] = (historyFunds[name] || 0) + amount;
+      if (fundValues[name] === undefined) fundValues[name] = 0;
     });
     if (historyFundDetails) {
-      historyFundDetails.innerHTML = Object.entries(historyFunds)
+      historyFundDetails.innerHTML = Object.entries(fundValues)
         .filter(([, amount]) => amount !== 0)
         .sort(([a], [b]) => a.localeCompare(b))
         .map(([name, amount]) => `<li><span>${escapeHtml(name)}</span><span class="fund-value">${formatINR(amount)}</span></li>`)
         .join('') || '<li>No fund transactions for this period</li>';
     }
 
-    if (oldFundSelect) {
-      const historyNames = entries.map(getFundName).filter(name => name && name !== 'Mutual Fund' && !name.startsWith('Yearly Total'));
-      const oldNames = [...new Set(Object.keys(fundValues).concat(historyNames))];
-      const currentValue = oldFundSelect.value || 'all';
-      oldFundSelect.innerHTML = '<option value="all">All old funds</option>' + oldNames.map(name => `<option value="${name}">${name}</option>`).join('');
-      if (currentValue !== 'all' && Array.from(oldFundSelect.options).some(opt => opt.value === currentValue)) oldFundSelect.value = currentValue;
-      else oldFundSelect.value = 'all';
+    if (portfolioFundSelect) {
+      const currentValue = portfolioFundSelect.value || 'all';
+      const names = [...new Set(Object.keys(fundValues).concat(fundAliases.map(([name]) => name)))].sort();
+      portfolioFundSelect.innerHTML = '<option value="all">All funds</option>' + names.map(name => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join('');
+      portfolioFundSelect.value = names.includes(currentValue) ? currentValue : 'all';
     }
-
-    Object.keys(fundValues).forEach(key => {
-      const span = document.querySelector(`.fund-value[data-fund="${key}"]`);
-      if (span) span.textContent = fundValues[key] > 0 ? formatINR(fundValues[key]) : "₹0.00";
-    });
   }
 
   // --- Portfolio chart rendering ---
@@ -373,7 +372,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     renderChart(mfEntries);
     populatePortfolioPeriod(mfEntries);
     updatePortfolio(mfEntries, selectedPortfolioDate());
-    renderPortfolioChart(mfEntries, selectedPortfolioDate(), oldFundSelect ? oldFundSelect.value || 'all' : 'all');
+    renderPortfolioChart(mfEntries, selectedPortfolioDate(), portfolioFundSelect ? portfolioFundSelect.value || 'all' : 'all');
   }
 
   // Note: the "Add Monthly Investment" and "Update Monthly Profit" forms were
@@ -425,7 +424,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     window.fetchEntries().then(entries => {
       const mfEntries = entries.filter(entry => typeof window.isMutualFundEntry === 'function' ? window.isMutualFundEntry(entry) : (entry?.type === 'investment' && String(entry?.category || '').toLowerCase().includes('mutual')));
       updatePortfolio(mfEntries, selectedDate);
-      renderPortfolioChart(mfEntries, selectedDate, oldFundSelect ? oldFundSelect.value || 'all' : 'all');
+      renderPortfolioChart(mfEntries, selectedDate, portfolioFundSelect ? portfolioFundSelect.value || 'all' : 'all');
     });
   }
 
@@ -436,13 +435,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     portfolioMonthSelect.addEventListener('change', refreshPortfolio);
   }
 
-  /* Keep old fund filtering intact while using the same selected period. */
-  if (oldFundSelect) {
-    oldFundSelect.addEventListener('change', () => {
+  if (portfolioFundSelect) {
+    portfolioFundSelect.addEventListener('change', () => {
       window.fetchEntries().then(entries => {
         const mfEntries = entries.filter(entry => typeof window.isMutualFundEntry === 'function' ? window.isMutualFundEntry(entry) : (entry?.type === 'investment' && String(entry?.category || '').toLowerCase().includes('mutual')));
         updatePortfolio(mfEntries, selectedPortfolioDate());
-        renderPortfolioChart(mfEntries, selectedPortfolioDate(), oldFundSelect.value || 'all');
+        renderPortfolioChart(mfEntries, selectedPortfolioDate(), portfolioFundSelect.value || 'all');
       });
     });
   }
