@@ -965,11 +965,16 @@
       if (!ctx) return;
 
       const totals = getMonthlyBankTotals(entries, year, month);
-      // Balance slice must use THIS month's balance entries (same figures as
-      // the Expense page's Yearly Summary "Total Balance" column) - not the
-      // all-time net total, which stays the same no matter which month is
-      // selected and was why every period looked identical to "now".
-      const balanceValues = HOME_BANKS.map(bank => totals[bank].balance);
+      const now = new Date();
+      const isCurrentMonth = Number(year) === now.getFullYear() && Number(month) === now.getMonth();
+      // Balance slice: for the CURRENT month, mirror the Expense page's
+      // Yearly Summary (which shows the live top-card totals for "now");
+      // for any other month, use that month's own balance entries - same as
+      // the Expense page's per-month rows.
+      const expenseTotals = isCurrentMonth ? getExpenseTotals(entries) : null;
+      const balanceValues = isCurrentMonth
+        ? [expenseTotals.iciciNet, expenseTotals.sbiNet, expenseTotals.bobNet]
+        : HOME_BANKS.map(bank => totals[bank].balance);
       const expenseValues = HOME_BANKS.map(bank => totals[bank].expense);
       const values = [...balanceValues, ...expenseValues];
       const labels = HOME_BANKS.map(bank => `${bank} balance`).concat(HOME_BANKS.map(bank => `${bank} expense`));
@@ -1009,7 +1014,13 @@
     const m = targetDate.getMonth();
     const d = targetDate.getDate();
 
+    // Last Transaction reflects only the Expense sub-pages (Monthly Expense
+    // and Trip Expense). Investment sub-page entries (Mutual Fund, LIC, PPF,
+    // Sukanya Yojana) and "Add Total Balance" deposits are intentionally
+    // excluded here.
     const filtered = (entries || []).filter(e => {
+      const type = String(e.type || '').toLowerCase();
+      if (type !== 'expense' && type !== 'trip') return false;
       const ed = parseLocalDate(e.date);
       if (Number.isNaN(ed.getTime())) return false;
       return ed.getFullYear() === y && ed.getMonth() === m && ed.getDate() === d;
