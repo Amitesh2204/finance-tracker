@@ -1007,7 +1007,7 @@
 
     const targetDate = dateISO ? parseLocalDate(dateISO) : new Date();
     if (Number.isNaN(targetDate.getTime())) {
-      txTable.innerHTML = '<tr><td colspan="4">Invalid date</td></tr>';
+      txTable.innerHTML = '<thead><tr><th>Name</th><th>Category</th><th>Bank</th><th>Date</th><th>Amount</th><th>Payment Type</th></tr></thead><tbody><tr><td colspan="6">Invalid date</td></tr></tbody>';
       return;
     }
     const y = targetDate.getFullYear();
@@ -1026,20 +1026,28 @@
       return ed.getFullYear() === y && ed.getMonth() === m && ed.getDate() === d;
     }).sort((a,b) => new Date(b.date) - new Date(a.date));
 
+    const THEAD = '<thead><tr><th>Name</th><th>Category</th><th>Bank</th><th>Date</th><th>Amount</th><th>Payment Type</th></tr></thead>';
+
     if (!filtered.length) {
-      txTable.innerHTML = '<tr><td colspan="4">No transactions</td></tr>';
+      txTable.innerHTML = `${THEAD}<tbody><tr><td colspan="6">No transactions</td></tr></tbody>`;
       return;
     }
 
-    txTable.innerHTML = filtered.map(entry => {
+    const rows = filtered.map(entry => {
       const amount = Number(entry.amount) || 0;
-      const source = getTransactionSource(entry);
-      const description = getTransactionDescription(entry);
       const sign = amount < 0 ? '-' : '';
       const type = String(entry.type || '').toLowerCase();
-      const rowClass = type === 'balance' || type === 'income' ? 'transaction-income' : (type === 'expense' || type === 'trip' ? 'transaction-expense' : 'transaction-neutral');
-      return `<tr class="${rowClass}"><td>${escapeHtml(source)}</td><td>${formatTransactionDate(entry.date)}</td><td>${sign}${formatCurrency(Math.abs(amount))}</td><td>${escapeHtml(description)}</td></tr>`;
+      const rowClass = type === 'trip' ? 'transaction-expense' : 'transaction-neutral';
+      // Same fields the Monthly Expense "Daily Purchases" table uses:
+      // name, category, bank, date, amount, payment method.
+      const name = entry.name || entry.category || 'Item';
+      const category = entry.category || (type === 'trip' ? 'Trip' : '—');
+      const bank = entry.bank || '—';
+      const paymentType = entry.paymentMethod || entry.payment || '—';
+      return `<tr class="${rowClass}"><td>${escapeHtml(name)}</td><td>${escapeHtml(category)}</td><td>${escapeHtml(bank)}</td><td>${formatTransactionDate(entry.date)}</td><td>${sign}${formatCurrency(Math.abs(amount))}</td><td>${escapeHtml(paymentType)}</td></tr>`;
     }).join('');
+
+    txTable.innerHTML = `${THEAD}<tbody>${rows}</tbody>`;
   }
 
   function getTransactionSource(entry) {
@@ -1256,30 +1264,6 @@
       await loadFinancialStats(cached);
       initSelectorsAndUI(cached);
     }
-  });
-
-  // --- DOMContentLoaded: render a short preview of last transactions ---
-  document.addEventListener('DOMContentLoaded', async () => {
-    initTheme();
-    const txTable = getElementByAnyId('lastTx');
-    if (!txTable) return;
-    const entries = Array.isArray(window.__LAST_ENTRIES__) ? window.__LAST_ENTRIES__ : await fetchEntries().catch(() => []);
-    if (!entries || !entries.length) {
-      txTable.innerHTML = '<tr><td colspan="4">No transactions</td></tr>';
-      return;
-    }
-    const preview = entries
-      .filter(e => ['balance','expense','trip','investment','saving'].includes(normalizeEntryType(e)) || isInvestmentEntry(e))
-      .sort((a,b) => parseLocalDate(b.date) - parseLocalDate(a.date))
-      .slice(0, 6)
-      .map(entry => {
-        const amount = Number(entry.amount) || 0;
-        const source = getTransactionSource(entry);
-        const description = getTransactionDescription(entry);
-        const sign = amount < 0 ? '-' : '';
-        return `<tr><td>${escapeHtml(source)}</td><td>${formatTransactionDate(entry.date)}</td><td>${sign}${formatCurrency(Math.abs(amount))}</td><td>${escapeHtml(description)}</td></tr>`;
-      }).join('');
-    txTable.innerHTML = preview;
   });
 
   // Expose for debugging
