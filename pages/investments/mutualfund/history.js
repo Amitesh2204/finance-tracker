@@ -1,6 +1,6 @@
 // history.js - Mutual Fund old-data / history sub-page (final fixes)
 // - Ensures the Yearly Growth chart shows each year on the x-axis
-// - Displays side-by-side bars per year for Total Invested and Total Growth
+// - Displays cumulative bought, sold, and growth line series
 // - Clarifies yearly-total behavior: yearly total = invested amount only (profit recorded separately)
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -16,14 +16,23 @@ document.addEventListener('DOMContentLoaded', async () => {
   const cancelEditBtn = document.getElementById('historyCancelEdit');
   const editingIdInput = document.getElementById('historyEditingId');
   const submitBtn = document.getElementById('historySubmitBtn');
+  const typeEl = document.getElementById('historyType');
+  const amountEl = document.getElementById('historyAmount');
+  const dateEl = document.getElementById('historyDate');
+  const notesEl = document.getElementById('historyNotes');
 
   // Elements for custom fund support and yearly controls
   const fundSelect = document.getElementById('historyFund');
+  const fundUserSelect = document.getElementById('historyFundUser');
   const customFundInput = document.getElementById('customFundInput');
   const yearlyToggle = document.getElementById('historyYearlyToggle');
   const yearInput = document.getElementById('historyYearInput');
   const yearAmountInput = document.getElementById('historyYearAmount');
   const bulkTextarea = document.getElementById('historyYearlyBulk');
+
+  function getFundUser(entry) {
+    return entry.fundUser ? String(entry.fundUser) : 'Amitesh';
+  }
 
   function formatINR(amount) {
     return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(Number(amount) || 0);
@@ -88,7 +97,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (!tableBody) return;
 
     if (filtered.length === 0) {
-      tableBody.innerHTML = '<tr><td colspan="6">No transactions yet</td></tr>';
+      tableBody.innerHTML = '<tr><td colspan="7">No transactions yet</td></tr>';
       return;
     }
 
@@ -96,11 +105,13 @@ document.addEventListener('DOMContentLoaded', async () => {
       const kind = classify(e);
       const label = kind === 'profit' ? 'Profit' : kind === 'sell' ? 'Sell' : kind === 'yearly-total' ? 'Yearly Total' : 'Buy';
       const fund = e.fund || (e.notes && e.notes.split(' —')[0].replace(/\s(buy|sell|profit)$/i, '')) || e.category || 'Mutual Fund';
+      const fundUser = getFundUser(e);
       const dateStr = new Date(e.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
       return `
         <tr data-id="${e._id || e.id || ''}">
           <td>${dateStr}</td>
           <td>${escapeHtml(String(fund || '—'))}</td>
+          <td>${escapeHtml(fundUser)}</td>
           <td><span class="tx-type tx-type--${kind === 'yearly-total' ? 'buy' : kind}">${label}</span></td>
           <td>${formatINR(e.amount)}</td>
           <td>${escapeHtml(e.notes || '—')}</td>
@@ -130,6 +141,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const entry = allEntries.find(item => (item._id || item.id) === id);
         if (!entry) return;
         if (fundSelect) fundSelect.value = entry.fund || 'Other';
+        if (fundUserSelect) fundUserSelect.value = getFundUser(entry);
         if (customFundInput && fundSelect && fundSelect.value === 'Other') customFundInput.value = entry.fund || '';
         if (yearlyToggle) yearlyToggle.checked = classify(entry) === 'yearly-total';
         if (typeEl) typeEl.value = classify(entry) === 'profit' ? 'profit' : classify(entry) === 'sell' ? 'sell' : 'buy';
@@ -148,60 +160,70 @@ document.addEventListener('DOMContentLoaded', async () => {
     const canvas = document.getElementById('yearlyGrowthChart');
     if (!canvas || typeof Chart === 'undefined') return;
 
-    // Collect years from entries and ensure a continuous range from min(2017, earliest) to current year
-    const yearsSet = new Set();
-    entries.forEach(e => {
-      const y = new Date(e.date).getFullYear();
-      if (!Number.isNaN(y)) yearsSet.add(y);
-    });
-    const yearsArr = Array.from(yearsSet).sort((a, b) => a - b);
-    const nowYear = new Date().getFullYear();
-    const startYear = Math.min(2017, ...(yearsArr.length ? yearsArr : [nowYear]));
-    const endYear = Math.max(nowYear, ...(yearsArr.length ? yearsArr : [nowYear]));
-    const labels = [];
-    for (let y = startYear; y <= endYear; y++) labels.push(String(y));
+    const start = new Date(2017, 6, 1);
+    const now = new Date();
+    const end = new Date(now.getFullYear(), now.getMonth(), 1);
+    const months = [];
+    for (let cursor = new Date(start); cursor <= end; cursor.setMonth(cursor.getMonth() + 1)) {
+      months.push(new Date(cursor));
+    }
 
-    // For each year compute:
-    // - investedByYear: sum of buys + yearly-total entries that map to that year
-    // - growthByYear: sum of profit entries in that year
-    const investedByYear = labels.map(y => {
-      const yearNum = Number(y);
-      return entries
-        .filter(e => new Date(e.date).getFullYear() === yearNum && (classify(e) === 'buy' || classify(e) === 'yearly-total'))
-        .reduce((s, e) => s + (Number(e.amount) || 0), 0);
-    });
-
-    const growthByYear = labels.map(y => {
-      const yearNum = Number(y);
-      return entries
-        .filter(e => new Date(e.date).getFullYear() === yearNum && classify(e) === 'profit')
-        .reduce((s, e) => s + (Number(e.amount) || 0), 0);
+    const labels = months.map(date => date.toLocaleDateString('en-IN', { month: 'short', year: 'numeric' }));
+    let boughtTotal = 0;
+    let soldTotal = 0;
+    let growthTotal = 0;
+    const totals = months.map(month => {
+      entries.forEach(entry => {
+        const date = new Date(entry.date);
+        if (date.getFullYear() !== month.getFullYear() || date.getMonth() !== month.getMonth()) return;
+        const amount = Number(entry.amount) || 0;
+        const kind = classify(entry);
+        if (kind === 'profit') growthTotal += amount;
+        else if (kind === 'sell') soldTotal += amount;
+        else boughtTotal += amount;
+      });
+      return { bought: boughtTotal, sold: soldTotal, growth: growthTotal };
     });
 
-    // Ensure labels are shown on x-axis and bars are side-by-side
     const ctx = canvas.getContext('2d');
     if (window.historyYearlyChart && typeof window.historyYearlyChart.destroy === 'function') {
       window.historyYearlyChart.destroy();
     }
 
     window.historyYearlyChart = new Chart(ctx, {
-      type: 'bar',
+      type: 'line',
       data: {
         labels,
         datasets: [
           {
-            label: 'Total Invested (year)',
-            data: investedByYear,
-            backgroundColor: '#1abc9c',
-            categoryPercentage: 0.6,
-            barPercentage: 0.45
+            label: 'Total Bought',
+            data: totals.map(item => item.bought),
+            borderColor: '#1abc9c',
+            backgroundColor: 'rgba(26,188,156,0.12)',
+            tension: 0.25,
+            pointRadius: 0,
+            pointHitRadius: 12,
+            fill: false
           },
           {
-            label: 'Total Growth (year)',
-            data: growthByYear,
-            backgroundColor: '#3498db',
-            categoryPercentage: 0.6,
-            barPercentage: 0.45
+            label: 'Total Sold',
+            data: totals.map(item => item.sold),
+            borderColor: '#e74c3c',
+            backgroundColor: 'rgba(231,76,60,0.12)',
+            tension: 0.25,
+            pointRadius: 0,
+            pointHitRadius: 12,
+            fill: false
+          },
+          {
+            label: 'Total Growth',
+            data: totals.map(item => item.growth),
+            borderColor: '#3498db',
+            backgroundColor: 'rgba(52,152,219,0.12)',
+            tension: 0.25,
+            pointRadius: 0,
+            pointHitRadius: 12,
+            fill: false
           }
         ]
       },
@@ -220,7 +242,8 @@ document.addEventListener('DOMContentLoaded', async () => {
           x: {
             stacked: false,
             ticks: {
-              autoSkip: false,
+              autoSkip: true,
+              maxTicksLimit: 12,
               maxRotation: 0,
               minRotation: 0
             }
@@ -279,6 +302,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const rows = entries.map(e => ({
       'TXN DATE': new Date(e.date).toISOString().slice(0, 10),
       'SCHEME NAME': e.fund || e.notes || 'Mutual Fund',
+      'FUND USER': getFundUser(e),
       'AMOUNT': Number(e.amount) || 0,
       'BANK': e.bank || e.notes || 'N/A'
     }));
@@ -310,6 +334,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         for (const row of validation.validRows) {
           const scheme = row.raw['SCHEME NAME'] || row.raw['Scheme Name'] || row.raw['SCHEME'] || row.raw['Fund Name'] || 'Mutual Fund';
+          const fundUser = row.raw['FUND USER'] || row.raw['Fund User'] || 'Amitesh';
           const entry = {
             type: 'saving',
             category: 'Mutual Fund',
@@ -318,6 +343,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             currency: 'INR',
             date: row.date,
             fund: String(scheme),
+            fundUser: String(fundUser),
             bank: String(row.bank || 'N/A'),
             notes: `Imported from Excel - ${String(scheme)}`
           };
@@ -383,7 +409,8 @@ document.addEventListener('DOMContentLoaded', async () => {
           date: new Date(dateVal).toISOString(),
           fund: fundName,
           notes: notesInput || `Mutual Fund ${type}`,
-          bank: 'N/A'
+          bank: 'N/A',
+          fundUser: fundUserSelect ? fundUserSelect.value : 'Amitesh'
         };
         await window.updateEntry(editingId, payload);
         form.reset();
@@ -422,6 +449,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             currency: 'INR',
             date: new Date(p.year, 0, 1).toISOString(),
             fund: `Yearly Total (${p.year})`,
+            fundUser: fundUserSelect ? fundUserSelect.value : 'Amitesh',
             notes: `Yearly total for ${p.year}`
           };
           await addEntryObject(entry);
@@ -450,6 +478,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           currency: 'INR',
           date: new Date(yr, 0, 1).toISOString(),
           fund: `Yearly Total (${yr})`,
+          fundUser: fundUserSelect ? fundUserSelect.value : 'Amitesh',
           notes: `Yearly total for ${yr}`
         };
         await addEntryObject(entry);
@@ -477,6 +506,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         currency: 'INR',
         date: new Date(dateVal).toISOString(),
         fund: fundName,
+        fundUser: fundUserSelect ? fundUserSelect.value : 'Amitesh',
         notes
       };
 
