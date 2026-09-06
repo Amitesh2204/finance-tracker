@@ -9,6 +9,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   const summaryYearSelect = document.getElementById('summaryYearSelect');
   const summaryMonthSelect = document.getElementById('summaryMonthSelect');
   const oldFundSelect = document.getElementById('oldFundSelect');
+  const portfolioYearSelect = document.getElementById('portfolioYearSelect');
+  const portfolioMonthSelect = document.getElementById('portfolioMonthSelect');
+  const historyFundDetails = document.getElementById('historyFundDetails');
 
   let totalInvested = 0;
   let totalGrowth = 0;
@@ -18,9 +21,42 @@ document.addEventListener('DOMContentLoaded', async () => {
     return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(amount);
   }
 
+  function escapeHtml(value) {
+    return String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+  }
+
   function updateCards() {
     investedCard.textContent = formatINR(totalInvested);
     growthCard.textContent = formatINR(totalGrowth);
+  }
+
+  function classify(entry) {
+    const notes = String(entry.notes || '').toLowerCase();
+    if (entry.subtype === 'profit' || notes.includes('profit')) return 'profit';
+    if (entry.subtype === 'sell' || notes.includes(' sell') || notes.includes('sold')) return 'sell';
+    if (entry.subtype === 'yearly-total' || notes.includes('yearly total') || notes.includes('year total')) return 'yearly-total';
+    return 'buy';
+  }
+
+  function getFundName(entry) {
+    if (entry.fund && !String(entry.fund).startsWith('Yearly Total')) return String(entry.fund);
+    const source = `${entry.fund || ''} ${entry.notes || ''}`;
+    const match = ['WhiteOak', 'Bajaj', 'WealthCo', 'Groww', 'JM', 'Abakkus', 'Edelweiss', '360 ONE', '360One']
+      .find(name => source.toLowerCase().includes(name.toLowerCase()));
+    return match || String(entry.fund || 'Mutual Fund');
+  }
+
+  function monthStart(year, month) {
+    return new Date(Number(year), Number(month), 1);
+  }
+
+  function timeline() {
+    const start = new Date(2017, 6, 1);
+    const now = new Date();
+    const end = new Date(now.getFullYear(), now.getMonth(), 1);
+    const months = [];
+    for (let cursor = new Date(start); cursor <= end; cursor.setMonth(cursor.getMonth() + 1)) months.push(new Date(cursor));
+    return months;
   }
 
   function populateMonthYearDropdown() {
@@ -93,44 +129,21 @@ document.addEventListener('DOMContentLoaded', async () => {
       window.mfChart.destroy();
     }
 
-    const years = mfEntries
-      .map(e => new Date(e.date).getFullYear())
-      .filter(y => !Number.isNaN(y));
-    const nowYear = new Date().getFullYear();
-    const startYear = years.length ? Math.min(...years) : nowYear;
-    const endYear = Math.max(nowYear, ...(years.length ? years : [nowYear]));
-    const labels = [];
-    for (let y = startYear; y <= endYear; y++) labels.push(String(y));
-
-    function classify(e) {
-      const notes = String(e.notes || '').toLowerCase();
-      if (e.subtype === 'profit' || notes.includes('profit')) return 'profit';
-      if (e.subtype === 'sell' || notes.includes(' sell') || notes.includes('sold')) return 'sell';
-      if (e.subtype === 'yearly-total' || notes.includes('yearly total') || notes.includes('year total')) return 'yearly-total';
-      return 'buy';
-    }
-
-    const investedByYear = labels.map(y => {
-      const yearNum = Number(y);
-      return mfEntries
-        .filter(e => new Date(e.date).getFullYear() === yearNum)
-        .reduce((sum, e) => {
-          const kind = classify(e);
-          if (kind === 'profit') return sum;
-          const amount = Number(e.amount) || 0;
-          if (kind === 'sell') return sum - amount;
-          return sum + amount;
-        }, 0);
-    });
-
-    const growthByYear = labels.map(y => {
-      const yearNum = Number(y);
-      return mfEntries
-        .filter(e => new Date(e.date).getFullYear() === yearNum)
-        .reduce((sum, e) => {
-          const kind = classify(e);
-          return kind === 'profit' ? sum + (Number(e.amount) || 0) : sum;
-        }, 0);
+    const months = timeline();
+    const labels = months.map(date => date.toLocaleDateString('en-IN', { month: 'short', year: 'numeric' }));
+    let investedTotal = 0;
+    let growthTotal = 0;
+    const totals = months.map(month => {
+      mfEntries.forEach(entry => {
+        const date = new Date(entry.date);
+        if (date.getFullYear() !== month.getFullYear() || date.getMonth() !== month.getMonth()) return;
+        const amount = Number(entry.amount) || 0;
+        const kind = classify(entry);
+        if (kind === 'profit') growthTotal += amount;
+        else if (kind === 'sell') investedTotal -= amount;
+        else investedTotal += amount;
+      });
+      return { invested: investedTotal, growth: growthTotal };
     });
 
     window.mfChart = new Chart(ctx, {
@@ -138,8 +151,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       data: {
         labels,
         datasets: [
-          { label: 'Total Investment', data: investedByYear, borderColor: '#1abc9c', backgroundColor: 'rgba(26,188,156,0.15)', fill: false, tension: 0.3 },
-          { label: 'Profit', data: growthByYear, borderColor: '#3498db', backgroundColor: 'rgba(52,152,219,0.15)', fill: false, tension: 0.3 }
+          { label: 'Total Invested', data: totals.map(item => item.invested), borderColor: '#1abc9c', backgroundColor: 'rgba(26,188,156,0.15)', fill: false, tension: 0.25, pointRadius: 0, pointHitRadius: 12 },
+          { label: 'Total Growth', data: totals.map(item => item.growth), borderColor: '#3498db', backgroundColor: 'rgba(52,152,219,0.15)', fill: false, tension: 0.25, pointRadius: 0, pointHitRadius: 12 }
         ]
       },
       options: {
@@ -147,7 +160,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         maintainAspectRatio: false,
         plugins: { legend: { position: 'top' } },
         scales: {
-          x: { ticks: { autoSkip: false, maxRotation: 0 } },
+          x: { ticks: { autoSkip: true, maxTicksLimit: 12, maxRotation: 0 } },
           y: { beginAtZero: true }
         }
       }
@@ -155,7 +168,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
   
     // --- Portfolio rendering ---
-  function updatePortfolio(entries) {
+  function updatePortfolio(entries, selectedDate = new Date()) {
     const fundValues = {
       WhiteOak: 0, Bajaj: 0, WealthCo: 0, Groww: 0, JM: 0, Abakkus: 0,
       Edelweiss: 0, "360One": 0
@@ -163,22 +176,34 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     entries.forEach(e => {
       if (typeof window.isMutualFundEntry === 'function' ? window.isMutualFundEntry(e) : (e?.type === 'investment' && String(e?.category || '').toLowerCase().includes('mutual'))) {
-        const notes = String(e.notes || '').toLowerCase();
-        const isSell = e.subtype === 'sell' || notes.includes(' sell') || notes.includes('sold');
-        const signedAmount = (isSell ? -1 : 1) * (Number(e.amount) || 0);
-        if (e.notes?.includes("WhiteOak")) fundValues.WhiteOak += signedAmount;
-        if (e.notes?.includes("Bajaj")) fundValues.Bajaj += signedAmount;
-        if (e.notes?.includes("Wealth")) fundValues.WealthCo += signedAmount;
-        if (e.notes?.includes("Groww")) fundValues.Groww += signedAmount;
-        if (e.notes?.includes("JM")) fundValues.JM += signedAmount;
-        if (e.notes?.includes("Abakkus")) fundValues.Abakkus += signedAmount;
-        if (e.notes?.includes("Edelweiss")) fundValues.Edelweiss += signedAmount;
-        if (e.notes?.includes("360 ONE")) fundValues["360One"] += signedAmount;
+        if (new Date(e.date) > selectedDate || classify(e) === 'profit' || classify(e) === 'yearly-total') return;
+        const fund = getFundName(e).toLowerCase();
+        const key = Object.keys(fundValues).find(name => fund.includes(name.toLowerCase()) || (name === 'WealthCo' && fund.includes('wealth')) || (name === '360One' && fund.includes('360 one')));
+        if (!key) return;
+        const signedAmount = (classify(e) === 'sell' ? -1 : 1) * (Number(e.amount) || 0);
+        fundValues[key] += signedAmount;
       }
     });
 
+    const historyFunds = {};
+    entries.forEach(e => {
+      if (classify(e) === 'profit' || classify(e) === 'yearly-total' || new Date(e.date) > selectedDate) return;
+      const name = getFundName(e);
+      if (!name || name === 'Mutual Fund') return;
+      const amount = (classify(e) === 'sell' ? -1 : 1) * (Number(e.amount) || 0);
+      historyFunds[name] = (historyFunds[name] || 0) + amount;
+    });
+    if (historyFundDetails) {
+      historyFundDetails.innerHTML = Object.entries(historyFunds)
+        .filter(([, amount]) => amount !== 0)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([name, amount]) => `<li><span>${escapeHtml(name)}</span><span class="fund-value">${formatINR(amount)}</span></li>`)
+        .join('') || '<li>No fund transactions for this period</li>';
+    }
+
     if (oldFundSelect) {
-      const oldNames = [...new Set(Object.keys(fundValues).filter(key => fundValues[key] !== 0 || key === 'WhiteOak' || key === 'Bajaj' || key === 'WealthCo' || key === 'Groww' || key === 'JM' || key === 'Abakkus' || key === 'Edelweiss' || key === '360One'))];
+      const historyNames = entries.map(getFundName).filter(name => name && name !== 'Mutual Fund' && !name.startsWith('Yearly Total'));
+      const oldNames = [...new Set(Object.keys(fundValues).concat(historyNames))];
       const currentValue = oldFundSelect.value || 'all';
       oldFundSelect.innerHTML = '<option value="all">All old funds</option>' + oldNames.map(name => `<option value="${name}">${name}</option>`).join('');
       if (currentValue !== 'all' && Array.from(oldFundSelect.options).some(opt => opt.value === currentValue)) oldFundSelect.value = currentValue;
@@ -192,30 +217,22 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   // --- Portfolio chart rendering ---
-  function populatePortfolioMonthYear(entries) {
-    const select = document.getElementById('portfolioMonthYear');
-    if (!select) return;
-    const months = [...new Set(entries.map(e => {
-      const d = new Date(e.date);
-      return `${d.toLocaleString('default',{month:'short'})}-${d.getFullYear()}`;
-    }))];
-    select.innerHTML = '';
-    if (months.length === 0) {
-      const opt = document.createElement('option');
-      opt.value = '';
-      opt.textContent = 'No data';
-      select.appendChild(opt);
-      return;
-    }
-    months.forEach(m => {
-      const opt = document.createElement('option');
-      opt.value = m;
-      opt.textContent = m;
-      select.appendChild(opt);
-    });
+  function populatePortfolioPeriod(entries) {
+    if (!portfolioYearSelect || !portfolioMonthSelect) return;
+    const years = [...new Set(entries.map(e => new Date(e.date).getFullYear()).filter(Number.isFinite))].sort((a, b) => b - a);
+    const currentYear = new Date().getFullYear();
+    portfolioYearSelect.innerHTML = years.map(year => `<option value="${year}">${year}</option>`).join('') || `<option value="${currentYear}">${currentYear}</option>`;
+    portfolioYearSelect.value = String(years.includes(currentYear) ? currentYear : (years[0] || currentYear));
+    portfolioMonthSelect.value = String(new Date().getMonth());
   }
 
-  function renderPortfolioChart(entries, selectedMonthYear = null, selectedFund = 'all') {
+  function selectedPortfolioDate() {
+    const year = portfolioYearSelect ? portfolioYearSelect.value : new Date().getFullYear();
+    const month = portfolioMonthSelect ? portfolioMonthSelect.value : new Date().getMonth();
+    return monthStart(year, month + 1);
+  }
+
+  function renderPortfolioChart(entries, selectedDate = new Date(), selectedFund = 'all') {
     const canvas = document.getElementById('portfolioChart');
     if (!canvas || typeof Chart === 'undefined') {
       console.warn('Portfolio chart canvas or Chart.js is unavailable.');
@@ -227,54 +244,36 @@ document.addEventListener('DOMContentLoaded', async () => {
       window.portfolioChart.destroy();
     }
 
-    const filtered = (entries || []).filter(e => {
-      if (selectedMonthYear) {
-        const d = new Date(e.date);
-        const key = `${d.toLocaleString('default',{month:'short'})}-${d.getFullYear()}`;
-        if (key !== selectedMonthYear) return false;
-      }
-      if (selectedFund !== 'all') {
-        const fundName = String(e.fund || e.notes || '').toLowerCase();
-        const productName = String(e.notes || '').toLowerCase();
-        if (!fundName.includes(selectedFund.toLowerCase()) && !productName.includes(selectedFund.toLowerCase())) return false;
-      }
-      return true;
-    });
-
-    const categories = { Equity: { invested:0, profit:0 }, Hybrid: { invested:0, profit:0 } };
-    filtered.forEach(e => {
-      if (typeof window.isMutualFundEntry === 'function' ? window.isMutualFundEntry(e) : (e?.type === 'investment' && String(e?.category || '').toLowerCase().includes('mutual'))) {
-        const equityFunds = ["WhiteOak","Bajaj","WealthCo","Groww","JM","Abakkus"];
-        const hybridFunds = ["Edelweiss","360 ONE"];
-
-        let cat = null;
-        if (equityFunds.some(f => String(e.notes || '').includes(f))) {
-          cat = 'Equity';
-        } else if (hybridFunds.some(f => String(e.notes || '').includes(f))) {
-          cat = 'Hybrid';
-        }
-
-        if (cat) {
-          if (e.subtype === 'investment') categories[cat].invested += Number(e.amount) || 0;
-          if (e.subtype === 'profit') categories[cat].profit += Number(e.amount) || 0;
-        }
-      }
+    const months = timeline();
+    let investedTotal = 0;
+    let growthTotal = 0;
+    const totals = months.map(month => {
+      (entries || []).forEach(e => {
+        const date = new Date(e.date);
+        if (date.getFullYear() !== month.getFullYear() || date.getMonth() !== month.getMonth()) return;
+        if (selectedFund !== 'all' && !getFundName(e).toLowerCase().includes(selectedFund.toLowerCase())) return;
+        const amount = Number(e.amount) || 0;
+        if (classify(e) === 'profit') growthTotal += amount;
+        else if (classify(e) === 'sell') investedTotal -= amount;
+        else if (classify(e) !== 'yearly-total') investedTotal += amount;
+      });
+      return { invested: investedTotal, growth: growthTotal };
     });
 
     window.portfolioChart = new Chart(ctx, {
       type: 'line',
       data: {
-        labels: Object.keys(categories),
+        labels: months.map(date => date.toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })),
         datasets: [
-          { label: 'Invested', data: Object.values(categories).map(c => c.invested), borderColor: '#3498db', backgroundColor: 'rgba(52,152,219,0.15)', fill: false, tension: 0.3 },
-          { label: 'Profit', data: Object.values(categories).map(c => c.profit), borderColor: '#1abc9c', backgroundColor: 'rgba(26,188,156,0.15)', fill: false, tension: 0.3 }
+          { label: 'Invested', data: totals.map(item => item.invested), borderColor: '#3498db', backgroundColor: 'rgba(52,152,219,0.15)', fill: false, tension: 0.25, pointRadius: 0, pointHitRadius: 12 },
+          { label: 'Growth', data: totals.map(item => item.growth), borderColor: '#1abc9c', backgroundColor: 'rgba(26,188,156,0.15)', fill: false, tension: 0.25, pointRadius: 0, pointHitRadius: 12 }
         ]
       },
       options: {
         responsive: true,
         maintainAspectRatio: false,
         plugins: { legend: { position: 'top' } },
-        scales: { y: { beginAtZero: true } }
+        scales: { x: { ticks: { autoSkip: true, maxTicksLimit: 12, maxRotation: 0 } }, y: { beginAtZero: true } }
       }
     });
   }
@@ -372,9 +371,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     const selectedMonth = summaryMonthSelect && summaryMonthSelect.value ? summaryMonthSelect.value : 'all';
     renderTable(monthYearSelect && monthYearSelect.value ? monthYearSelect.value : null, selectedYear, selectedMonth);
     renderChart(mfEntries);
-    updatePortfolio(mfEntries);
-    populatePortfolioMonthYear(mfEntries);
-    renderPortfolioChart(mfEntries, document.getElementById('portfolioMonthYear')?.value || null, oldFundSelect ? oldFundSelect.value || 'all' : 'all');
+    populatePortfolioPeriod(mfEntries);
+    updatePortfolio(mfEntries, selectedPortfolioDate());
+    renderPortfolioChart(mfEntries, selectedPortfolioDate(), oldFundSelect ? oldFundSelect.value || 'all' : 'all');
   }
 
   // Note: the "Add Monthly Investment" and "Update Monthly Profit" forms were
@@ -421,22 +420,29 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   });
 
-  const portfolioMonthYear = document.getElementById('portfolioMonthYear');
-  if (portfolioMonthYear) {
-    portfolioMonthYear.addEventListener('change', e => {
-      const selected = e.target.value;
-      window.fetchEntries().then(entries => {
-        const mfEntries = entries.filter(entry => typeof window.isMutualFundEntry === 'function' ? window.isMutualFundEntry(entry) : (entry?.type === 'investment' && String(entry?.category || '').toLowerCase().includes('mutual')));
-        renderPortfolioChart(mfEntries, selected, oldFundSelect ? oldFundSelect.value || 'all' : 'all');
-      });
+  function refreshPortfolio() {
+    const selectedDate = selectedPortfolioDate();
+    window.fetchEntries().then(entries => {
+      const mfEntries = entries.filter(entry => typeof window.isMutualFundEntry === 'function' ? window.isMutualFundEntry(entry) : (entry?.type === 'investment' && String(entry?.category || '').toLowerCase().includes('mutual')));
+      updatePortfolio(mfEntries, selectedDate);
+      renderPortfolioChart(mfEntries, selectedDate, oldFundSelect ? oldFundSelect.value || 'all' : 'all');
     });
   }
 
+  if (portfolioYearSelect) {
+    portfolioYearSelect.addEventListener('change', refreshPortfolio);
+  }
+  if (portfolioMonthSelect) {
+    portfolioMonthSelect.addEventListener('change', refreshPortfolio);
+  }
+
+  /* Keep old fund filtering intact while using the same selected period. */
   if (oldFundSelect) {
     oldFundSelect.addEventListener('change', () => {
       window.fetchEntries().then(entries => {
         const mfEntries = entries.filter(entry => typeof window.isMutualFundEntry === 'function' ? window.isMutualFundEntry(entry) : (entry?.type === 'investment' && String(entry?.category || '').toLowerCase().includes('mutual')));
-        renderPortfolioChart(mfEntries, portfolioMonthYear ? portfolioMonthYear.value : null, oldFundSelect.value || 'all');
+        updatePortfolio(mfEntries, selectedPortfolioDate());
+        renderPortfolioChart(mfEntries, selectedPortfolioDate(), oldFundSelect.value || 'all');
       });
     });
   }
