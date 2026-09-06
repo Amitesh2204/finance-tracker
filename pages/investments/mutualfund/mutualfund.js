@@ -11,6 +11,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   const portfolioYearSelect = document.getElementById('portfolioYearSelect');
   const portfolioMonthSelect = document.getElementById('portfolioMonthSelect');
   const historyFundDetails = document.getElementById('historyFundDetails');
+  const portfolioPeriodStatus = document.getElementById('portfolioPeriodStatus');
+  const portfolioChartTitle = document.getElementById('portfolioChartTitle');
 
   let totalInvested = 0;
   let totalGrowth = 0;
@@ -64,6 +66,11 @@ document.addEventListener('DOMContentLoaded', async () => {
       start: new Date(year, month, 1),
       end: new Date(year, month + 1, 1)
     };
+  }
+
+  function isBeforePeriodEnd(entry, selectedPeriod) {
+    const entryDate = new Date(entry.date);
+    return !Number.isNaN(entryDate.getTime()) && entryDate < selectedPeriod.end;
   }
 
   function timeline() {
@@ -187,10 +194,18 @@ document.addEventListener('DOMContentLoaded', async () => {
   function updatePortfolio(entries, selectedPeriod = selectedPortfolioPeriod()) {
     const fundValues = {};
 
+    if (portfolioPeriodStatus) {
+      const periodLabel = selectedPeriod.start.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
+      portfolioPeriodStatus.textContent = `Portfolio values through ${periodLabel}`;
+    }
+    if (portfolioChartTitle) {
+      const periodLabel = selectedPeriod.start.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
+      portfolioChartTitle.textContent = `Portfolio Growth - ${periodLabel}`;
+    }
+
     entries.forEach(e => {
       if (typeof window.isMutualFundEntry === 'function' ? window.isMutualFundEntry(e) : (e?.type === 'investment' && String(e?.category || '').toLowerCase().includes('mutual'))) {
-        const entryDate = new Date(e.date);
-        if (entryDate < selectedPeriod.start || entryDate >= selectedPeriod.end || classify(e) === 'profit' || classify(e) === 'yearly-total') return;
+        if (!isBeforePeriodEnd(e, selectedPeriod) || classify(e) === 'yearly-total') return;
         const key = getFundName(e);
         if (key === 'Mutual Fund') return;
         const kind = classify(e);
@@ -203,8 +218,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     entries.forEach(e => {
-      const entryDate = new Date(e.date);
-      if (entryDate < selectedPeriod.start || entryDate >= selectedPeriod.end || classify(e) === 'profit' || classify(e) === 'yearly-total') return;
+      if (!isBeforePeriodEnd(e, selectedPeriod) || classify(e) === 'yearly-total') return;
       const name = getFundName(e);
       if (!name || name === 'Mutual Fund') return;
       if (fundValues[name] === undefined) fundValues[name] = { invested: 0, growth: 0 };
@@ -214,7 +228,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         .filter(([, values]) => values.invested !== 0 || values.growth !== 0)
         .sort(([a], [b]) => a.localeCompare(b))
         .map(([name, values]) => `<li><span>${escapeHtml(name)}</span><span class="fund-value">${formatINR(values.invested)}<small> invested</small><br>${formatINR(values.growth)}<small> growth</small></span></li>`)
-        .join('') || '<li>No fund transactions for this period</li>';
+        .join('') || '<li>No fund holdings recorded through this month</li>';
     }
 
   }
@@ -243,9 +257,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const totalsByFund = {};
     (entries || []).forEach(e => {
-      const date = new Date(e.date);
       const kind = classify(e);
-      if (date < selectedPeriod.start || date >= selectedPeriod.end || kind === 'yearly-total') return;
+      if (!isBeforePeriodEnd(e, selectedPeriod) || kind === 'yearly-total') return;
       const fund = getFundName(e);
       if (fund === 'Mutual Fund') return;
       if (!totalsByFund[fund]) totalsByFund[fund] = { invested: 0, growth: 0 };

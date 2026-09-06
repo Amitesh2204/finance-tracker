@@ -95,6 +95,13 @@
   font-weight: 600;
 }
 
+.portfolio-period-status {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.88rem;
+  line-height: 1.4;
+}
+
 .portfolio-period select {
   width: 100%;
   box-sizing: border-box;
@@ -147,6 +154,19 @@
 
 .history-fund-details li {
   border-bottom: 1px solid var(--border);
+  gap: 12px;
+  align-items: center;
+}
+
+.history-fund-details .fund-value {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.history-fund-details small {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 500;
 }
 
 /* Responsive adjustments for mobile */
