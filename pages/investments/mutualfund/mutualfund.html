@@ -61,7 +61,7 @@
 
           <!-- Chart -->
           <div class="chart card same-size">
-            <h3>Mutual Fund Growth</h3>
+            <h3>Mutual Fund Growth (since July 2017)</h3>
             <canvas id="mutualFundChart"></canvas>
           </div>
 
@@ -126,8 +126,23 @@
         <div class="card portfolio-card">
           <h3>Portfolio Details</h3>
           <div class="portfolio-section">
-            <label for="portfolioMonthYear">Select Month-Year:</label>
-            <select id="portfolioMonthYear"></select>
+            <div class="portfolio-period">
+              <div>
+                <label for="portfolioYearSelect">Year</label>
+                <select id="portfolioYearSelect"></select>
+              </div>
+              <div>
+                <label for="portfolioMonthSelect">Month</label>
+                <select id="portfolioMonthSelect">
+                  <option value="0">January</option><option value="1">February</option>
+                  <option value="2">March</option><option value="3">April</option>
+                  <option value="4">May</option><option value="5">June</option>
+                  <option value="6">July</option><option value="7">August</option>
+                  <option value="8">September</option><option value="9">October</option>
+                  <option value="10">November</option><option value="11">December</option>
+                </select>
+              </div>
+            </div>
 
             <button class="toggle-btn" data-target="equityFunds">Equity ▾</button>
             <ul id="equityFunds" class="fund-list">
@@ -149,6 +164,8 @@
             <select id="oldFundSelect">
               <option value="all">All old funds</option>
             </select>
+            <div class="history-funds-heading">Funds from History transactions</div>
+            <ul id="historyFundDetails" class="fund-list history-fund-details"></ul>
           </div>
 
           <!-- Portfolio Chart -->
