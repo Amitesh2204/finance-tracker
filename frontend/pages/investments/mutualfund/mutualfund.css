@@ -95,8 +95,7 @@
   font-weight: 600;
 }
 
-.portfolio-period select,
-#portfolioFundSelect {
+.portfolio-period select {
   width: 100%;
   box-sizing: border-box;
   padding: 10px 12px;
