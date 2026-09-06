@@ -123,6 +123,12 @@
                 <input id="customFundInput" type="text" placeholder="Type fund name (e.g. My Custom Fund)" />
               </div>
 
+              <label for="historyFundUser">Fund User</label>
+              <select id="historyFundUser">
+                <option value="Amitesh" selected>Amitesh</option>
+                <option value="Harsha">Harsha</option>
+              </select>
+
               <label for="historyType">Transaction Type</label>
               <select id="historyType">
                 <option value="buy">Buy</option>
@@ -182,13 +188,14 @@
                   <tr>
                     <th scope="col">Date</th>
                     <th scope="col">Fund</th>
+                    <th scope="col">Fund User</th>
                     <th scope="col">Type</th>
                     <th scope="col">Amount</th>
                     <th scope="col">Notes</th>
                     <th scope="col">Actions</th>
                   </tr>
                 </thead>
-                <tbody><tr><td colspan="5">Loading…</td></tr></tbody>
+                <tbody><tr><td colspan="7">Loading…</td></tr></tbody>
               </table>
             </div>
           </div>
