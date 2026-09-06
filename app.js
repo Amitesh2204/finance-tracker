@@ -897,7 +897,7 @@
   function getExpensePageMonthlyTotals(entries = [], year, month = null) {
     const totals = Object.fromEntries(HOME_BANKS.map(bank => [bank, { balance: 0, expense: 0 }]));
     (entries || []).forEach(entry => {
-      const date = new Date(entry.date);
+      const date = parseLocalDate(entry.date);
       if (Number.isNaN(date.getTime()) || date.getFullYear() !== Number(year)) return;
       if (month !== null && date.getMonth() !== Number(month)) return;
       const bank = HOME_BANKS.includes(entry.bank) ? entry.bank : 'ICICI';
@@ -997,9 +997,9 @@
     const txTable = getElementByAnyId('lastTx');
     if (!txTable) return;
 
-    const targetDate = dateISO ? new Date(dateISO) : new Date();
+    const targetDate = dateISO ? parseLocalDate(dateISO) : new Date();
     if (Number.isNaN(targetDate.getTime())) {
-      txTable.innerHTML = '<tr><td colspan="3">Invalid date</td></tr>';
+      txTable.innerHTML = '<tr><td colspan="4">Invalid date</td></tr>';
       return;
     }
     const y = targetDate.getFullYear();
@@ -1007,24 +1007,58 @@
     const d = targetDate.getDate();
 
     const filtered = (entries || []).filter(e => {
-      const ed = new Date(e.date);
+      const ed = parseLocalDate(e.date);
       if (Number.isNaN(ed.getTime())) return false;
       return ed.getFullYear() === y && ed.getMonth() === m && ed.getDate() === d;
     }).sort((a,b) => new Date(b.date) - new Date(a.date));
 
     if (!filtered.length) {
-      txTable.innerHTML = '<tr><td colspan="3">No transactions</td></tr>';
+      txTable.innerHTML = '<tr><td colspan="4">No transactions</td></tr>';
       return;
     }
 
     txTable.innerHTML = filtered.map(entry => {
       const amount = Number(entry.amount) || 0;
-      const label = entry.category || entry.notes || entry.type || 'Entry';
+      const source = getTransactionSource(entry);
+      const description = getTransactionDescription(entry);
       const sign = amount < 0 ? '-' : '';
       const type = String(entry.type || '').toLowerCase();
       const rowClass = type === 'balance' || type === 'income' ? 'transaction-income' : (type === 'expense' || type === 'trip' ? 'transaction-expense' : 'transaction-neutral');
-      return `<tr class="${rowClass}"><td>${label}</td><td>${entry.date || ''}</td><td>${sign}${formatCurrency(Math.abs(amount))}</td></tr>`;
+      return `<tr class="${rowClass}"><td>${escapeHtml(source)}</td><td>${formatTransactionDate(entry.date)}</td><td>${sign}${formatCurrency(Math.abs(amount))}</td><td>${escapeHtml(description)}</td></tr>`;
     }).join('');
+  }
+
+  function getTransactionSource(entry) {
+    if (isInvestmentEntry(entry)) {
+      const category = `${entry.category || ''} ${entry.notes || ''}`.trim();
+      if (/mutual/i.test(category)) return 'Mutual Fund';
+      if (/lic/i.test(category)) return 'LIC';
+      if (/ppf/i.test(category)) return 'PPF';
+      if (/sukanya/i.test(category)) return 'Sukanya';
+      return 'Investment';
+    }
+    const type = String(entry.type || '').toLowerCase();
+    if (type === 'trip') return 'Trip Expense';
+    if (type === 'expense') return 'Expense';
+    if (type === 'income' || type === 'balance') return 'Income';
+    return entry.category || 'Other';
+  }
+
+  function getTransactionDescription(entry) {
+    const notes = String(entry.notes || '').trim();
+    if (notes) return notes;
+    const category = String(entry.category || '').trim();
+    if (category) return category;
+    return String(entry.type || 'Transaction');
+  }
+
+  function formatTransactionDate(value) {
+    const date = parseLocalDate(value);
+    return Number.isNaN(date.getTime()) ? '—' : date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+  }
+
+  function escapeHtml(value) {
+    return String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
   }
 
   function updateRecentActivityChart(entries = [], year = (new Date()).getFullYear()) {
@@ -1217,18 +1251,19 @@
     if (!txTable) return;
     const entries = Array.isArray(window.__LAST_ENTRIES__) ? window.__LAST_ENTRIES__ : await fetchEntries().catch(() => []);
     if (!entries || !entries.length) {
-      txTable.innerHTML = '<tr><td colspan="3">No transactions</td></tr>';
+      txTable.innerHTML = '<tr><td colspan="4">No transactions</td></tr>';
       return;
     }
     const preview = entries
       .filter(e => ['balance','expense','trip','investment','saving'].includes(normalizeEntryType(e)) || isInvestmentEntry(e))
-      .sort((a,b) => new Date(b.date) - new Date(a.date))
+      .sort((a,b) => parseLocalDate(b.date) - parseLocalDate(a.date))
       .slice(0, 6)
       .map(entry => {
         const amount = Number(entry.amount) || 0;
-        const label = entry.category || entry.notes || entry.type || 'Entry';
+        const source = getTransactionSource(entry);
+        const description = getTransactionDescription(entry);
         const sign = amount < 0 ? '-' : '';
-        return `<tr><td>${label}</td><td>${entry.date || ''}</td><td>${sign}${formatCurrency(Math.abs(amount))}</td></tr>`;
+        return `<tr><td>${escapeHtml(source)}</td><td>${formatTransactionDate(entry.date)}</td><td>${sign}${formatCurrency(Math.abs(amount))}</td><td>${escapeHtml(description)}</td></tr>`;
       }).join('');
     txTable.innerHTML = preview;
   });
