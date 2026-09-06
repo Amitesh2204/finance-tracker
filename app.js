@@ -965,8 +965,11 @@
       if (!ctx) return;
 
       const totals = getMonthlyBankTotals(entries, year, month);
-      const expenseTotals = getExpenseTotals(entries);
-      const balanceValues = [expenseTotals.iciciNet, expenseTotals.sbiNet, expenseTotals.bobNet];
+      // Balance slice must use THIS month's balance entries (same figures as
+      // the Expense page's Yearly Summary "Total Balance" column) - not the
+      // all-time net total, which stays the same no matter which month is
+      // selected and was why every period looked identical to "now".
+      const balanceValues = HOME_BANKS.map(bank => totals[bank].balance);
       const expenseValues = HOME_BANKS.map(bank => totals[bank].expense);
       const values = [...balanceValues, ...expenseValues];
       const labels = HOME_BANKS.map(bank => `${bank} balance`).concat(HOME_BANKS.map(bank => `${bank} expense`));
