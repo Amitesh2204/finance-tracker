@@ -59,42 +59,34 @@
           <!-- LIC Growth chart with year selector -->
           <div class="card">
             <h3>LIC Growth</h3>
-            <label for="licYearSelect">Select Year:</label>
-            <select id="licYearSelect"></select>
             <div class="chart same-size">
               <canvas id="licGrowthChart"></canvas>
             </div>
           </div>
 
-          <!-- Add Monthly Investment form -->
-          <!-- Investment and Profit forms side by side -->
-          <div class="form-row">
-            <div class="card">
-              <h3>Add Monthly Investment</h3>
-              <form id="licInvestmentForm" class="investment-form">
-                <label>Investment Type</label>
-                <input type="text" value="LIC" readonly />
-                <label for="policyName">Policy Name</label>
-                <select id="policyName">
-                  <option value="Jeevan Lakshya">LIC Jeevan Lakshya</option>
-                  <option value="New Jeevan Labh">LIC New Jeevan Labh Plan</option>
-                </select>
-                <label for="licAmount">Monthly Amount</label>
-                <input id="licAmount" type="number" min="0" step="0.01" required />
-                <button type="submit">Add Investment</button>
-              </form>
-            </div>
-
-            <div class="card">
-              <h3>Update Yearly Profit</h3>
-              <form id="licProfitForm" class="investment-form">
-                <label>Investment Type</label>
-                <input type="text" value="LIC" readonly />
-                <label for="licProfitAmount">Yearly Profit</label>
-                <input id="licProfitAmount" type="number" min="0" step="0.01" required />
-                <button type="submit">Update Profit</button>
-              </form>
-            </div>
+          <div class="card">
+            <h3>Add Monthly Investment</h3>
+            <form id="licInvestmentForm" class="investment-form">
+              <label>Investment Type</label>
+              <input type="text" value="LIC" readonly />
+              <label for="licCategory">Category</label>
+              <select id="licCategory">
+                <option value="investment">Investment</option>
+                <option value="profit">Profit</option>
+              </select>
+              <label for="policyName">Policy Name</label>
+              <select id="policyName">
+                <option value="Jeevan Lakshya">LIC Jeevan Lakshya</option>
+                <option value="New Jeevan Labh">LIC New Jeevan Labh Plan</option>
+              </select>
+              <div class="date-row">
+                <div><label for="licEntryYear">Year</label><select id="licEntryYear"></select></div>
+                <div><label for="licEntryMonth">Month</label><select id="licEntryMonth"></select></div>
+              </div>
+              <label for="licAmount">Amount</label>
+              <input id="licAmount" type="number" min="0" step="0.01" required />
+              <button type="submit">Add Entry</button>
+            </form>
           </div>
 
 
@@ -102,8 +94,10 @@
           <!-- Monthly LIC Summary table -->
           <div class="card">
             <h3>Monthly LIC Summary</h3>
-            <label for="licMonthYearSelect">Select Month-Year:</label>
-            <select id="licMonthYearSelect"></select>
+            <div class="date-row summary-filters">
+              <div><label for="licSummaryYear">Year</label><select id="licSummaryYear"></select></div>
+              <div><label for="licSummaryMonth">Month</label><select id="licSummaryMonth"></select></div>
+            </div>
             <div style="display:flex; gap:10px; flex-wrap:wrap; margin:12px 0;">
               <button type="button" id="licExportBtn" class="secondary-btn">Export Excel</button>
               <label class="secondary-btn" for="licImportInput" style="display:inline-block; cursor:pointer;">Import Excel</label>
@@ -130,8 +124,10 @@
         <div class="card policy-card">
           <h3>Policy Details</h3>
           <div class="policy-section">
-            <label for="policyMonthYearSelect">Select Month-Year:</label>
-            <select id="policyMonthYearSelect"></select>
+            <div class="date-row summary-filters">
+              <div><label for="policyYearSelect">Year</label><select id="policyYearSelect"></select></div>
+              <div><label for="policyMonthSelect">Month</label><select id="policyMonthSelect"></select></div>
+            </div>
 
             <button class="toggle-btn" data-target="licPolicies">Policies ▾</button>
             <ul id="licPolicies" class="policy-list">
