@@ -26,8 +26,8 @@
       <div class="brand"><h1>Wealty</h1></div>
       <nav class="main-menu">
         <a href="../../../../index.html">🏠 Home</a>
-        <a href="../budget/budget.html">📊 Budget</a>
-        <a href="../expense/expense.html">💸 Expense</a>
+        <a href="../../budget/budget.html">📊 Budget</a>
+        <a href="../../expense/expense.html">💸 Expense</a>
         <div class="submenu">
           <a href="../investments.html" class="submenu-toggle">📈 Investments ▾</a>
           <ul class="submenu-list">
@@ -37,11 +37,11 @@
             <li><a href="sukanya.html" class="active">Sukanya Yojana</a></li>
           </ul>
         </div>
-        <a href="../report.html">📑 Report</a>
+        <a href="../../report.html">📑 Report</a>
       </nav>
       <div class="sidebar-footer">
-        <a href="../settings.html">⚙️ Settings</a>
-        <a href="../login.html">🚪 Logout</a>
+        <a href="../../settings.html">⚙️ Settings</a>
+        <a href="../../login.html">🚪 Logout</a>
       </div>
     </aside>
 
@@ -54,64 +54,73 @@
           <div class="card"><h3>Total Growth</h3><p id="sukanyaTotalGrowth">₹0.00</p></div>
         </div>
 
-        <!-- Growth chart -->
+        <!-- Growth chart: yearly line graph -->
         <div class="card">
-          <h3>Sukanya Growth</h3>
-          <label for="sukanyaYearSelect">Select Year:</label>
-          <select id="sukanyaYearSelect"></select>
+          <h3>Sukanya Growth (Year on Year)</h3>
           <div class="chart same-size">
-            <canvas id="sukanyaGrowthChart"></canvas>
+            <canvas id="sukanyaGrowthChart" aria-label="Yearly Sukanya growth"></canvas>
           </div>
         </div>
 
-        <!-- Investment and Profit forms side by side -->
-        <div class="form-row">
-          <div class="card">
-            <h3>Add Monthly Investment</h3>
-            <form id="sukanyaInvestmentForm" class="investment-form">
-              <label>Investment Type</label>
-              <input type="text" value="Sukanya Yojana" readonly />
-              <label for="sukanyaAmount">Monthly Amount</label>
-              <input id="sukanyaAmount" type="number" min="0" step="0.01" required />
-              <button type="submit">Add Investment</button>
-            </form>
-          </div>
-
-          <div class="card">
-            <h3>Update Yearly Profit</h3>
-            <form id="sukanyaProfitForm" class="investment-form">
-              <label>Investment Type</label>
-              <input type="text" value="Sukanya Yojana" readonly />
-              <label for="sukanyaProfitAmount">Yearly Profit</label>
-              <input id="sukanyaProfitAmount" type="number" min="0" step="0.01" required />
-              <button type="submit">Update Profit</button>
-            </form>
-          </div>
+        <!-- Add Monthly Investment (single form: investment or profit) -->
+        <div class="card">
+          <h3>Add Monthly Investment</h3>
+          <form id="sukanyaInvestmentForm" class="investment-form">
+            <div class="form-grid">
+              <div>
+                <label for="sukanyaMonth">Month &amp; Year</label>
+                <input id="sukanyaMonth" type="month" required />
+              </div>
+              <div>
+                <label for="sukanyaBank">Bank</label>
+                <select id="sukanyaBank">
+                  <option value="ICICI" selected>ICICI</option>
+                  <option value="SBI">SBI</option>
+                </select>
+              </div>
+              <div>
+                <label for="sukanyaEntryType">Investment Type</label>
+                <select id="sukanyaEntryType">
+                  <option value="investment" selected>Investment</option>
+                  <option value="profit">Profit</option>
+                </select>
+              </div>
+              <div>
+                <label for="sukanyaAmount">Amount</label>
+                <input id="sukanyaAmount" type="number" min="0" step="0.01" required />
+              </div>
+            </div>
+            <button type="submit">Add Entry</button>
+          </form>
         </div>
 
         <!-- Monthly Summary -->
         <div class="card">
           <h3>Monthly Sukanya Summary</h3>
-          <label for="sukanyaMonthYearSelect">Select Month-Year:</label>
-          <select id="sukanyaMonthYearSelect"></select>
-          <div style="display:flex; gap:10px; flex-wrap:wrap; margin:12px 0;">
+          <div class="table-controls">
+            <label for="sukanyaMonthYearFilter">Filter Month &amp; Year</label>
+            <input id="sukanyaMonthYearFilter" type="month" />
+            <button type="button" id="sukanyaClearFilterBtn" class="secondary-btn">Show All</button>
             <button type="button" id="sukanyaExportBtn" class="secondary-btn">Export Excel</button>
             <label class="secondary-btn" for="sukanyaImportInput" style="display:inline-block; cursor:pointer;">Import Excel</label>
             <input id="sukanyaImportInput" type="file" accept=".xlsx,.xls,.csv" style="display:none;" />
           </div>
-          <table id="sukanyaTable" class="investment-table">
-            <thead>
-              <tr>
-                <th>Month-Year</th>
-                <th>Investment Name</th>
-                <th>Monthly Invested</th>
-                <th>Total Profit</th>
-                <th>Growth %</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody><tr><td colspan="6">No data yet</td></tr></tbody>
-          </table>
+          <div class="table-scroll">
+            <table id="sukanyaTable" class="investment-table">
+              <thead>
+                <tr>
+                  <th>Month-Year</th>
+                  <th>Investment Name</th>
+                  <th>Bank</th>
+                  <th>Monthly Invested</th>
+                  <th>Total Profit</th>
+                  <th>Growth %</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody><tr><td colspan="7">No data yet</td></tr></tbody>
+            </table>
+          </div>
         </div>
       </section>
     </main>
