@@ -1,16 +1,18 @@
-// ppf.js - PPF page with PouchDB + CouchDB sync and month-year filter
+// ppf.js - PPF page with PouchDB + CouchDB sync, month/bank entry, and calendar filter
 // NOTE: Requires db.js to be loaded first (finance-tracker/backend/database/js/db.js)
 
 document.addEventListener('DOMContentLoaded', async () => {
   const investedCard = document.getElementById('ppfTotalInvested');
   const growthCard = document.getElementById('ppfTotalGrowth');
   const tableBody = document.querySelector('#ppfTable tbody');
-  const monthYearSelect = document.getElementById('ppfMonthYearSelect');
-  const yearSelect = document.getElementById('ppfYearSelect');
+  const monthYearFilter = document.getElementById('ppfMonthYearFilter');
+  const clearFilterBtn = document.getElementById('ppfClearFilterBtn');
   const exportBtn = document.getElementById('ppfExportBtn');
   const importInput = document.getElementById('ppfImportInput');
   const ppfInvestmentForm = document.getElementById('ppfInvestmentForm');
-  const ppfProfitForm = document.getElementById('ppfProfitForm');
+  const investmentMonthInput = document.getElementById('ppfInvestmentMonth');
+  const bankSelect = document.getElementById('ppfBank');
+  const amountInput = document.getElementById('ppfAmount');
 
   let totalInvested = 0;
   let totalGrowth = 0;
@@ -19,6 +21,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   function formatINR(amount) {
     return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(amount || 0);
+  }
+
+  function escapeHtml(value) {
+    return String(value == null ? '' : value).replace(/[&<>"']/g, (ch) => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[ch]));
   }
 
   function ensureHiddenInput(form, id) {
@@ -35,128 +43,149 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   const ppfInvestmentEditId = ensureHiddenInput(ppfInvestmentForm, 'ppfInvestmentEditingId');
-  const ppfProfitEditId = ensureHiddenInput(ppfProfitForm, 'ppfProfitEditingId');
+
+  // Default the month picker to the current month for convenience.
+  if (investmentMonthInput && !investmentMonthInput.value) {
+    investmentMonthInput.value = new Date().toISOString().slice(0, 7);
+  }
 
   function updateCards() {
     if (investedCard) investedCard.textContent = formatINR(totalInvested);
     if (growthCard) growthCard.textContent = formatINR(totalGrowth);
   }
 
-  function populateMonthYearDropdown() {
-    const months = Object.keys(monthlyData);
-    if (!monthYearSelect) return;
-    monthYearSelect.innerHTML = '';
-    if (months.length === 0) {
-      const opt = document.createElement('option');
-      opt.value = '';
-      opt.textContent = 'No data';
-      monthYearSelect.appendChild(opt);
-      return;
-    }
-    months.forEach(m => {
-      const opt = document.createElement('option');
-      opt.value = m;
-      opt.textContent = m;
-      monthYearSelect.appendChild(opt);
-    });
+  function resetInvestmentFormState() {
+    if (ppfInvestmentForm) ppfInvestmentForm.reset();
+    if (investmentMonthInput) investmentMonthInput.value = new Date().toISOString().slice(0, 7);
+    if (bankSelect) bankSelect.value = 'ICICI';
+    if (ppfInvestmentEditId) ppfInvestmentEditId.value = '';
+    const submit = ppfInvestmentForm?.querySelector('button[type="submit"]');
+    if (submit) submit.textContent = 'Add Investment';
   }
 
-  function renderTable(selectedMonthYear = null) {
-    const months = Object.keys(monthlyData);
+  function renderTable(filterMonthYear = '') {
+    const keys = Object.keys(monthlyData);
     if (!tableBody) return;
-    if (months.length === 0) {
-      tableBody.innerHTML = '<tr><td colspan="6">No data yet</td></tr>';
+    if (!keys.length) {
+      tableBody.innerHTML = '<tr><td colspan="7">No data yet</td></tr>';
       return;
     }
-    const filtered = selectedMonthYear ? [selectedMonthYear] : months;
-    tableBody.innerHTML = filtered.map(m => {
-      const d = monthlyData[m];
+
+    const filtered = (filterMonthYear
+      ? keys.filter(k => monthlyData[k].monthYearValue === filterMonthYear)
+      : keys
+    ).sort((a, b) => monthlyData[b].sortKey - monthlyData[a].sortKey);
+
+    if (!filtered.length) {
+      tableBody.innerHTML = '<tr><td colspan="7">No data for the selected month</td></tr>';
+      return;
+    }
+
+    tableBody.innerHTML = filtered.map(key => {
+      const d = monthlyData[key];
       const invested = d.invested || 0;
       const profit = d.profit || 0;
       const growthPct = invested > 0 ? ((profit / invested) * 100).toFixed(2) : '0.00';
       return `<tr>
-        <td>${m}</td>
+        <td>${escapeHtml(d.label)}</td>
         <td>PPF</td>
+        <td>${escapeHtml(d.bank)}</td>
         <td>${formatINR(invested)}</td>
         <td>${formatINR(profit)}</td>
         <td>${growthPct}%</td>
         <td>
-          <button type="button" class="edit-entry-btn" data-id="${m}">Edit</button>
-          <button type="button" class="delete-entry-btn" data-id="${m}">Delete</button>
+          <button type="button" class="edit-entry-btn" data-key="${escapeHtml(key)}">Edit</button>
+          <button type="button" class="delete-entry-btn" data-key="${escapeHtml(key)}">Delete</button>
         </td>
       </tr>`;
     }).join('');
 
     tableBody.querySelectorAll('.delete-entry-btn').forEach(btn => {
       btn.addEventListener('click', async () => {
-        const key = btn.dataset.id;
-        const doc = allEntries.find(e => `${new Date(e.date).toLocaleString('default', { month: 'short' })}-${new Date(e.date).getFullYear()}` === key);
-        if (!doc || !confirm('Delete this PPF entry?')) return;
-        await window.deleteEntry(doc._id);
+        const key = btn.dataset.key;
+        const ids = monthlyData[key]?.ids || [];
+        if (!ids.length || !confirm('Delete this PPF entry?')) return;
+        await window.deleteEntry(ids[0]);
         await loadEntries();
       });
     });
 
     tableBody.querySelectorAll('.edit-entry-btn').forEach(btn => {
       btn.addEventListener('click', () => {
-        const key = btn.dataset.id;
-        const doc = allEntries.find(e => `${new Date(e.date).toLocaleString('default', { month: 'short' })}-${new Date(e.date).getFullYear()}` === key);
+        const key = btn.dataset.key;
+        const rowData = monthlyData[key];
+        const docId = rowData?.ids?.[0];
+        const doc = docId ? allEntries.find(e => e._id === docId) : null;
         if (!doc) return;
-        if (doc.subtype === 'profit') {
-          const field = document.getElementById('ppfProfitAmount');
-          if (field) field.value = doc.amount || '';
-          if (ppfProfitEditId) ppfProfitEditId.value = doc._id || '';
-          const submit = ppfProfitForm?.querySelector('button[type="submit"]');
-          if (submit) submit.textContent = 'Update Profit';
-        } else {
-          const field = document.getElementById('ppfAmount');
-          if (field) field.value = doc.amount || '';
-          if (ppfInvestmentEditId) ppfInvestmentEditId.value = doc._id || '';
-          const submit = ppfInvestmentForm?.querySelector('button[type="submit"]');
-          if (submit) submit.textContent = 'Update Investment';
-        }
+        if (amountInput) amountInput.value = doc.amount || '';
+        if (bankSelect) bankSelect.value = doc.bank || 'ICICI';
+        if (investmentMonthInput) investmentMonthInput.value = rowData.monthYearValue || '';
+        if (ppfInvestmentEditId) ppfInvestmentEditId.value = doc._id || '';
+        const submit = ppfInvestmentForm?.querySelector('button[type="submit"]');
+        if (submit) submit.textContent = 'Update Investment';
       });
     });
   }
 
-  function renderChart(selectedYear) {
+  // Yearly line graph: cumulative PPF investment growth, year over year.
+  function renderChart() {
     const canvas = document.getElementById('ppfGrowthChart');
     if (!canvas || typeof Chart === 'undefined') return;
-    const ctx = canvas.getContext('2d');
     if (window.ppfChart && typeof window.ppfChart.destroy === 'function') {
       window.ppfChart.destroy();
     }
-    const months = ['Jul','Aug','Sep','Oct','Nov','Dec','Jan','Feb','Mar','Apr','May','Jun'];
-    const investedData = months.map(m => {
-      const key = `${m}-${selectedYear}`;
-      return monthlyData[key]?.invested || 0;
-    });
-    window.ppfChart = new Chart(ctx, {
-      type: 'bar',
-      data: { labels: months, datasets: [{ label: 'Invested', data: investedData, backgroundColor: '#e67e22' }] },
-      options: { responsive: true, scales: { y: { beginAtZero: true } } }
-    });
-  }
 
-  function populatePpfYearDropdown(entries) {
-    if (!yearSelect) return;
-    const years = [...new Set(entries.map(e => new Date(e.date).getFullYear()))].filter(Boolean).sort((a, b) => a - b);
-    yearSelect.innerHTML = '';
-    if (years.length === 0) {
-      const opt = document.createElement('option');
-      opt.value = '';
-      opt.textContent = 'No data';
-      yearSelect.appendChild(opt);
-      return;
-    }
-    years.forEach(y => {
-      const opt = document.createElement('option');
-      opt.value = String(y);
-      opt.textContent = String(y);
-      yearSelect.appendChild(opt);
+    const currentYear = new Date().getFullYear();
+    const dataYears = allEntries
+      .map(e => new Date(e.date).getFullYear())
+      .filter(y => !Number.isNaN(y));
+    const startYear = dataYears.length ? Math.min(...dataYears) : currentYear;
+    const endYear = Math.max(currentYear, ...(dataYears.length ? dataYears : [currentYear]));
+
+    const labels = [];
+    for (let y = startYear; y <= endYear; y++) labels.push(String(y));
+
+    let running = 0;
+    const data = labels.map(y => {
+      const yearNum = Number(y);
+      const yearInvested = allEntries
+        .filter(e => e.subtype !== 'profit' && new Date(e.date).getFullYear() === yearNum)
+        .reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+      running += yearInvested;
+      return running;
     });
-    yearSelect.value = String(new Date().getFullYear());
-    yearSelect.onchange = () => renderChart(yearSelect.value || new Date().getFullYear());
+
+    const accent = getComputedStyle(document.documentElement).getPropertyValue('--warning').trim() || '#e67e22';
+    const muted = getComputedStyle(document.documentElement).getPropertyValue('--muted').trim() || '#6d7f79';
+
+    window.ppfChart = new Chart(canvas.getContext('2d'), {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [{
+          label: 'Cumulative PPF Investment',
+          data,
+          borderColor: accent,
+          backgroundColor: `${accent}33`,
+          fill: true,
+          tension: 0.3,
+          pointRadius: 4,
+          pointBackgroundColor: accent
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: true, position: 'bottom', labels: { color: muted } },
+          tooltip: { callbacks: { label: ctx => formatINR(ctx.parsed.y) } }
+        },
+        scales: {
+          x: { ticks: { color: muted } },
+          y: { beginAtZero: true, ticks: { color: muted, callback: v => formatINR(v) } }
+        }
+      }
+    });
   }
 
   function exportEntries(rows) {
@@ -225,11 +254,28 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     allEntries.forEach(e => {
       const d = new Date(e.date);
-      const month = d.toLocaleString('default', { month: 'short' });
-      const year = d.getFullYear();
-      const key = `${month}-${year}`;
-      monthlyData[key] = monthlyData[key] || { invested: 0, profit: 0 };
+      if (Number.isNaN(d.getTime())) return;
+      const bank = e.bank || 'N/A';
+      const monthYearValue = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      const label = `${d.toLocaleString('default', { month: 'short' })}-${d.getFullYear()}`;
+      // Keyed by month + bank so each bank's contribution for a month shows
+      // as its own row, per the new Bank column.
+      const key = `${monthYearValue}::${bank}`;
+      if (!monthlyData[key]) {
+        monthlyData[key] = {
+          invested: 0,
+          profit: 0,
+          bank,
+          label,
+          monthYearValue,
+          sortKey: d.getFullYear() * 12 + d.getMonth(),
+          ids: []
+        };
+      }
+      monthlyData[key].ids.push(e._id);
       if (e.subtype === 'profit') {
+        // Historical profit entries (from before the profit form was
+        // removed) still count toward totals so past data isn't lost.
         monthlyData[key].profit += Number(e.amount) || 0;
         totalGrowth += Number(e.amount) || 0;
       } else {
@@ -239,10 +285,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     updateCards();
-    populateMonthYearDropdown();
-    renderTable(monthYearSelect?.value || null);
-    populatePpfYearDropdown(allEntries);
-    renderChart(yearSelect?.value || new Date().getFullYear());
+    renderTable(monthYearFilter?.value || '');
+    renderChart();
   }
 
   if (exportBtn) exportBtn.addEventListener('click', () => exportEntries(allEntries));
@@ -251,8 +295,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (ppfInvestmentForm) {
     ppfInvestmentForm.addEventListener('submit', async e => {
       e.preventDefault();
-      const amt = parseFloat(document.getElementById('ppfAmount').value);
+      const amt = parseFloat(amountInput?.value);
       if (Number.isNaN(amt) || amt <= 0) return;
+      const monthValue = investmentMonthInput?.value; // "YYYY-MM"
+      if (!monthValue) return;
+      const bank = bankSelect?.value || 'ICICI';
       const docId = ppfInvestmentEditId?.value || '';
       const payload = {
         type: 'saving',
@@ -260,47 +307,19 @@ document.addEventListener('DOMContentLoaded', async () => {
         subtype: 'investment',
         amount: amt,
         currency: 'INR',
-        date: new Date().toISOString(),
+        date: `${monthValue}-01`,
         notes: 'PPF investment',
-        bank: 'N/A'
+        bank
       };
       if (docId) await window.updateEntry(docId, payload);
       else await window.addEntry(payload);
-      e.target.reset();
-      if (ppfInvestmentEditId) ppfInvestmentEditId.value = '';
-      const submit = ppfInvestmentForm.querySelector('button[type="submit"]');
-      if (submit) submit.textContent = 'Add Investment';
+      resetInvestmentFormState();
       await loadEntries();
     });
   }
 
-  if (ppfProfitForm) {
-    ppfProfitForm.addEventListener('submit', async e => {
-      e.preventDefault();
-      const amt = parseFloat(document.getElementById('ppfProfitAmount').value);
-      if (Number.isNaN(amt) || amt <= 0) return;
-      const docId = ppfProfitEditId?.value || '';
-      const payload = {
-        type: 'saving',
-        category: 'PPF',
-        subtype: 'profit',
-        amount: amt,
-        currency: 'INR',
-        date: new Date().toISOString(),
-        notes: 'PPF yearly profit',
-        bank: 'N/A'
-      };
-      if (docId) await window.updateEntry(docId, payload);
-      else await window.addEntry(payload);
-      e.target.reset();
-      if (ppfProfitEditId) ppfProfitEditId.value = '';
-      const submit = ppfProfitForm.querySelector('button[type="submit"]');
-      if (submit) submit.textContent = 'Add Profit';
-      await loadEntries();
-    });
-  }
-
-  if (monthYearSelect) monthYearSelect.addEventListener('change', () => renderTable(monthYearSelect.value || null));
+  if (monthYearFilter) monthYearFilter.addEventListener('change', () => renderTable(monthYearFilter.value || ''));
+  if (clearFilterBtn) clearFilterBtn.addEventListener('click', () => { if (monthYearFilter) monthYearFilter.value = ''; renderTable(''); });
 
   await loadEntries();
 });

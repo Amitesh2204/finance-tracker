@@ -26,8 +26,8 @@
       <div class="brand"><h1>Wealty</h1></div>
       <nav class="main-menu">
         <a href="../../../../index.html">🏠 Home</a>
-        <a href="../budget/budget.html">📊 Budget</a>
-        <a href="../expense/expense.html">💸 Expense</a>
+        <a href="../../budget/budget.html">📊 Budget</a>
+        <a href="../../expense/expense.html">💸 Expense</a>
         <div class="submenu">
           <a href="../investments.html" class="submenu-toggle">📈 Investments ▾</a>
           <ul class="submenu-list">
@@ -37,11 +37,11 @@
             <li><a href="../sukanya/sukanya.html">Sukanya Yojana</a></li>
           </ul>
         </div>
-        <a href="../report.html">📑 Report</a>
+        <a href="../../report.html">📑 Report</a>
       </nav>
       <div class="sidebar-footer">
-        <a href="../settings.html">⚙️ Settings</a>
-        <a href="../login.html">🚪 Logout</a>
+        <a href="../../settings.html">⚙️ Settings</a>
+        <a href="../../login.html">🚪 Logout</a>
       </div>
     </aside>
 
@@ -54,65 +54,66 @@
           <div class="card"><h3>Total Growth</h3><p id="ppfTotalGrowth">₹0.00</p></div>
         </div>
 
-        <!-- PPF Growth chart -->
+        <!-- PPF Growth chart: yearly line graph -->
         <div class="card">
-          <h3>PPF Growth</h3>
-          <label for="ppfYearSelect">Select Year:</label>
-          <select id="ppfYearSelect"></select>
+          <h3>PPF Growth (Year on Year)</h3>
           <div class="chart same-size">
-            <canvas id="ppfGrowthChart"></canvas>
+            <canvas id="ppfGrowthChart" aria-label="Yearly PPF growth"></canvas>
           </div>
         </div>
 
-        <!-- Investment and Profit forms side by side -->
-        <div class="form-row">
-          <div class="card">
-            <h3>Add Monthly Investment</h3>
-            <form id="ppfInvestmentForm" class="investment-form">
-              <label>Investment Type</label>
-              <input type="text" value="PPF" readonly />
-              <label for="ppfAmount">Monthly Amount</label>
-              <input id="ppfAmount" type="number" min="0" step="0.01" required />
-              <button type="submit">Add Investment</button>
-            </form>
-          </div>
-
-          <div class="card">
-            <h3>Update Yearly Profit</h3>
-            <form id="ppfProfitForm" class="investment-form">
-              <label>Investment Type</label>
-              <input type="text" value="PPF" readonly />
-              <label for="ppfProfitAmount">Yearly Profit</label>
-              <input id="ppfProfitAmount" type="number" min="0" step="0.01" required />
-              <button type="submit">Update Profit</button>
-            </form>
-          </div>
+        <!-- Add Monthly Investment -->
+        <div class="card">
+          <h3>Add Monthly Investment</h3>
+          <form id="ppfInvestmentForm" class="investment-form">
+            <div class="form-grid">
+              <div>
+                <label for="ppfInvestmentMonth">Month &amp; Year</label>
+                <input id="ppfInvestmentMonth" type="month" required />
+              </div>
+              <div>
+                <label for="ppfBank">Bank</label>
+                <select id="ppfBank">
+                  <option value="ICICI" selected>ICICI</option>
+                  <option value="SBI">SBI</option>
+                </select>
+              </div>
+              <div>
+                <label for="ppfAmount">Monthly Amount</label>
+                <input id="ppfAmount" type="number" min="0" step="0.01" required />
+              </div>
+            </div>
+            <button type="submit">Add Investment</button>
+          </form>
         </div>
 
         <!-- Monthly PPF Summary table -->
         <div class="card">
           <h3>Monthly PPF Summary</h3>
-          <label for="ppfMonthYearSelect">Select Month-Year:</label>
-          <select id="ppfMonthYearSelect"></select>
-          <div style="display:flex; gap:10px; flex-wrap:wrap; margin:12px 0;">
+          <div class="table-controls">
+            <label for="ppfMonthYearFilter">Filter Month &amp; Year</label>
+            <input id="ppfMonthYearFilter" type="month" />
+            <button type="button" id="ppfClearFilterBtn" class="secondary-btn">Show All</button>
             <button type="button" id="ppfExportBtn" class="secondary-btn">Export Excel</button>
             <label class="secondary-btn" for="ppfImportInput" style="display:inline-block; cursor:pointer;">Import Excel</label>
             <input id="ppfImportInput" type="file" accept=".xlsx,.xls,.csv" style="display:none;" />
           </div>
-          <table id="ppfTable" class="investment-table">
-            <thead>
-              <tr>
-                <th>Month-Year</th>
-                <th>Investment Name</th>
-                <th>Monthly Invested</th>
-                <th>Total Profit</th>
-                <th>Growth %</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-
-            <tbody><tr><td colspan="6">No data yet</td></tr></tbody>
-          </table>
+          <div class="table-scroll">
+            <table id="ppfTable" class="investment-table">
+              <thead>
+                <tr>
+                  <th>Month-Year</th>
+                  <th>Investment Name</th>
+                  <th>Bank</th>
+                  <th>Monthly Invested</th>
+                  <th>Total Profit</th>
+                  <th>Growth %</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody><tr><td colspan="7">No data yet</td></tr></tbody>
+            </table>
+          </div>
         </div>
       </section>
     </main>
