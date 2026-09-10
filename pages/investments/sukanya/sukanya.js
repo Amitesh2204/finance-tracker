@@ -1,16 +1,19 @@
-// sukanya.js - Sukanya Yojana page with PouchDB + CouchDB sync and month-year filter
+// sukanya.js - Sukanya Yojana page with PouchDB + CouchDB sync, month/bank/type entry, calendar filter
 // NOTE: Requires db.js to be loaded first
 
 document.addEventListener('DOMContentLoaded', async () => {
   const investedCard = document.getElementById('sukanyaTotalInvested');
   const growthCard = document.getElementById('sukanyaTotalGrowth');
   const tableBody = document.querySelector('#sukanyaTable tbody');
-  const monthYearSelect = document.getElementById('sukanyaMonthYearSelect');
-  const yearSelect = document.getElementById('sukanyaYearSelect');
+  const monthYearFilter = document.getElementById('sukanyaMonthYearFilter');
+  const clearFilterBtn = document.getElementById('sukanyaClearFilterBtn');
   const exportBtn = document.getElementById('sukanyaExportBtn');
   const importInput = document.getElementById('sukanyaImportInput');
   const sukanyaInvestmentForm = document.getElementById('sukanyaInvestmentForm');
-  const sukanyaProfitForm = document.getElementById('sukanyaProfitForm');
+  const monthInput = document.getElementById('sukanyaMonth');
+  const bankSelect = document.getElementById('sukanyaBank');
+  const entryTypeSelect = document.getElementById('sukanyaEntryType');
+  const amountInput = document.getElementById('sukanyaAmount');
 
   let totalInvested = 0;
   let totalGrowth = 0;
@@ -19,6 +22,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   function formatINR(amount) {
     return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(amount || 0);
+  }
+
+  function escapeHtml(value) {
+    return String(value == null ? '' : value).replace(/[&<>"']/g, (ch) => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[ch]));
   }
 
   function ensureHiddenInput(form, id) {
@@ -34,129 +43,152 @@ document.addEventListener('DOMContentLoaded', async () => {
     return input;
   }
 
-  const sukanyaInvestmentEditId = ensureHiddenInput(sukanyaInvestmentForm, 'sukanyaInvestmentEditingId');
-  const sukanyaProfitEditId = ensureHiddenInput(sukanyaProfitForm, 'sukanyaProfitEditingId');
+  const sukanyaEditId = ensureHiddenInput(sukanyaInvestmentForm, 'sukanyaEntryEditingId');
+
+  // Default the month picker to the current month for convenience.
+  if (monthInput && !monthInput.value) {
+    monthInput.value = new Date().toISOString().slice(0, 7);
+  }
 
   function updateCards() {
     if (investedCard) investedCard.textContent = formatINR(totalInvested);
     if (growthCard) growthCard.textContent = formatINR(totalGrowth);
   }
 
-  function populateMonthYearDropdown() {
-    const months = Object.keys(monthlyData);
-    if (!monthYearSelect) return;
-    monthYearSelect.innerHTML = '';
-    if (months.length === 0) {
-      const opt = document.createElement('option');
-      opt.value = '';
-      opt.textContent = 'No data';
-      monthYearSelect.appendChild(opt);
-      return;
-    }
-    months.forEach(m => {
-      const opt = document.createElement('option');
-      opt.value = m;
-      opt.textContent = m;
-      monthYearSelect.appendChild(opt);
-    });
+  function resetFormState() {
+    if (sukanyaInvestmentForm) sukanyaInvestmentForm.reset();
+    if (monthInput) monthInput.value = new Date().toISOString().slice(0, 7);
+    if (bankSelect) bankSelect.value = 'ICICI';
+    if (entryTypeSelect) entryTypeSelect.value = 'investment';
+    if (sukanyaEditId) sukanyaEditId.value = '';
+    const submit = sukanyaInvestmentForm?.querySelector('button[type="submit"]');
+    if (submit) submit.textContent = 'Add Entry';
   }
 
-  function renderTable(selectedMonthYear = null) {
-    const months = Object.keys(monthlyData);
+  function renderTable(filterMonthYear = '') {
+    const keys = Object.keys(monthlyData);
     if (!tableBody) return;
-    if (months.length === 0) {
-      tableBody.innerHTML = '<tr><td colspan="6">No data yet</td></tr>';
+    if (!keys.length) {
+      tableBody.innerHTML = '<tr><td colspan="7">No data yet</td></tr>';
       return;
     }
-    const filtered = selectedMonthYear ? [selectedMonthYear] : months;
-    tableBody.innerHTML = filtered.map(m => {
-      const d = monthlyData[m];
+
+    const filtered = (filterMonthYear
+      ? keys.filter(k => monthlyData[k].monthYearValue === filterMonthYear)
+      : keys
+    ).sort((a, b) => monthlyData[b].sortKey - monthlyData[a].sortKey);
+
+    if (!filtered.length) {
+      tableBody.innerHTML = '<tr><td colspan="7">No data for the selected month</td></tr>';
+      return;
+    }
+
+    tableBody.innerHTML = filtered.map(key => {
+      const d = monthlyData[key];
       const invested = d.invested || 0;
       const profit = d.profit || 0;
       const growthPct = invested > 0 ? ((profit / invested) * 100).toFixed(2) : '0.00';
       return `<tr>
-        <td>${m}</td>
+        <td>${escapeHtml(d.label)}</td>
         <td>Sukanya Yojana</td>
+        <td>${escapeHtml(d.bank)}</td>
         <td>${formatINR(invested)}</td>
         <td>${formatINR(profit)}</td>
         <td>${growthPct}%</td>
         <td>
-          <button type="button" class="edit-entry-btn" data-id="${m}">Edit</button>
-          <button type="button" class="delete-entry-btn" data-id="${m}">Delete</button>
+          <button type="button" class="edit-entry-btn" data-key="${escapeHtml(key)}">Edit</button>
+          <button type="button" class="delete-entry-btn" data-key="${escapeHtml(key)}">Delete</button>
         </td>
       </tr>`;
     }).join('');
 
     tableBody.querySelectorAll('.delete-entry-btn').forEach(btn => {
       btn.addEventListener('click', async () => {
-        const key = btn.dataset.id;
-        const doc = allEntries.find(e => `${new Date(e.date).toLocaleString('default', { month: 'short' })}-${new Date(e.date).getFullYear()}` === key);
-        if (!doc || !confirm('Delete this Sukanya entry?')) return;
-        await window.deleteEntry(doc._id);
+        const key = btn.dataset.key;
+        const ids = monthlyData[key]?.ids || [];
+        if (!ids.length || !confirm('Delete this Sukanya entry?')) return;
+        await window.deleteEntry(ids[0]);
         await loadEntries();
       });
     });
 
     tableBody.querySelectorAll('.edit-entry-btn').forEach(btn => {
       btn.addEventListener('click', () => {
-        const key = btn.dataset.id;
-        const doc = allEntries.find(e => `${new Date(e.date).toLocaleString('default', { month: 'short' })}-${new Date(e.date).getFullYear()}` === key);
+        const key = btn.dataset.key;
+        const rowData = monthlyData[key];
+        const docId = rowData?.ids?.[0];
+        const doc = docId ? allEntries.find(e => e._id === docId) : null;
         if (!doc) return;
-        if (doc.subtype === 'profit') {
-          const field = document.getElementById('sukanyaProfitAmount');
-          if (field) field.value = doc.amount || '';
-          if (sukanyaProfitEditId) sukanyaProfitEditId.value = doc._id || '';
-          const submit = sukanyaProfitForm?.querySelector('button[type="submit"]');
-          if (submit) submit.textContent = 'Update Profit';
-        } else {
-          const field = document.getElementById('sukanyaAmount');
-          if (field) field.value = doc.amount || '';
-          if (sukanyaInvestmentEditId) sukanyaInvestmentEditId.value = doc._id || '';
-          const submit = sukanyaInvestmentForm?.querySelector('button[type="submit"]');
-          if (submit) submit.textContent = 'Update Investment';
-        }
+        if (amountInput) amountInput.value = doc.amount || '';
+        if (bankSelect) bankSelect.value = doc.bank || 'ICICI';
+        if (monthInput) monthInput.value = rowData.monthYearValue || '';
+        if (entryTypeSelect) entryTypeSelect.value = doc.subtype === 'profit' ? 'profit' : 'investment';
+        if (sukanyaEditId) sukanyaEditId.value = doc._id || '';
+        const submit = sukanyaInvestmentForm?.querySelector('button[type="submit"]');
+        if (submit) submit.textContent = 'Update Entry';
       });
     });
   }
 
-  function renderChart(selectedYear) {
+  // Yearly line graph: cumulative Sukanya investment growth, year over year.
+  function renderChart() {
     const canvas = document.getElementById('sukanyaGrowthChart');
     if (!canvas || typeof Chart === 'undefined') return;
-    const ctx = canvas.getContext('2d');
     if (window.sukanyaChart && typeof window.sukanyaChart.destroy === 'function') {
       window.sukanyaChart.destroy();
     }
-    const months = ['Jul','Aug','Sep','Oct','Nov','Dec','Jan','Feb','Mar','Apr','May','Jun'];
-    const investedData = months.map(m => {
-      const key = `${m}-${selectedYear}`;
-      return monthlyData[key]?.invested || 0;
-    });
-    window.sukanyaChart = new Chart(ctx, {
-      type: 'bar',
-      data: { labels: months, datasets: [{ label: 'Invested', data: investedData, backgroundColor: '#9b59b6' }] },
-      options: { responsive: true, scales: { y: { beginAtZero: true } } }
-    });
-  }
 
-  function populateSukanyaYearDropdown(entries) {
-    if (!yearSelect) return;
-    const years = [...new Set(entries.map(e => new Date(e.date).getFullYear()))].filter(Boolean).sort((a, b) => a - b);
-    yearSelect.innerHTML = '';
-    if (years.length === 0) {
-      const opt = document.createElement('option');
-      opt.value = '';
-      opt.textContent = 'No data';
-      yearSelect.appendChild(opt);
-      return;
-    }
-    years.forEach(y => {
-      const opt = document.createElement('option');
-      opt.value = String(y);
-      opt.textContent = String(y);
-      yearSelect.appendChild(opt);
+    const currentYear = new Date().getFullYear();
+    const dataYears = allEntries
+      .map(e => new Date(e.date).getFullYear())
+      .filter(y => !Number.isNaN(y));
+    const startYear = dataYears.length ? Math.min(...dataYears) : currentYear;
+    const endYear = Math.max(currentYear, ...(dataYears.length ? dataYears : [currentYear]));
+
+    const labels = [];
+    for (let y = startYear; y <= endYear; y++) labels.push(String(y));
+
+    let running = 0;
+    const data = labels.map(y => {
+      const yearNum = Number(y);
+      const yearInvested = allEntries
+        .filter(e => e.subtype !== 'profit' && new Date(e.date).getFullYear() === yearNum)
+        .reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+      running += yearInvested;
+      return running;
     });
-    yearSelect.value = String(new Date().getFullYear());
-    yearSelect.onchange = () => renderChart(yearSelect.value || new Date().getFullYear());
+
+    const accent = getComputedStyle(document.documentElement).getPropertyValue('--purple').trim() || '#9b59b6';
+    const muted = getComputedStyle(document.documentElement).getPropertyValue('--muted').trim() || '#6d7f79';
+
+    window.sukanyaChart = new Chart(canvas.getContext('2d'), {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [{
+          label: 'Cumulative Sukanya Investment',
+          data,
+          borderColor: accent,
+          backgroundColor: `${accent}33`,
+          fill: true,
+          tension: 0.3,
+          pointRadius: 4,
+          pointBackgroundColor: accent
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: true, position: 'bottom', labels: { color: muted } },
+          tooltip: { callbacks: { label: ctx => formatINR(ctx.parsed.y) } }
+        },
+        scales: {
+          x: { ticks: { color: muted } },
+          y: { beginAtZero: true, ticks: { color: muted, callback: v => formatINR(v) } }
+        }
+      }
+    });
   }
 
   function exportEntries(rows) {
@@ -225,10 +257,25 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     allEntries.forEach(e => {
       const d = new Date(e.date);
-      const month = d.toLocaleString('default', { month: 'short' });
-      const year = d.getFullYear();
-      const key = `${month}-${year}`;
-      monthlyData[key] = monthlyData[key] || { invested: 0, profit: 0 };
+      if (Number.isNaN(d.getTime())) return;
+      const bank = e.bank || 'N/A';
+      const monthYearValue = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      const label = `${d.toLocaleString('default', { month: 'short' })}-${d.getFullYear()}`;
+      // Keyed by month + bank so each bank's contribution for a month shows
+      // as its own row, per the new Bank column.
+      const key = `${monthYearValue}::${bank}`;
+      if (!monthlyData[key]) {
+        monthlyData[key] = {
+          invested: 0,
+          profit: 0,
+          bank,
+          label,
+          monthYearValue,
+          sortKey: d.getFullYear() * 12 + d.getMonth(),
+          ids: []
+        };
+      }
+      monthlyData[key].ids.push(e._id);
       if (e.subtype === 'profit') {
         monthlyData[key].profit += Number(e.amount) || 0;
         totalGrowth += Number(e.amount) || 0;
@@ -239,68 +286,45 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     updateCards();
-    populateMonthYearDropdown();
-    renderTable(monthYearSelect?.value || null);
-    populateSukanyaYearDropdown(allEntries);
-    renderChart(yearSelect?.value || new Date().getFullYear());
+    renderTable(monthYearFilter?.value || '');
+    renderChart();
   }
 
   if (exportBtn) exportBtn.addEventListener('click', () => exportEntries(allEntries));
   if (importInput) importInput.addEventListener('change', e => { const file = e.target.files && e.target.files[0]; if (file) importEntries(file); e.target.value = ''; });
 
+  // Single consolidated form: the Investment Type selector decides whether
+  // this entry counts as an investment or a profit update, replacing the
+  // old separate "Update Yearly Profit" form entirely.
   if (sukanyaInvestmentForm) {
     sukanyaInvestmentForm.addEventListener('submit', async e => {
       e.preventDefault();
-      const amt = parseFloat(document.getElementById('sukanyaAmount').value);
+      const amt = parseFloat(amountInput?.value);
       if (Number.isNaN(amt) || amt <= 0) return;
-      const docId = sukanyaInvestmentEditId?.value || '';
+      const monthValue = monthInput?.value; // "YYYY-MM"
+      if (!monthValue) return;
+      const bank = bankSelect?.value || 'ICICI';
+      const subtype = entryTypeSelect?.value === 'profit' ? 'profit' : 'investment';
+      const docId = sukanyaEditId?.value || '';
       const payload = {
         type: 'saving',
         category: 'Sukanya Yojana',
-        subtype: 'investment',
+        subtype,
         amount: amt,
         currency: 'INR',
-        date: new Date().toISOString(),
-        notes: 'Sukanya Yojana investment',
-        bank: 'N/A'
+        date: `${monthValue}-01`,
+        notes: subtype === 'profit' ? 'Sukanya Yojana yearly profit' : 'Sukanya Yojana investment',
+        bank
       };
       if (docId) await window.updateEntry(docId, payload);
       else await window.addEntry(payload);
-      e.target.reset();
-      if (sukanyaInvestmentEditId) sukanyaInvestmentEditId.value = '';
-      const submit = sukanyaInvestmentForm.querySelector('button[type="submit"]');
-      if (submit) submit.textContent = 'Add Investment';
+      resetFormState();
       await loadEntries();
     });
   }
 
-  if (sukanyaProfitForm) {
-    sukanyaProfitForm.addEventListener('submit', async e => {
-      e.preventDefault();
-      const amt = parseFloat(document.getElementById('sukanyaProfitAmount').value);
-      if (Number.isNaN(amt) || amt <= 0) return;
-      const docId = sukanyaProfitEditId?.value || '';
-      const payload = {
-        type: 'saving',
-        category: 'Sukanya Yojana',
-        subtype: 'profit',
-        amount: amt,
-        currency: 'INR',
-        date: new Date().toISOString(),
-        notes: 'Sukanya Yojana yearly profit',
-        bank: 'N/A'
-      };
-      if (docId) await window.updateEntry(docId, payload);
-      else await window.addEntry(payload);
-      e.target.reset();
-      if (sukanyaProfitEditId) sukanyaProfitEditId.value = '';
-      const submit = sukanyaProfitForm.querySelector('button[type="submit"]');
-      if (submit) submit.textContent = 'Add Profit';
-      await loadEntries();
-    });
-  }
-
-  if (monthYearSelect) monthYearSelect.addEventListener('change', () => renderTable(monthYearSelect.value || null));
+  if (monthYearFilter) monthYearFilter.addEventListener('change', () => renderTable(monthYearFilter.value || ''));
+  if (clearFilterBtn) clearFilterBtn.addEventListener('click', () => { if (monthYearFilter) monthYearFilter.value = ''; renderTable(''); });
 
   await loadEntries();
 });
