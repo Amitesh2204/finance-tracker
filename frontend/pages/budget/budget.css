@@ -1,10 +1,21 @@
-/* budget.css - dedicated styling for the Budget page */
+/* budget.css - dedicated styling for the Budget page
+   Layout: a full-width KPI row up top, then a two-column dashboard below
+   (budget form on the left, chart + breakdown table on the right). */
 
 .budget-layout {
   display: grid;
   grid-template-columns: minmax(300px, 380px) minmax(0, 1fr);
-  gap: 28px;
+  grid-auto-rows: min-content;
+  column-gap: 28px;
+  row-gap: 24px;
   align-items: start;
+}
+
+/* KPI row spans the full width above both columns instead of living inside
+   the left column — this removes the old fixed-pixel margin hack that was
+   used to line the right column up with it. */
+.budget-layout > .summary-cards {
+  grid-column: 1 / -1;
 }
 
 .content-panel {
@@ -19,20 +30,83 @@
   gap: 16px;
 }
 
-.card {
-  background: var(--card-bg);
-  padding: 20px;
-  border-radius: var(--rounded);
-  box-shadow: var(--shadow);
+.summary-cards .card {
+  position: relative;
+  overflow: hidden;
+  padding: 22px 20px 20px;
+  border-radius: 16px;
+  transition: transform 180ms ease, box-shadow 180ms ease;
 }
-.card h3 { margin: 0 0 10px; color: var(--text); font-size: 1rem; }
-.card p { margin: 0; font-size: 1.4rem; font-weight: 800; color: var(--accent); }
+.summary-cards .card::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 4px;
+  background: var(--accent);
+}
+.summary-card--spent::before { background: var(--danger); }
+.summary-card--remaining::before { background: var(--accent); }
+.summary-card--budget::before { background: #3498db; }
+
+.summary-cards .card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 16px 34px rgba(15, 46, 38, .14);
+}
+
+.summary-card-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: var(--accent-soft);
+  font-size: 1rem;
+  margin-bottom: 10px;
+}
+
+.card { background: var(--card-bg); padding: 20px; border-radius: var(--rounded); box-shadow: var(--shadow); }
+.card h3 { margin: 0 0 8px; color: var(--text); font-size: .92rem; font-weight: 700; }
+.card p { margin: 0; font-size: 1.5rem; font-weight: 800; letter-spacing: -0.01em; color: var(--accent); }
+
+.summary-card--spent p { color: var(--danger); }
+.summary-card--budget p { color: #3498db; }
+.summary-card--remaining p { color: var(--accent); }
 
 .budget-hint {
   color: var(--muted);
   font-size: 0.85rem;
+  line-height: 1.5;
   margin: 10px 0 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--accent-soft);
 }
+
+/* Set Category Budget form */
+#budgetForm { gap: 14px; }
+#budgetForm label { font-size: .85rem; font-weight: 600; color: var(--muted); margin-bottom: -6px; }
+#budgetForm input,
+#budgetForm select {
+  border-radius: 10px;
+}
+#budgetForm input:focus,
+#budgetForm select:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+#budgetForm button[type="submit"] {
+  background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 75%, #000));
+  border: none;
+  color: #fff;
+  font-weight: 700;
+  padding: 12px 16px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: filter 150ms ease, transform 150ms ease;
+}
+#budgetForm button[type="submit"]:hover { filter: brightness(1.06); transform: translateY(-1px); }
+#budgetForm button[type="submit"]:active { transform: translateY(0); }
 
 .sr-only { position:absolute; left:-9999px; top:auto; width:1px; height:1px; overflow:hidden; }
 
@@ -43,14 +117,42 @@
 }
 .chart-canvas-wrap canvas { height: 100% !important; }
 
+/* Table scrolls horizontally on narrow screens instead of squeezing columns
+   or overflowing the page. */
+.table-responsive {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+#budgetTable {
+  min-width: 560px;
+}
+#budgetTable tbody tr {
+  transition: background-color 140ms ease;
+}
+#budgetTable tbody tr:hover {
+  background: var(--accent-soft);
+}
+
 /* Status badges in the breakdown table */
 .budget-status {
-  display: inline-block;
-  padding: 3px 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px 4px 8px;
   border-radius: 999px;
   font-size: 0.78rem;
   font-weight: 700;
   white-space: nowrap;
+}
+.budget-status::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  flex: 0 0 auto;
 }
 .budget-status--ok { background: var(--accent-soft); color: var(--accent); }
 .budget-status--warn { background: color-mix(in srgb, var(--warning) 20%, transparent); color: var(--warning); }
@@ -70,7 +172,9 @@
 .budget-progress > span {
   display: block;
   height: 100%;
+  border-radius: inherit;
   background: var(--accent);
+  transition: width 260ms ease;
 }
 .budget-progress.is-over > span { background: var(--danger); }
 .budget-progress.is-warn > span { background: var(--warning); }
@@ -82,7 +186,13 @@
 
 @media (max-width: 600px) {
   .summary-cards { grid-template-columns: 1fr; gap: 12px; }
+  .summary-cards .card { padding: 18px 16px; }
 }
 
-/* Right panel offset so charts don't overlap top cards on tall left column */
-.right-panel { margin-top: 162px; }
+@media (prefers-reduced-motion: reduce) {
+  .summary-cards .card,
+  .budget-progress > span,
+  #budgetTable tbody tr {
+    transition: none;
+  }
+}
