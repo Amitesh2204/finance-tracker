@@ -35,22 +35,25 @@
       <header class="topbar"><h2>Budget</h2></header>
 
       <section class="content budget-layout">
-        <aside class="content-panel left-panel">
-          <div class="cards summary-cards">
-            <article class="card summary-card">
-              <h3>Total Budget</h3>
-              <p id="budgetTotalBudget">₹0.00</p>
-            </article>
-            <article class="card summary-card">
-              <h3>Total Spent</h3>
-              <p id="budgetTotalSpent" style="color:var(--danger)">₹0.00</p>
-            </article>
-            <article class="card summary-card">
-              <h3>Remaining</h3>
-              <p id="budgetRemaining" style="color:var(--accent)">₹0.00</p>
-            </article>
-          </div>
+        <div class="cards summary-cards">
+          <article class="card summary-card summary-card--budget">
+            <span class="summary-card-icon" aria-hidden="true">💰</span>
+            <h3>Total Budget</h3>
+            <p id="budgetTotalBudget">₹0.00</p>
+          </article>
+          <article class="card summary-card summary-card--spent">
+            <span class="summary-card-icon" aria-hidden="true">🧾</span>
+            <h3>Total Spent</h3>
+            <p id="budgetTotalSpent">₹0.00</p>
+          </article>
+          <article class="card summary-card summary-card--remaining">
+            <span class="summary-card-icon" aria-hidden="true">🪙</span>
+            <h3>Remaining</h3>
+            <p id="budgetRemaining">₹0.00</p>
+          </article>
+        </div>
 
+        <aside class="content-panel left-panel">
           <div class="collapsible" id="setBudgetSection" data-default-open="true">
             <div class="collapsible-header" role="button" tabindex="0" aria-expanded="true">
               <div class="title">Set Category Budget</div>
@@ -102,18 +105,20 @@
             </div>
             <div class="collapsible-content">
               <article class="card section-card" style="background:transparent; box-shadow:none; padding:0;">
-                <table id="budgetTable" class="investment-table">
-                  <thead>
-                    <tr>
-                      <th>Category</th>
-                      <th>Budgeted</th>
-                      <th>Spent</th>
-                      <th>Remaining</th>
-                      <th>Status</th>
-                    </tr>
-                  </thead>
-                  <tbody><tr><td colspan="5">No budgets set for this month yet</td></tr></tbody>
-                </table>
+                <div class="table-responsive">
+                  <table id="budgetTable" class="investment-table">
+                    <thead>
+                      <tr>
+                        <th>Category</th>
+                        <th>Budgeted</th>
+                        <th>Spent</th>
+                        <th>Remaining</th>
+                        <th>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody><tr><td colspan="5">No budgets set for this month yet</td></tr></tbody>
+                  </table>
+                </div>
               </article>
             </div>
           </div>
