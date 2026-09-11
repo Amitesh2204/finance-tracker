@@ -313,7 +313,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       return category === 'mutual fund' || category.includes('mutual') || notes.includes('mutual fund') || notes.includes('mutual');
     });
 
-    const summary = { invested: 0, growth: 0, sold: 0, combined: 0, byYear: {} };
+    const summary = { bought: 0, invested: 0, growth: 0, sold: 0, combined: 0, byYear: {} };
     mfEntries.forEach(entry => {
       const amount = Number(entry.amount) || 0;
       const kind = classify(entry);
@@ -326,6 +326,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         summary.invested -= amount;
         summary.sold += amount;
       } else {
+        summary.bought += amount;
         summary.invested += amount;
       }
 
@@ -364,7 +365,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       ? window.getMutualFundSummary(entries)
       : buildMutualFundSummary(entries);
 
-    totalInvested = mutualFundSummary.invested || 0;
+    totalInvested = mutualFundSummary.bought ?? mutualFundSummary.invested ?? 0;
     totalGrowth = mutualFundSummary.growth || 0;
     monthlyData = {};
 
