@@ -44,11 +44,27 @@ document.addEventListener('DOMContentLoaded', async () => {
     growthCard.textContent = formatINR(totalGrowth);
   }
 
+  // Classify a mutual fund entry as 'buy' | 'sell' | 'profit' | 'yearly-total'.
+  //
+  // Bug fix: previously this OR'd the explicit `subtype` field together with
+  // a notes-text keyword scan (e.g. `subtype === 'sell' || notes.includes('sold')`).
+  // That meant a deliberately-tagged buy (subtype: 'investment') could still get
+  // reclassified as a sell/profit purely because its free-text Notes happened to
+  // mention a word like "sold" — quietly pulling real buy amounts out of Total
+  // Invested/Total Bought. An explicit subtype is now trusted completely; the
+  // notes scan only runs as a fallback for older entries that predate it.
   function classify(entry) {
+    const subtype = entry.subtype;
+    if (subtype) {
+      if (subtype === 'profit') return 'profit';
+      if (subtype === 'sell') return 'sell';
+      if (subtype === 'yearly-total') return 'yearly-total';
+      return 'buy';
+    }
     const notes = String(entry.notes || '').toLowerCase();
-    if (entry.subtype === 'profit' || notes.includes('profit')) return 'profit';
-    if (entry.subtype === 'sell' || notes.includes(' sell') || notes.includes('sold')) return 'sell';
-    if (entry.subtype === 'yearly-total' || notes.includes('yearly total') || notes.includes('year total')) return 'yearly-total';
+    if (notes.includes('profit')) return 'profit';
+    if (notes.includes(' sell') || notes.includes('sold')) return 'sell';
+    if (notes.includes('yearly total') || notes.includes('year total')) return 'yearly-total';
     return 'buy';
   }
 
@@ -300,9 +316,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     const summary = { invested: 0, growth: 0, sold: 0, combined: 0, byYear: {} };
     mfEntries.forEach(entry => {
       const amount = Number(entry.amount) || 0;
-      const notes = String(entry.notes || '').toLowerCase();
-      const isProfit = entry.subtype === 'profit' || notes.includes('profit');
-      const isSell = entry.subtype === 'sell' || notes.includes(' sell') || notes.includes('sold');
+      const kind = classify(entry);
+      const isProfit = kind === 'profit';
+      const isSell = kind === 'sell';
 
       if (isProfit) {
         summary.growth += amount;
@@ -358,9 +374,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       const year = d.getFullYear();
       const key = `${month}-${year}`;
       monthlyData[key] = monthlyData[key] || { invested:0, profit:0, sold:0, combined:0 };
-      const notes = String(e.notes || '').toLowerCase();
-      const isProfit = e.subtype === 'profit' || notes.includes('profit');
-      const isSell = e.subtype === 'sell' || notes.includes(' sell') || notes.includes('sold');
+      const kind = classify(e);
+      const isProfit = kind === 'profit';
+      const isSell = kind === 'sell';
       if (isProfit) {
         monthlyData[key].profit += Number(e.amount) || 0;
         monthlyData[key].combined += Number(e.amount) || 0;
