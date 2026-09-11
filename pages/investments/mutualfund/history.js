@@ -48,12 +48,28 @@ document.addEventListener('DOMContentLoaded', async () => {
     return category === 'mutual fund' || category.includes('mutual') || notes.includes('mutual fund') || notes.includes('mutual');
   }
 
-  // Classify a mutual fund entry as 'buy' | 'sell' | 'profit' | 'yearly-total'
+  // Classify a mutual fund entry as 'buy' | 'sell' | 'profit' | 'yearly-total'.
+  //
+  // Bug fix: previously this OR'd the explicit `subtype` field together with
+  // a notes-text keyword scan (e.g. `subtype === 'sell' || notes.includes('sold')`).
+  // That meant a deliberately-tagged buy (subtype: 'investment') could still get
+  // reclassified as a sell/profit purely because its free-text Notes happened to
+  // mention a word like "sold" (e.g. "switched after old scheme sold") — quietly
+  // pulling real buy amounts out of Total Bought. An explicit subtype is now
+  // trusted completely; the notes scan only runs as a fallback for older
+  // entries that predate the subtype field.
   function classify(e) {
+    const subtype = e.subtype;
+    if (subtype) {
+      if (subtype === 'profit') return 'profit';
+      if (subtype === 'sell') return 'sell';
+      if (subtype === 'yearly-total') return 'yearly-total';
+      return 'buy';
+    }
     const notes = String(e.notes || '').toLowerCase();
-    if (e.subtype === 'profit' || notes.includes('profit')) return 'profit';
-    if (e.subtype === 'sell' || notes.includes(' sell') || notes.includes('sold')) return 'sell';
-    if (e.subtype === 'yearly-total' || notes.includes('yearly total') || notes.includes('year total')) return 'yearly-total';
+    if (notes.includes('profit')) return 'profit';
+    if (notes.includes(' sell') || notes.includes('sold')) return 'sell';
+    if (notes.includes('yearly total') || notes.includes('year total')) return 'yearly-total';
     return 'buy';
   }
 
