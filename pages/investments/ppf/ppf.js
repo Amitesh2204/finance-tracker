@@ -11,6 +11,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const importInput = document.getElementById('ppfImportInput');
   const ppfInvestmentForm = document.getElementById('ppfInvestmentForm');
   const investmentMonthInput = document.getElementById('ppfInvestmentMonth');
+  const categorySelect = document.getElementById('ppfCategory');
   const bankSelect = document.getElementById('ppfBank');
   const amountInput = document.getElementById('ppfAmount');
 
@@ -57,6 +58,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   function resetInvestmentFormState() {
     if (ppfInvestmentForm) ppfInvestmentForm.reset();
     if (investmentMonthInput) investmentMonthInput.value = new Date().toISOString().slice(0, 7);
+    if (categorySelect) categorySelect.value = 'investment';
     if (bankSelect) bankSelect.value = 'ICICI';
     if (ppfInvestmentEditId) ppfInvestmentEditId.value = '';
     const submit = ppfInvestmentForm?.querySelector('button[type="submit"]');
@@ -118,6 +120,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const doc = docId ? allEntries.find(e => e._id === docId) : null;
         if (!doc) return;
         if (amountInput) amountInput.value = doc.amount || '';
+        if (categorySelect) categorySelect.value = doc.subtype === 'profit' ? 'profit' : 'investment';
         if (bankSelect) bankSelect.value = doc.bank || 'ICICI';
         if (investmentMonthInput) investmentMonthInput.value = rowData.monthYearValue || '';
         if (ppfInvestmentEditId) ppfInvestmentEditId.value = doc._id || '';
@@ -145,40 +148,66 @@ document.addEventListener('DOMContentLoaded', async () => {
     const labels = [];
     for (let y = startYear; y <= endYear; y++) labels.push(String(y));
 
-    let running = 0;
-    const data = labels.map(y => {
+    let runningInvested = 0;
+    const investedData = labels.map(y => {
       const yearNum = Number(y);
       const yearInvested = allEntries
         .filter(e => e.subtype !== 'profit' && new Date(e.date).getFullYear() === yearNum)
         .reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
-      running += yearInvested;
-      return running;
+      runningInvested += yearInvested;
+      return runningInvested;
     });
 
-    const accent = getComputedStyle(document.documentElement).getPropertyValue('--warning').trim() || '#e67e22';
+    let runningProfit = 0;
+    const profitData = labels.map(y => {
+      const yearNum = Number(y);
+      const yearProfit = allEntries
+        .filter(e => e.subtype === 'profit' && new Date(e.date).getFullYear() === yearNum)
+        .reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+      runningProfit += yearProfit;
+      return runningProfit;
+    });
+
+    const investmentColor = getComputedStyle(document.documentElement).getPropertyValue('--warning').trim() || '#e67e22';
+    // Profit uses the app's positive/growth accent color so it reads as
+    // "gains" next to the investment line, consistent with how green/teal
+    // is used for positive amounts elsewhere in the app (e.g. Remaining).
+    const profitColor = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#1abc9c';
     const muted = getComputedStyle(document.documentElement).getPropertyValue('--muted').trim() || '#6d7f79';
 
     window.ppfChart = new Chart(canvas.getContext('2d'), {
       type: 'line',
       data: {
         labels,
-        datasets: [{
-          label: 'Cumulative PPF Investment',
-          data,
-          borderColor: accent,
-          backgroundColor: `${accent}33`,
-          fill: true,
-          tension: 0.3,
-          pointRadius: 4,
-          pointBackgroundColor: accent
-        }]
+        datasets: [
+          {
+            label: 'Cumulative PPF Investment',
+            data: investedData,
+            borderColor: investmentColor,
+            backgroundColor: `${investmentColor}33`,
+            fill: true,
+            tension: 0.3,
+            pointRadius: 4,
+            pointBackgroundColor: investmentColor
+          },
+          {
+            label: 'Cumulative PPF Profit',
+            data: profitData,
+            borderColor: profitColor,
+            backgroundColor: `${profitColor}33`,
+            fill: true,
+            tension: 0.3,
+            pointRadius: 4,
+            pointBackgroundColor: profitColor
+          }
+        ]
       },
       options: {
         responsive: true,
         maintainAspectRatio: false,
         plugins: {
           legend: { display: true, position: 'bottom', labels: { color: muted } },
-          tooltip: { callbacks: { label: ctx => formatINR(ctx.parsed.y) } }
+          tooltip: { callbacks: { label: ctx => `${ctx.dataset.label}: ${formatINR(ctx.parsed.y)}` } }
         },
         scales: {
           x: { ticks: { color: muted } },
@@ -299,16 +328,17 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (Number.isNaN(amt) || amt <= 0) return;
       const monthValue = investmentMonthInput?.value; // "YYYY-MM"
       if (!monthValue) return;
+      const subtype = categorySelect?.value === 'profit' ? 'profit' : 'investment';
       const bank = bankSelect?.value || 'ICICI';
       const docId = ppfInvestmentEditId?.value || '';
       const payload = {
         type: 'saving',
         category: 'PPF',
-        subtype: 'investment',
+        subtype,
         amount: amt,
         currency: 'INR',
         date: `${monthValue}-01`,
-        notes: 'PPF investment',
+        notes: subtype === 'profit' ? 'PPF profit' : 'PPF investment',
         bank
       };
       if (docId) await window.updateEntry(docId, payload);
