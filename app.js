@@ -860,11 +860,13 @@
     investmentEntries.forEach(e => {
       const cat = String(e.category || '').toLowerCase();
       const amt = Number(e.amount) || 0;
-      if (cat.includes('mutual')) totals.mutualFund += amt;
+      if (cat.includes('mutual')) return;
       else if (cat.includes('lic')) totals.lic += amt;
       else if (cat.includes('ppf')) totals.ppf += amt;
       else if (cat.includes('sukanya')) totals.sukanya += amt;
     });
+    const mutualFundSummary = getMutualFundSummary(investmentEntries);
+    totals.mutualFund = mutualFundSummary.bought + mutualFundSummary.growth;
     return { total: Object.values(totals).reduce((a,b)=>a+b,0), byCategory: totals };
   }
 
@@ -877,6 +879,8 @@
       const balanceEl = getElementByAnyId('totalBalance');
       const savingsEl = getElementByAnyId('savings');
       const expensesEl = getElementByAnyId('expenses');
+      const investmentTotalEl = document.getElementById('homeInvestmentTotal');
+      const savingBankTotalEl = document.getElementById('homeSavingBankTotal');
       const bankEls = {
         ICICI: document.getElementById('homeIciciBalance'),
         SBI: document.getElementById('homeSbiBalance'),
@@ -891,6 +895,8 @@
         if (balanceEl) balanceEl.textContent = '₹0.00';
         if (savingsEl) savingsEl.textContent = '₹0.00';
         if (expensesEl) expensesEl.textContent = '₹0.00';
+        if (investmentTotalEl) investmentTotalEl.textContent = '₹0.00';
+        if (savingBankTotalEl) savingBankTotalEl.textContent = '₹0.00';
         Object.values(bankEls).forEach(el => { if (el) el.textContent = '₹0.00'; });
         return;
       }
@@ -906,6 +912,8 @@
       if (balanceEl) balanceEl.textContent = formatCurrency(expenseTotals.totalBalance);
       if (expensesEl) expensesEl.textContent = formatCurrency(expenseTotals.totalExpense);
       if (savingsEl) savingsEl.textContent = formatCurrency(savingsValue);
+      if (investmentTotalEl) investmentTotalEl.textContent = formatCurrency(investmentTotals.total);
+      if (savingBankTotalEl) savingBankTotalEl.textContent = formatCurrency(expenseTotals.totalSaving);
       if (bankEls.ICICI) bankEls.ICICI.textContent = formatCurrency(expenseTotals.iciciNet);
       if (bankEls.SBI) bankEls.SBI.textContent = formatCurrency(expenseTotals.sbiNet);
       if (bankEls['Bank of Baroda']) bankEls['Bank of Baroda'].textContent = formatCurrency(expenseTotals.bobNet);
