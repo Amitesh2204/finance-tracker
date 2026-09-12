@@ -67,9 +67,13 @@
           <h3>Add Monthly Investment</h3>
           <form id="sukanyaInvestmentForm" class="investment-form">
             <div class="form-grid">
-              <div>
+              <div id="sukanyaMonthWrapper">
                 <label for="sukanyaMonth">Month &amp; Year</label>
                 <input id="sukanyaMonth" type="month" required />
+              </div>
+              <div id="sukanyaYearWrapper" style="display:none;">
+                <label for="sukanyaProfitYear">Year</label>
+                <select id="sukanyaProfitYear"></select>
               </div>
               <div>
                 <label for="sukanyaBank">Bank</label>
@@ -90,6 +94,7 @@
                 <input id="sukanyaAmount" type="number" min="0" step="0.01" required />
               </div>
             </div>
+            <p class="form-hint" id="sukanyaProfitHint" style="display:none;">Profit is recorded once for the whole year — pick the year and enter the total yearly profit.</p>
             <button type="submit">Add Entry</button>
           </form>
         </div>
@@ -113,12 +118,10 @@
                   <th>Investment Name</th>
                   <th>Bank</th>
                   <th>Monthly Invested</th>
-                  <th>Total Profit</th>
-                  <th>Growth %</th>
                   <th>Actions</th>
                 </tr>
               </thead>
-              <tbody><tr><td colspan="7">No data yet</td></tr></tbody>
+              <tbody><tr><td colspan="5">No data yet</td></tr></tbody>
             </table>
           </div>
         </div>
