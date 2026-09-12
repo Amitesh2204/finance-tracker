@@ -129,6 +129,27 @@ body {
 .card p { font-size:1.8rem; font-weight:800; margin:0 }
 .card.balance p { color:var(--accent) }
 .card.savings p { color:var(--info) }
+.savings-breakdown {
+  display: grid;
+  gap: 6px;
+  margin: 4px 0 10px;
+  font-size: 0.85rem;
+}
+.savings-breakdown div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--muted);
+}
+.savings-breakdown strong {
+  color: var(--text);
+  text-align: right;
+  white-space: nowrap;
+}
+@media (max-width: 600px) {
+  .savings-breakdown div { align-items: flex-start; }
+  .savings-breakdown span { max-width: 58%; }
+}
 .card.expenses p { color:var(--danger) }
 
 .stats-row {
