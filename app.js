@@ -768,6 +768,15 @@
   window.isInvestmentEntry = isInvestmentEntry;
   window.formatCurrency = formatCurrency;
 
+  function isMutualFundEntry(entry) {
+    if (!entry) return false;
+    const type = String(entry.type || '').toLowerCase();
+    if (type !== 'investment' && type !== 'saving') return false;
+    const category = String(entry.category || '').toLowerCase();
+    const notes = String(entry.notes || '').toLowerCase();
+    return category === 'mutual fund' || category.includes('mutual') || notes.includes('mutual fund') || notes.includes('mutual');
+  }
+
   function classifyMutualFundEntry(entry) {
     const subtype = String(entry?.subtype || '').trim().toLowerCase();
     if (subtype === 'profit') return 'profit';
@@ -802,6 +811,7 @@
   }
 
   window.classifyMutualFundEntry = classifyMutualFundEntry;
+  window.isMutualFundEntry = isMutualFundEntry;
   window.getMutualFundSummary = getMutualFundSummary;
 
   // --- Summary cards (balance/savings/expenses) ---

@@ -79,8 +79,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     const summary = typeof window.getMutualFundSummary === 'function'
       ? window.getMutualFundSummary(entries)
       : { bought: 0, invested: 0, sold: 0, growth: 0 };
-    const { invested, sold, growth } = summary;
-    if (boughtEl) boughtEl.textContent = formatINR(invested);
+    const { bought, invested, sold, growth } = summary;
+    if (boughtEl) boughtEl.textContent = formatINR(bought);
     if (soldEl) soldEl.textContent = formatINR(sold);
     if (netEl) netEl.textContent = formatINR(invested);
     if (growthEl) growthEl.textContent = formatINR(growth);
