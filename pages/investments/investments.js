@@ -111,7 +111,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     // If no investments found, still populate totals as zero
-    const mutualFundSummary = window.getMutualFundSummary ? window.getMutualFundSummary(investments) : { invested:0, growth:0, combined:0, byYear:{} };
+    const mutualFundSummary = window.getMutualFundSummary
+      ? window.getMutualFundSummary(investments)
+      : investments.reduce((summary, entry) => {
+        const amount = Number(entry.amount) || 0;
+        const subtype = String(entry.subtype || '').toLowerCase();
+        const notes = String(entry.notes || '').toLowerCase();
+        const isProfit = subtype === 'profit' || (!subtype && notes.includes('profit'));
+        const isSell = subtype === 'sell' || (!subtype && (notes.includes(' sell') || notes.includes('sold')));
+        if (isProfit) summary.growth += amount;
+        else if (!isSell) summary.bought += amount;
+        return summary;
+      }, { bought: 0, growth: 0 });
 
     // Totals by category (robust)
     const totals = { 'Mutual Fund':0, 'LIC':0, 'PPF':0, 'Sukanya Yojana':0 };
@@ -125,7 +136,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       else if (/sukanya/i.test(cat)) { totals['Sukanya Yojana'] += amt; byCategory['Sukanya Yojana'].push(e); }
     });
 
-    if (mutualFundTotalEl) mutualFundTotalEl.textContent = formatINR(mutualFundSummary.combined || totals['Mutual Fund']);
+    if (mutualFundTotalEl) mutualFundTotalEl.textContent = formatINR(mutualFundSummary.bought + mutualFundSummary.growth);
     if (licTotalEl) licTotalEl.textContent = formatINR(totals['LIC']);
     if (ppfTotalEl) ppfTotalEl.textContent = formatINR(totals['PPF']);
     if (sukanyaTotalEl) sukanyaTotalEl.textContent = formatINR(totals['Sukanya Yojana']);

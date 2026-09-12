@@ -76,17 +76,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   let allEntries = [];
 
   function renderSummary(entries) {
-    let bought = 0, sold = 0, growth = 0;
-    entries.forEach(e => {
-      const amt = Number(e.amount) || 0;
-      const kind = classify(e);
-      if (kind === 'profit') growth += amt;
-      else if (kind === 'sell') sold += amt;
-      else bought += amt; // includes yearly-total treated as invested amount
-    });
-    if (boughtEl) boughtEl.textContent = formatINR(bought);
+    const summary = typeof window.getMutualFundSummary === 'function'
+      ? window.getMutualFundSummary(entries)
+      : { bought: 0, invested: 0, sold: 0, growth: 0 };
+    const { invested, sold, growth } = summary;
+    if (boughtEl) boughtEl.textContent = formatINR(invested);
     if (soldEl) soldEl.textContent = formatINR(sold);
-    if (netEl) netEl.textContent = formatINR(bought - sold);
+    if (netEl) netEl.textContent = formatINR(invested);
     if (growthEl) growthEl.textContent = formatINR(growth);
   }
 
