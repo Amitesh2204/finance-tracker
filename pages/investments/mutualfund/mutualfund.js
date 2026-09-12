@@ -368,14 +368,19 @@ document.addEventListener('DOMContentLoaded', async () => {
     totalInvested = mutualFundSummary.bought ?? mutualFundSummary.invested ?? 0;
     totalGrowth = mutualFundSummary.growth || 0;
     monthlyData = {};
+    const yearsWithDetailedTransactions = new Set(mfEntries
+      .filter(entry => classify(entry) !== 'yearly-total')
+      .map(entry => new Date(entry.date).getFullYear())
+      .filter(Number.isFinite));
 
     mfEntries.forEach(e => {
       const d = new Date(e.date);
       const month = d.toLocaleString('default',{month:'short'});
       const year = d.getFullYear();
       const key = `${month}-${year}`;
-      monthlyData[key] = monthlyData[key] || { invested:0, profit:0, sold:0, combined:0 };
       const kind = classify(e);
+      if (kind === 'yearly-total' && yearsWithDetailedTransactions.has(year)) return;
+      monthlyData[key] = monthlyData[key] || { invested:0, profit:0, sold:0, combined:0 };
       const isProfit = kind === 'profit';
       const isSell = kind === 'sell';
       if (isProfit) {
