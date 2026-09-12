@@ -365,7 +365,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       ? window.getMutualFundSummary(entries)
       : buildMutualFundSummary(entries);
 
-    totalInvested = mutualFundSummary.bought ?? mutualFundSummary.invested ?? 0;
+    totalInvested = mutualFundSummary.invested ?? mutualFundSummary.bought ?? 0;
     totalGrowth = mutualFundSummary.growth || 0;
     monthlyData = {};
 

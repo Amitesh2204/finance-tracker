@@ -768,6 +768,42 @@
   window.isInvestmentEntry = isInvestmentEntry;
   window.formatCurrency = formatCurrency;
 
+  function classifyMutualFundEntry(entry) {
+    const subtype = String(entry?.subtype || '').trim().toLowerCase();
+    if (subtype === 'profit') return 'profit';
+    if (subtype === 'sell') return 'sell';
+    if (subtype === 'yearly-total') return 'yearly-total';
+    if (subtype) return 'buy';
+
+    const notes = String(entry?.notes || '').toLowerCase();
+    if (notes.includes('profit')) return 'profit';
+    if (notes.includes(' sell') || notes.includes('sold')) return 'sell';
+    if (notes.includes('yearly total') || notes.includes('year total')) return 'yearly-total';
+    return 'buy';
+  }
+
+  function getMutualFundSummary(entries = []) {
+    const summary = { bought: 0, invested: 0, growth: 0, sold: 0, combined: 0, byYear: {} };
+    (entries || []).filter(isMutualFundEntry).forEach(entry => {
+      const amount = Number(entry.amount) || 0;
+      const kind = classifyMutualFundEntry(entry);
+      if (kind === 'profit') {
+        summary.growth += amount;
+      } else if (kind === 'sell') {
+        summary.invested -= amount;
+        summary.sold += amount;
+      } else {
+        summary.bought += amount;
+        summary.invested += amount;
+      }
+    });
+    summary.combined = summary.bought + summary.growth;
+    return summary;
+  }
+
+  window.classifyMutualFundEntry = classifyMutualFundEntry;
+  window.getMutualFundSummary = getMutualFundSummary;
+
   // --- Summary cards (balance/savings/expenses) ---
   function getExpenseTotals(entries = []) {
     // Keep this formula identical to Expense's computeBankTotal: all balance
