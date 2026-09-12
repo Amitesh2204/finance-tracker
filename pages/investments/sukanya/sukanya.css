@@ -73,6 +73,16 @@
 }
 .investment-form button:hover { filter: brightness(0.92); }
 
+.form-hint {
+  color: var(--muted);
+  font-size: 0.85rem;
+  line-height: 1.5;
+  margin: -4px 0 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--accent-soft);
+}
+
 /* Table controls (filter + import/export) */
 .table-controls {
   display: flex;

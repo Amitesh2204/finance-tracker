@@ -11,6 +11,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   const importInput = document.getElementById('sukanyaImportInput');
   const sukanyaInvestmentForm = document.getElementById('sukanyaInvestmentForm');
   const monthInput = document.getElementById('sukanyaMonth');
+  const monthWrapper = document.getElementById('sukanyaMonthWrapper');
+  const yearWrapper = document.getElementById('sukanyaYearWrapper');
+  const profitYearSelect = document.getElementById('sukanyaProfitYear');
+  const profitHint = document.getElementById('sukanyaProfitHint');
   const bankSelect = document.getElementById('sukanyaBank');
   const entryTypeSelect = document.getElementById('sukanyaEntryType');
   const amountInput = document.getElementById('sukanyaAmount');
@@ -50,6 +54,31 @@ document.addEventListener('DOMContentLoaded', async () => {
     monthInput.value = new Date().toISOString().slice(0, 7);
   }
 
+  // Populate the year-only picker used for whole-year Profit entries.
+  if (profitYearSelect) {
+    const currentYear = new Date().getFullYear();
+    const startYear = 2015; // Sukanya Samriddhi Yojana launch year
+    const years = [];
+    for (let y = currentYear + 1; y >= startYear; y--) years.push(y);
+    profitYearSelect.innerHTML = years.map(y => `<option value="${y}">${y}</option>`).join('');
+    profitYearSelect.value = String(currentYear);
+  }
+
+  // Switch the form between the Month & Year picker (Investment) and the
+  // Year-only picker (Profit — recorded once for the whole year).
+  function updateEntryTypeUI() {
+    const isProfit = entryTypeSelect?.value === 'profit';
+    if (monthWrapper) monthWrapper.style.display = isProfit ? 'none' : '';
+    if (yearWrapper) yearWrapper.style.display = isProfit ? '' : 'none';
+    if (profitHint) profitHint.style.display = isProfit ? '' : 'none';
+    if (monthInput) monthInput.required = !isProfit;
+    if (profitYearSelect) profitYearSelect.required = isProfit;
+  }
+  if (entryTypeSelect) {
+    entryTypeSelect.addEventListener('change', updateEntryTypeUI);
+    updateEntryTypeUI();
+  }
+
   function updateCards() {
     if (investedCard) investedCard.textContent = formatINR(totalInvested);
     if (growthCard) growthCard.textContent = formatINR(totalGrowth);
@@ -60,6 +89,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (monthInput) monthInput.value = new Date().toISOString().slice(0, 7);
     if (bankSelect) bankSelect.value = 'ICICI';
     if (entryTypeSelect) entryTypeSelect.value = 'investment';
+    if (profitYearSelect) profitYearSelect.value = String(new Date().getFullYear());
+    updateEntryTypeUI();
     if (sukanyaEditId) sukanyaEditId.value = '';
     const submit = sukanyaInvestmentForm?.querySelector('button[type="submit"]');
     if (submit) submit.textContent = 'Add Entry';
@@ -69,7 +100,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const keys = Object.keys(monthlyData);
     if (!tableBody) return;
     if (!keys.length) {
-      tableBody.innerHTML = '<tr><td colspan="7">No data yet</td></tr>';
+      tableBody.innerHTML = '<tr><td colspan="5">No data yet</td></tr>';
       return;
     }
 
@@ -79,22 +110,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     ).sort((a, b) => monthlyData[b].sortKey - monthlyData[a].sortKey);
 
     if (!filtered.length) {
-      tableBody.innerHTML = '<tr><td colspan="7">No data for the selected month</td></tr>';
+      tableBody.innerHTML = '<tr><td colspan="5">No data for the selected month</td></tr>';
       return;
     }
 
     tableBody.innerHTML = filtered.map(key => {
       const d = monthlyData[key];
       const invested = d.invested || 0;
-      const profit = d.profit || 0;
-      const growthPct = invested > 0 ? ((profit / invested) * 100).toFixed(2) : '0.00';
       return `<tr>
         <td>${escapeHtml(d.label)}</td>
         <td>Sukanya Yojana</td>
         <td>${escapeHtml(d.bank)}</td>
         <td>${formatINR(invested)}</td>
-        <td>${formatINR(profit)}</td>
-        <td>${growthPct}%</td>
         <td>
           <button type="button" class="edit-entry-btn" data-key="${escapeHtml(key)}">Edit</button>
           <button type="button" class="delete-entry-btn" data-key="${escapeHtml(key)}">Delete</button>
@@ -119,10 +146,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         const docId = rowData?.ids?.[0];
         const doc = docId ? allEntries.find(e => e._id === docId) : null;
         if (!doc) return;
+        const isProfit = doc.subtype === 'profit';
         if (amountInput) amountInput.value = doc.amount || '';
         if (bankSelect) bankSelect.value = doc.bank || 'ICICI';
-        if (monthInput) monthInput.value = rowData.monthYearValue || '';
-        if (entryTypeSelect) entryTypeSelect.value = doc.subtype === 'profit' ? 'profit' : 'investment';
+        if (entryTypeSelect) entryTypeSelect.value = isProfit ? 'profit' : 'investment';
+        updateEntryTypeUI();
+        if (isProfit) {
+          if (profitYearSelect) profitYearSelect.value = (rowData.monthYearValue || '').split('-')[0] || String(new Date().getFullYear());
+        } else if (monthInput) {
+          monthInput.value = rowData.monthYearValue || '';
+        }
         if (sukanyaEditId) sukanyaEditId.value = doc._id || '';
         const submit = sukanyaInvestmentForm?.querySelector('button[type="submit"]');
         if (submit) submit.textContent = 'Update Entry';
@@ -148,40 +181,66 @@ document.addEventListener('DOMContentLoaded', async () => {
     const labels = [];
     for (let y = startYear; y <= endYear; y++) labels.push(String(y));
 
-    let running = 0;
-    const data = labels.map(y => {
+    let runningInvested = 0;
+    const investedData = labels.map(y => {
       const yearNum = Number(y);
       const yearInvested = allEntries
         .filter(e => e.subtype !== 'profit' && new Date(e.date).getFullYear() === yearNum)
         .reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
-      running += yearInvested;
-      return running;
+      runningInvested += yearInvested;
+      return runningInvested;
     });
 
-    const accent = getComputedStyle(document.documentElement).getPropertyValue('--purple').trim() || '#9b59b6';
+    let runningProfit = 0;
+    const profitData = labels.map(y => {
+      const yearNum = Number(y);
+      const yearProfit = allEntries
+        .filter(e => e.subtype === 'profit' && new Date(e.date).getFullYear() === yearNum)
+        .reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+      runningProfit += yearProfit;
+      return runningProfit;
+    });
+
+    const investmentColor = getComputedStyle(document.documentElement).getPropertyValue('--purple').trim() || '#9b59b6';
+    // Profit uses the app's positive/growth accent color so it reads as
+    // "gains" next to the investment line, consistent with how it's styled
+    // on the PPF page.
+    const profitColor = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#1abc9c';
     const muted = getComputedStyle(document.documentElement).getPropertyValue('--muted').trim() || '#6d7f79';
 
     window.sukanyaChart = new Chart(canvas.getContext('2d'), {
       type: 'line',
       data: {
         labels,
-        datasets: [{
-          label: 'Cumulative Sukanya Investment',
-          data,
-          borderColor: accent,
-          backgroundColor: `${accent}33`,
-          fill: true,
-          tension: 0.3,
-          pointRadius: 4,
-          pointBackgroundColor: accent
-        }]
+        datasets: [
+          {
+            label: 'Cumulative Sukanya Investment',
+            data: investedData,
+            borderColor: investmentColor,
+            backgroundColor: `${investmentColor}33`,
+            fill: true,
+            tension: 0.3,
+            pointRadius: 4,
+            pointBackgroundColor: investmentColor
+          },
+          {
+            label: 'Cumulative Sukanya Profit',
+            data: profitData,
+            borderColor: profitColor,
+            backgroundColor: `${profitColor}33`,
+            fill: true,
+            tension: 0.3,
+            pointRadius: 4,
+            pointBackgroundColor: profitColor
+          }
+        ]
       },
       options: {
         responsive: true,
         maintainAspectRatio: false,
         plugins: {
           legend: { display: true, position: 'bottom', labels: { color: muted } },
-          tooltip: { callbacks: { label: ctx => formatINR(ctx.parsed.y) } }
+          tooltip: { callbacks: { label: ctx => `${ctx.dataset.label}: ${formatINR(ctx.parsed.y)}` } }
         },
         scales: {
           x: { ticks: { color: muted } },
@@ -301,10 +360,20 @@ document.addEventListener('DOMContentLoaded', async () => {
       e.preventDefault();
       const amt = parseFloat(amountInput?.value);
       if (Number.isNaN(amt) || amt <= 0) return;
-      const monthValue = monthInput?.value; // "YYYY-MM"
-      if (!monthValue) return;
       const bank = bankSelect?.value || 'ICICI';
       const subtype = entryTypeSelect?.value === 'profit' ? 'profit' : 'investment';
+
+      let dateVal;
+      if (subtype === 'profit') {
+        const yr = profitYearSelect?.value;
+        if (!yr) return;
+        dateVal = `${yr}-01-01`;
+      } else {
+        const monthValue = monthInput?.value; // "YYYY-MM"
+        if (!monthValue) return;
+        dateVal = `${monthValue}-01`;
+      }
+
       const docId = sukanyaEditId?.value || '';
       const payload = {
         type: 'saving',
@@ -312,7 +381,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         subtype,
         amount: amt,
         currency: 'INR',
-        date: `${monthValue}-01`,
+        date: dateVal,
         notes: subtype === 'profit' ? 'Sukanya Yojana yearly profit' : 'Sukanya Yojana investment',
         bank
       };
