@@ -793,9 +793,17 @@
 
   function getMutualFundSummary(entries = []) {
     const summary = { bought: 0, invested: 0, growth: 0, sold: 0, combined: 0, byYear: {} };
-    (entries || []).filter(isMutualFundEntry).forEach(entry => {
+    const mutualFundEntries = (entries || []).filter(isMutualFundEntry);
+    const yearsWithDetailedTransactions = new Set(mutualFundEntries
+      .filter(entry => classifyMutualFundEntry(entry) !== 'yearly-total')
+      .map(entry => new Date(entry.date).getFullYear())
+      .filter(Number.isFinite));
+
+    mutualFundEntries.forEach(entry => {
       const amount = Number(entry.amount) || 0;
       const kind = classifyMutualFundEntry(entry);
+      const entryYear = new Date(entry.date).getFullYear();
+      if (kind === 'yearly-total' && yearsWithDetailedTransactions.has(entryYear)) return;
       if (kind === 'profit') {
         summary.growth += amount;
       } else if (kind === 'sell') {
