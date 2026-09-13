@@ -22,4 +22,3 @@
   // If empty, code will derive remote users URL from __CONFIG__.couchHost and use couchAuth.
   window.__USERS_COUCH__ = window.__USERS_COUCH__ || 'https://admin:information-requests-spot-parade.trycloudflare.com/finance-users';
 })();
-
