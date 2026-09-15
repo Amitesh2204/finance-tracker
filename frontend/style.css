@@ -543,3 +543,107 @@ input, select, textarea, button { max-width:100%; }
   .investment-table, .transactions table { min-width:0; }
   .content { gap:16px; }
 }
+
+/* ==========================================================================
+   Modern design refinement layer (additive — does not remove/rename any
+   existing selectors, ids or classes relied on by app.js / page scripts)
+   ========================================================================== */
+:root {
+  --shadow-sm: 0 2px 10px rgba(15, 46, 38, .06);
+  --shadow-lg: 0 22px 48px rgba(15, 46, 38, .16);
+  --ease: cubic-bezier(.4,0,.2,1);
+}
+:root[data-theme="dark"] {
+  --shadow-sm: 0 2px 10px rgba(0,0,0,.28);
+  --shadow-lg: 0 24px 52px rgba(0,0,0,.4);
+}
+:root[data-theme="custom"] {
+  --shadow-sm: 0 2px 10px rgba(111,69,38,.14);
+  --shadow-lg: 0 24px 52px rgba(111,69,38,.2);
+}
+
+html { scroll-behavior:smooth; }
+body { -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility; letter-spacing:-.01em; }
+
+/* Slim, on-brand scrollbars */
+* { scrollbar-width:thin; scrollbar-color:color-mix(in srgb, var(--accent) 55%, transparent) transparent; }
+*::-webkit-scrollbar { width:8px; height:8px; }
+*::-webkit-scrollbar-track { background:transparent; }
+*::-webkit-scrollbar-thumb { background:color-mix(in srgb, var(--accent) 50%, transparent); border-radius:999px; }
+*::-webkit-scrollbar-thumb:hover { background:var(--accent); }
+
+/* Accessible, on-brand focus rings */
+a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible,
+textarea:focus-visible, [tabindex]:focus-visible {
+  outline:2px solid var(--accent);
+  outline-offset:2px;
+  border-radius:6px;
+}
+
+/* Sidebar polish */
+.sidebar { border-right:1px solid rgba(255,255,255,.06); }
+.sidebar .brand h1 {
+  background:linear-gradient(135deg,#fff,rgba(255,255,255,.72));
+  -webkit-background-clip:text; background-clip:text; color:transparent;
+}
+.sidebar nav.main-menu a, .sidebar-footer a { position:relative; font-weight:600; font-size:.94rem; }
+.sidebar nav a.active, .sidebar nav a.submenu-toggle.active {
+  background:rgba(255,255,255,.16); color:#fff;
+}
+.sidebar nav a.active::before, .sidebar nav a.submenu-toggle.active::before {
+  content:""; position:absolute; left:-14px; top:50%; transform:translateY(-50%);
+  width:4px; height:60%; border-radius:4px; background:var(--accent);
+}
+.submenu-list { display:flex; flex-direction:column; gap:2px; }
+.submenu-list a { border-radius:8px; transition:background 150ms var(--ease); }
+.submenu-list a:hover { background:rgba(255,255,255,.1); }
+
+/* Topbar polish */
+.topbar { position:sticky; top:0; z-index:5; padding-block:6px 10px; }
+.topbar .search { transition:border-color 160ms var(--ease), box-shadow 160ms var(--ease); }
+.topbar .search:focus {
+  border-color:var(--accent); outline:none;
+  box-shadow:0 0 0 4px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+.topbar button.icon { transition:transform 160ms var(--ease), background 160ms var(--ease); border:1px solid var(--border); background:var(--surface); border-radius:10px; padding:8px 10px; }
+.topbar button.icon:hover { transform:translateY(-2px); }
+.topbar .avatar { box-shadow:0 0 0 2px var(--surface), 0 0 0 3px var(--accent); transition:transform 160ms var(--ease); }
+.topbar .avatar:hover { transform:scale(1.05); }
+@media (max-width:1024px) { .topbar { position:static; } }
+
+/* Card / panel elevation + motion */
+.card, .chart, .activity-card, .collapsible, .login-container,
+.content-panel, .transactions, .section-card {
+  transition:box-shadow 200ms var(--ease), transform 200ms var(--ease), border-color 200ms var(--ease);
+}
+.card:hover, .chart:hover, .activity-card:hover { box-shadow:var(--shadow-lg) !important; }
+
+/* Buttons everywhere feel tactile */
+button, .button, .investment-form button {
+  transition:filter 150ms var(--ease), transform 150ms var(--ease), box-shadow 150ms var(--ease);
+}
+button:active, .button:active, .investment-form button:active { transform:translateY(1px) scale(.99); }
+
+/* Collapsible header interaction polish */
+.collapsible-header { transition:background 160ms var(--ease); border-radius:inherit; }
+.collapsible-header:hover { background:color-mix(in srgb, var(--accent) 6%, transparent); }
+.collapsible-header .chev { display:inline-block; transition:transform 220ms var(--ease); }
+
+/* Table row hover for readability */
+.investment-table tbody tr, .transactions tbody tr, .daily-items tbody tr {
+  transition:background-color 140ms var(--ease);
+}
+.investment-table tbody tr:hover, .transactions tbody tr:hover { background:var(--accent-soft) !important; }
+
+/* Inputs/selects: consistent rounded, subtle inset */
+input, select, textarea {
+  border-radius:10px !important;
+  transition:border-color 160ms var(--ease), box-shadow 160ms var(--ease);
+}
+input:focus, select:focus, textarea:focus {
+  border-color:var(--accent) !important;
+  box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent);
+  outline:none;
+}
+
+.empty-state, .center { font-style:italic; }

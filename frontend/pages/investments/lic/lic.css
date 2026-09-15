@@ -150,3 +150,25 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* ---- Modern polish layer (additive) ---- */
+.card { transition:box-shadow 180ms var(--ease); }
+.toggle-btn { transition:background 160ms var(--ease), color 160ms var(--ease); }
+.policy-list li { border-bottom:1px solid var(--border); }
+.policy-list li:last-child { border-bottom:none; }
+.policy-value { transition:color 160ms var(--ease); }
+.edit-entry-btn, .delete-entry-btn {
+  border-radius:8px; padding:5px 10px; font-size:.82rem; font-weight:600;
+  cursor:pointer; border:1px solid var(--border); background:transparent;
+  color:var(--text); margin-right:6px; transition:background 150ms var(--ease), color 150ms var(--ease), border-color 150ms var(--ease);
+}
+.edit-entry-btn { color:var(--info); border-color:var(--info); }
+.edit-entry-btn:hover { background:var(--info); color:#fff; }
+.delete-entry-btn { color:var(--danger); border-color:var(--danger); }
+.delete-entry-btn:hover { background:var(--danger); color:#fff; }
+.secondary-btn {
+  padding:9px 14px; border-radius:8px; border:1px solid var(--border);
+  background:var(--accent-soft); color:var(--text); font-weight:600; font-size:.88rem;
+  cursor:pointer; transition:background 150ms var(--ease), color 150ms var(--ease);
+}
+.secondary-btn:hover { background:var(--info); color:#fff; }

@@ -46,3 +46,15 @@ body { background:var(--bg); }
 @media (max-width:1000px) { .tracker-cards { grid-template-columns:repeat(2,minmax(0,1fr)); } .tracker-grid { grid-template-columns:1fr; } }
 @media (max-width:650px) { .main.tracker-main { padding:18px 14px; } .tracker-topbar { flex-direction:column; } .tracker-actions { justify-content:flex-start; width:100%; } .tracker-actions .button { flex:1 1 180px; } .import-status { text-align:left; } .tracker-cards { grid-template-columns:1fr; } .split-card { grid-column:auto; } .tracker-card { min-height:110px; } .progress-panel,.tracker-panel { padding:18px 15px; } .tracker-form,.compact-form { grid-template-columns:1fr; } .compact-form button { grid-column:1; } .section-heading { flex-direction:column; } .year-filter { width:100%; justify-content:space-between; } .year-filter select { flex:1; } .lender-item { align-items:flex-start; flex-direction:column; width:100%; } .lender-item-actions { justify-content:flex-start; width:100%; } .lender-summary { gap:8px 16px; } }
 .flat-emi-nav { display:flex; flex-direction:column; gap:4px; margin:-6px 0 3px 34px; } .flat-emi-nav a { font-size:.88rem; padding:7px 10px !important; }
+
+/* ---- Modern polish layer (additive) ---- */
+.tracker-card { transition:transform 180ms var(--ease), box-shadow 180ms var(--ease); position:relative; overflow:hidden; }
+.tracker-card:hover { transform:translateY(-3px); box-shadow:var(--shadow-lg); }
+.tracker-card::before { content:""; position:absolute; inset:0 0 auto 0; height:3px; background:linear-gradient(90deg, var(--tracker-green), transparent); }
+.tracker-card.blue::before { background:linear-gradient(90deg, var(--tracker-blue), transparent); }
+.tracker-card.amber::before { background:linear-gradient(90deg, var(--tracker-amber), transparent); }
+.progress-track span { transition:width .6s var(--ease); }
+.lender-item { transition:transform 160ms var(--ease), box-shadow 160ms var(--ease); }
+.lender-item:hover { transform:translateY(-2px); box-shadow:var(--shadow-sm); }
+.button { box-shadow:var(--shadow-sm); }
+.button-primary:hover { filter:brightness(1.05); }
