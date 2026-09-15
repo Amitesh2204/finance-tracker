@@ -156,3 +156,14 @@
     max-height: 280px;
   }
 }
+
+/* ---- Modern polish layer (additive) ---- */
+.cards a.card { text-decoration:none; transition:transform 180ms var(--ease), box-shadow 180ms var(--ease); position:relative; overflow:hidden; }
+.cards a.card:hover { transform:translateY(-4px); box-shadow:var(--shadow-lg); }
+.cards a.card::before { content:""; position:absolute; inset:0 0 auto 0; height:3px; background:currentColor; opacity:.5; }
+.card.mutualfund { color:var(--accent); }
+.card.lic { color:var(--info); }
+.card.ppf { color:var(--warning); }
+.card.sukanya { color:var(--purple); }
+.chart-row .chart.card { transition:box-shadow 180ms var(--ease); }
+.delete-entry-btn { transition:background 150ms var(--ease), color 150ms var(--ease); }

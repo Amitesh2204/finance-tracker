@@ -238,3 +238,15 @@
 .right-panel {
   margin-top: 165px;
 }
+
+/* ---- Modern polish layer (additive) ---- */
+.total-expense-card::before {
+  content:""; display:block; height:3px; margin:-20px -20px 16px; border-radius:18px 18px 0 0;
+  background:linear-gradient(90deg, var(--danger), color-mix(in srgb, var(--danger) 40%, transparent));
+}
+.bank-expense-item { transition:transform 160ms var(--ease), background 160ms var(--ease); }
+.bank-expense-item:hover { transform:translateY(-2px); background:color-mix(in srgb, var(--accent) 12%, var(--accent-soft)); }
+.investment-table tr.highest-expense-row { transition:background 160ms var(--ease); }
+.daily-items tr { transition:background 140ms var(--ease); }
+.investment-form button:hover { filter:brightness(0.92); box-shadow:var(--shadow-sm); }
+.summary-card { position:relative; }

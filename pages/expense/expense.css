@@ -275,3 +275,18 @@
 @media (max-width:600px) {
   .expense-layout > .left-panel .summary-cards { grid-template-columns:1fr; }
 }
+
+/* ---- Modern polish layer (additive) ---- */
+.summary-card { position:relative; overflow:hidden; }
+.summary-card::before {
+  content:""; position:absolute; inset:0 0 auto 0; height:3px;
+  background:linear-gradient(90deg, var(--accent), color-mix(in srgb, var(--accent) 40%, transparent));
+}
+#totalSavingCard::before { background:linear-gradient(90deg, #1abc9c, color-mix(in srgb, #1abc9c 40%, transparent)); }
+.saving-bank-list div, .bank-expense-item { transition:transform 160ms var(--ease), background 160ms var(--ease); }
+.saving-bank-list div:hover { transform:translateY(-2px); background:color-mix(in srgb, var(--accent) 14%, var(--accent-soft)); }
+.legend-item { transition:background 150ms var(--ease), opacity 150ms var(--ease); }
+.legend-item:hover { background:var(--accent-soft); }
+.legend-swatch { box-shadow:0 0 0 2px color-mix(in srgb, var(--text) 6%, transparent); }
+.investment-form button[type="submit"] { letter-spacing:.01em; }
+.investment-form button:hover { filter:brightness(0.94); box-shadow:var(--shadow-sm); }
