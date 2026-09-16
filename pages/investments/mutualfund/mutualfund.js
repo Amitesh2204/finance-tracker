@@ -10,6 +10,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const summaryMonthSelect = document.getElementById('summaryMonthSelect');
   const portfolioYearSelect = document.getElementById('portfolioYearSelect');
   const portfolioMonthSelect = document.getElementById('portfolioMonthSelect');
+  const portfolioFundSelect = document.getElementById('portfolioFundSelect');
   const historyFundDetails = document.getElementById('historyFundDetails');
   const portfolioPeriodStatus = document.getElementById('portfolioPeriodStatus');
   const portfolioChartTitle = document.getElementById('portfolioChartTitle');
@@ -87,6 +88,22 @@ document.addEventListener('DOMContentLoaded', async () => {
   function isBeforePeriodEnd(entry, selectedPeriod) {
     const entryDate = new Date(entry.date);
     return !Number.isNaN(entryDate.getTime()) && entryDate < selectedPeriod.end;
+  }
+
+  // Entry falls inside the selected month only (not cumulative).
+  function isWithinPeriod(entry, selectedPeriod) {
+    const entryDate = new Date(entry.date);
+    return !Number.isNaN(entryDate.getTime()) && entryDate >= selectedPeriod.start && entryDate < selectedPeriod.end;
+  }
+
+  // Entry predates the selected month (used for a single fund's "old/historical" totals).
+  function isBeforePeriodStart(entry, selectedPeriod) {
+    const entryDate = new Date(entry.date);
+    return !Number.isNaN(entryDate.getTime()) && entryDate < selectedPeriod.start;
+  }
+
+  function selectedPortfolioFund() {
+    return portfolioFundSelect && portfolioFundSelect.value ? portfolioFundSelect.value : 'all';
   }
 
   function timeline() {
@@ -207,21 +224,54 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
   
     // --- Portfolio rendering ---
-  function updatePortfolio(entries, selectedPeriod = selectedPortfolioPeriod()) {
-    const fundValues = {};
+  function updatePortfolio(entries, selectedPeriod = selectedPortfolioPeriod(), selectedFund = selectedPortfolioFund()) {
+    const periodLabel = selectedPeriod.start.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
 
+    if (selectedFund && selectedFund !== 'all') {
+      // Single-fund view: show this fund's current-month activity alongside
+      // its historical (pre-this-month) totals, and nothing else.
+      if (portfolioPeriodStatus) {
+        portfolioPeriodStatus.textContent = `${selectedFund} — current vs. historical values (${periodLabel})`;
+      }
+      if (portfolioChartTitle) {
+        portfolioChartTitle.textContent = `${selectedFund} Growth Over Time`;
+      }
+
+      const current = { invested: 0, growth: 0 };
+      const old = { invested: 0, growth: 0 };
+      entries.forEach(e => {
+        const isMf = typeof window.isMutualFundEntry === 'function' ? window.isMutualFundEntry(e) : (e?.type === 'investment' && String(e?.category || '').toLowerCase().includes('mutual'));
+        if (!isMf || classify(e) === 'yearly-total') return;
+        if (getFundName(e) !== selectedFund) return;
+        const kind = classify(e);
+        const amount = Number(e.amount) || 0;
+        const bucket = isWithinPeriod(e, selectedPeriod) ? current : (isBeforePeriodStart(e, selectedPeriod) ? old : null);
+        if (!bucket) return;
+        if (kind === 'sell') bucket.invested -= amount;
+        else if (kind !== 'profit') bucket.invested += amount;
+        if (kind === 'profit') bucket.growth += amount;
+      });
+
+      if (historyFundDetails) {
+        historyFundDetails.innerHTML =
+          `<li><span>Current month</span><span class="fund-value">${formatINR(current.invested)}<small> invested</small><br>${formatINR(current.growth)}<small> growth</small></span></li>` +
+          `<li><span>Historical (before ${periodLabel})</span><span class="fund-value">${formatINR(old.invested)}<small> invested</small><br>${formatINR(old.growth)}<small> growth</small></span></li>`;
+      }
+      return;
+    }
+
+    // All Funds view: values are for the selected month only (not cumulative).
     if (portfolioPeriodStatus) {
-      const periodLabel = selectedPeriod.start.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
-      portfolioPeriodStatus.textContent = `Portfolio values through ${periodLabel}`;
+      portfolioPeriodStatus.textContent = `Portfolio values for ${periodLabel}`;
     }
     if (portfolioChartTitle) {
-      const periodLabel = selectedPeriod.start.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
       portfolioChartTitle.textContent = `Portfolio Growth - ${periodLabel}`;
     }
 
+    const fundValues = {};
     entries.forEach(e => {
       if (typeof window.isMutualFundEntry === 'function' ? window.isMutualFundEntry(e) : (e?.type === 'investment' && String(e?.category || '').toLowerCase().includes('mutual'))) {
-        if (!isBeforePeriodEnd(e, selectedPeriod) || classify(e) === 'yearly-total') return;
+        if (!isWithinPeriod(e, selectedPeriod) || classify(e) === 'yearly-total') return;
         const key = getFundName(e);
         if (key === 'Mutual Fund') return;
         const kind = classify(e);
@@ -233,20 +283,13 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     });
 
-    entries.forEach(e => {
-      if (!isBeforePeriodEnd(e, selectedPeriod) || classify(e) === 'yearly-total') return;
-      const name = getFundName(e);
-      if (!name || name === 'Mutual Fund') return;
-      if (fundValues[name] === undefined) fundValues[name] = { invested: 0, growth: 0 };
-    });
     if (historyFundDetails) {
       historyFundDetails.innerHTML = Object.entries(fundValues)
         .filter(([, values]) => values.invested !== 0 || values.growth !== 0)
         .sort(([a], [b]) => a.localeCompare(b))
         .map(([name, values]) => `<li><span>${escapeHtml(name)}</span><span class="fund-value">${formatINR(values.invested)}<small> invested</small><br>${formatINR(values.growth)}<small> growth</small></span></li>`)
-        .join('') || '<li>No fund holdings recorded through this month</li>';
+        .join('') || '<li>No fund activity in this month</li>';
     }
-
   }
 
   // --- Portfolio chart rendering ---
@@ -259,7 +302,27 @@ document.addEventListener('DOMContentLoaded', async () => {
     portfolioMonthSelect.value = String(new Date().getMonth());
   }
 
-  function renderPortfolioChart(entries, selectedPeriod = selectedPortfolioPeriod()) {
+  // Populate the "Fund" dropdown in Portfolio Details with every distinct
+  // fund seen across mutual fund entries, keeping "All Funds" as the default
+  // and preserving the user's current selection across refreshes when it's
+  // still a valid option.
+  function populatePortfolioFundOptions(entries) {
+    if (!portfolioFundSelect) return;
+    const previousValue = portfolioFundSelect.value || 'all';
+    const names = [...new Set((entries || [])
+      .filter(e => classify(e) !== 'yearly-total')
+      .map(getFundName)
+      .filter(name => name && name !== 'Mutual Fund'))]
+      .sort((a, b) => a.localeCompare(b));
+
+    portfolioFundSelect.innerHTML = ['<option value="all">All Funds</option>']
+      .concat(names.map(name => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`))
+      .join('');
+
+    portfolioFundSelect.value = (previousValue === 'all' || names.includes(previousValue)) ? previousValue : 'all';
+  }
+
+  function renderPortfolioChart(entries, selectedPeriod = selectedPortfolioPeriod(), selectedFund = selectedPortfolioFund()) {
     const canvas = document.getElementById('portfolioChart');
     if (!canvas || typeof Chart === 'undefined') {
       console.warn('Portfolio chart canvas or Chart.js is unavailable.');
@@ -271,10 +334,51 @@ document.addEventListener('DOMContentLoaded', async () => {
       window.portfolioChart.destroy();
     }
 
+    if (selectedFund && selectedFund !== 'all') {
+      // Single fund: cumulative Invested/Growth over time (same shape as the
+      // main "Mutual Fund Growth" chart above, scoped to just this fund).
+      const months = timeline();
+      const labels = months.map(date => date.toLocaleDateString('en-IN', { month: 'short', year: 'numeric' }));
+      let investedTotal = 0;
+      let growthTotal = 0;
+      const totals = months.map(month => {
+        (entries || []).forEach(e => {
+          if (getFundName(e) !== selectedFund || classify(e) === 'yearly-total') return;
+          const date = new Date(e.date);
+          if (date.getFullYear() !== month.getFullYear() || date.getMonth() !== month.getMonth()) return;
+          const amount = Number(e.amount) || 0;
+          const kind = classify(e);
+          if (kind === 'profit') growthTotal += amount;
+          else if (kind === 'sell') investedTotal -= amount;
+          else investedTotal += amount;
+        });
+        return { invested: investedTotal, growth: growthTotal };
+      });
+
+      window.portfolioChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [
+            { label: 'Invested', data: totals.map(item => item.invested), borderColor: '#3498db', backgroundColor: 'rgba(52,152,219,0.15)', fill: false, tension: 0.25, pointRadius: 0, pointHitRadius: 12 },
+            { label: 'Growth', data: totals.map(item => item.growth), borderColor: '#1abc9c', backgroundColor: 'rgba(26,188,156,0.15)', fill: false, tension: 0.25, pointRadius: 0, pointHitRadius: 12 }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { position: 'top' } },
+          scales: { x: { ticks: { autoSkip: true, maxTicksLimit: 12, maxRotation: 0 } }, y: { beginAtZero: true } }
+        }
+      });
+      return;
+    }
+
+    // All Funds: snapshot comparison for the selected month only (not cumulative).
     const totalsByFund = {};
     (entries || []).forEach(e => {
       const kind = classify(e);
-      if (!isBeforePeriodEnd(e, selectedPeriod) || kind === 'yearly-total') return;
+      if (!isWithinPeriod(e, selectedPeriod) || kind === 'yearly-total') return;
       const fund = getFundName(e);
       if (fund === 'Mutual Fund') return;
       if (!totalsByFund[fund]) totalsByFund[fund] = { invested: 0, growth: 0 };
@@ -403,6 +507,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     renderTable(monthYearSelect && monthYearSelect.value ? monthYearSelect.value : null, selectedYear, selectedMonth);
     renderChart(mfEntries);
     populatePortfolioPeriod(mfEntries);
+    populatePortfolioFundOptions(mfEntries);
     updatePortfolio(mfEntries);
     renderPortfolioChart(mfEntries);
   }
@@ -465,6 +570,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
   if (portfolioMonthSelect) {
     portfolioMonthSelect.addEventListener('change', refreshPortfolio);
+  }
+  if (portfolioFundSelect) {
+    portfolioFundSelect.addEventListener('change', refreshPortfolio);
   }
 
   // Initial load
