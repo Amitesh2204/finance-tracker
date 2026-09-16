@@ -102,6 +102,25 @@
   line-height: 1.4;
 }
 
+.portfolio-fund-row {
+  margin-top: 12px;
+}
+.portfolio-fund-row label {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--text);
+  font-weight: 600;
+}
+.portfolio-fund-row select {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--input-bg);
+  color: var(--text);
+}
+
 .portfolio-period select {
   width: 100%;
   box-sizing: border-box;

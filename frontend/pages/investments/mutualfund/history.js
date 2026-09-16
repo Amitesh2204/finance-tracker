@@ -10,6 +10,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const growthEl = document.getElementById('historyTotalGrowth');
   const tableBody = document.querySelector('#historyTable tbody');
   const yearFilter = document.getElementById('historyYearFilter');
+  const monthFilter = document.getElementById('historyMonthFilter');
   const form = document.getElementById('historyForm');
   const exportBtn = document.getElementById('historyExportBtn');
   const importInput = document.getElementById('historyImportInput');
@@ -100,10 +101,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (yearFilter) yearFilter.value = years.includes(currentYear) ? String(currentYear) : 'all';
   }
 
-  function renderTable(entries, selectedYear) {
+  function renderTable(entries, selectedYear, selectedMonth = 'all') {
     let filtered = entries.slice().sort((a, b) => new Date(b.date) - new Date(a.date));
     if (selectedYear && selectedYear !== 'all') {
       filtered = filtered.filter(e => new Date(e.date).getFullYear() === Number(selectedYear));
+    }
+    if (selectedMonth && selectedMonth !== 'all') {
+      filtered = filtered.filter(e => new Date(e.date).getMonth() === Number(selectedMonth));
     }
 
     if (!tableBody) return;
@@ -295,14 +299,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     populateYearFilter(allEntries);
 
     const selectedYear = yearFilter ? yearFilter.value : 'all';
-    renderTable(allEntries, selectedYear);
+    const selectedMonth = monthFilter ? monthFilter.value : 'all';
+    renderTable(allEntries, selectedYear, selectedMonth);
     renderYearlyChart(allEntries);
   }
 
-  // Year filter change handler
+  // Year / month filter change handlers
   if (yearFilter) {
     yearFilter.addEventListener('change', () => {
-      renderTable(allEntries, yearFilter.value);
+      renderTable(allEntries, yearFilter.value, monthFilter ? monthFilter.value : 'all');
+    });
+  }
+  if (monthFilter) {
+    monthFilter.addEventListener('change', () => {
+      renderTable(allEntries, yearFilter ? yearFilter.value : 'all', monthFilter.value);
     });
   }
 

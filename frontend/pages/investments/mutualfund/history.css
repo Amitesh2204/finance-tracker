@@ -84,14 +84,43 @@
   color: var(--accent);
 }
 
-/* Table */
+/* Filter row (year + month) above the transactions table */
+.table-filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: flex-end;
+  margin: 8px 0 4px;
+}
+.table-filter-row label {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--text);
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+.table-filter-row select {
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--input-bg);
+  color: var(--text);
+  font-size: 0.92rem;
+  min-width: 160px;
+}
+
+/* Table — horizontal scroll on narrow screens so the nowrap columns
+   (Date/Fund/Fund User/Type/Amount/Notes/Actions) stay legible instead of
+   overflowing the page or getting crushed unreadably. */
 .table-scroll {
   max-height: 480px;
   overflow-y: auto;
+  overflow-x: auto;
   -webkit-overflow-scrolling: touch;
 }
 .investment-table {
   width: 100%;
+  min-width: 760px;
   border-collapse: collapse;
   margin-top: 10px;
 }
@@ -199,7 +228,11 @@
   .yearly-block { flex-direction: column; align-items: stretch; }
   .history-intro { font-size: 0.92rem; }
   .card { padding: 14px; border-radius: 10px; }
+  .investment-table { min-width: 620px; }
   .investment-table th, .investment-table td { padding: 9px 10px; font-size: 0.86rem; }
+  .table-filter-row { gap: 10px; }
+  .table-filter-row select { min-width: 0; width: 100%; }
+  .table-filter-row > div { flex: 1 1 140px; }
 }
 
 /* Accessibility helpers */
