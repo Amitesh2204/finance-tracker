@@ -201,3 +201,12 @@
     grid-template-columns: 1fr; /* stack vertically on small screens */
   }
 }
+
+/* ---- Modern polish layer (additive) ---- */
+.card { transition: box-shadow 180ms var(--ease), transform 180ms var(--ease); }
+.chart.card:hover, .portfolio-card:hover { box-shadow: var(--shadow-lg); }
+.toggle-btn { transition: background 160ms var(--ease), color 160ms var(--ease), transform 160ms var(--ease); }
+.toggle-btn:hover { transform: translateY(-1px); }
+.fund-list li { transition: background 140ms var(--ease); border-radius:8px; padding-inline:6px; }
+.fund-list li:hover { background: var(--accent-soft); }
+.investment-form button:hover { box-shadow: var(--shadow-sm); }

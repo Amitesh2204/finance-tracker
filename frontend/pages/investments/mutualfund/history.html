@@ -9,6 +9,7 @@
   <link rel="stylesheet" href="../../../style.css">
   <link rel="stylesheet" href="mutualfund.css">
   <link rel="stylesheet" href="history.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
 
   <!-- Core libraries -->
   <script src="https://unpkg.com/pouchdb@7.3.1/dist/pouchdb.min.js"></script>
@@ -27,7 +28,7 @@
     /* Small local tweaks to ensure the page spacing and mobile layout are tidy */
     .history-section { display:flex; flex-direction:column; gap:20px; }
     .cards { display:grid; grid-template-columns: repeat(4, 1fr); gap:16px; }
-    .card { padding:16px; border-radius:10px; background:var(--card-bg); box-shadow:0 6px 18px rgba(0,0,0,0.18); }
+    .card { padding:16px; border-radius:10px; background:var(--card-bg); box-shadow:var(--shadow); }
     .investment-form select, .investment-form input, .investment-form textarea { width:100%; box-sizing:border-box; }
     .history-layout { gap:20px; }
     @media (max-width: 1024px) {
