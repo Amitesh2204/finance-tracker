@@ -67,8 +67,8 @@
   background: var(--card-bg);
   padding: 16px;
   border-radius: 12px;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.18);
-  color: #ecf0f1;
+  box-shadow: var(--shadow);
+  color: var(--text);
 }
 
 /* Card headings and values */
@@ -102,18 +102,18 @@
 }
 .investment-table th, .investment-table td {
   padding: 10px 12px;
-  border-bottom: 1px solid rgba(255,255,255,0.04);
-  color: #ecf0f1;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
   font-size: 0.95rem;
   text-align: left;
   white-space: nowrap;
 }
 .investment-table th {
-  background: rgba(255,255,255,0.02);
+  background: var(--accent-soft);
   font-weight: 700;
 }
 .investment-table tbody tr:nth-child(even) {
-  background: rgba(255,255,255,0.01);
+  background: var(--bg);
 }
 
 /* Type badges inside the transactions table */
@@ -137,16 +137,16 @@
   gap:10px;
 }
 .investment-form label {
-  color:#ecf0f1;
+  color:var(--text);
   font-weight:600;
   font-size:0.95rem;
 }
 .investment-form input, .investment-form select, .investment-form button, .investment-form textarea {
   padding:10px 12px;
   border-radius:8px;
-  border:1px solid rgba(255,255,255,0.04);
-  background:#121212;
-  color:#ecf0f1;
+  border:1px solid var(--border);
+  background:var(--input-bg);
+  color:var(--text);
   font-size:0.95rem;
 }
 .investment-form textarea { min-height: 90px; resize: vertical; }
@@ -163,9 +163,9 @@
   margin: 8px 0 10px;
   padding: 10px 12px;
   border-radius: 8px;
-  background: #121212;
-  color: #ecf0f1;
-  border: 1px solid rgba(255,255,255,0.04);
+  background: var(--input-bg);
+  color: var(--text);
+  border: 1px solid var(--border);
   font-size: 0.95rem;
 }
 
@@ -204,3 +204,8 @@
 
 /* Accessibility helpers */
 .sr-only { position:absolute; left:-9999px; top:auto; width:1px; height:1px; overflow:hidden; }
+
+/* ---- Modern polish layer (additive) ---- */
+.card { transition: box-shadow 180ms var(--ease); }
+.tx-type { transition: filter 150ms var(--ease); }
+.investment-table tbody tr { transition: background-color 140ms var(--ease); }

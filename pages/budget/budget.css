@@ -196,3 +196,8 @@
     transition: none;
   }
 }
+
+/* ---- Modern polish layer (additive) ---- */
+.summary-card-icon { transition: transform 160ms var(--ease); }
+.summary-cards .card:hover .summary-card-icon { transform: scale(1.08) translateY(-1px); }
+.budget-status { transition: filter 150ms var(--ease); }

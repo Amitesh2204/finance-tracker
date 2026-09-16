@@ -168,3 +168,8 @@
   .table-controls { flex-direction: column; align-items: stretch; }
   .table-controls > * { width: 100%; }
 }
+
+/* ---- Modern polish layer (additive) ---- */
+.card { transition: box-shadow 180ms var(--ease), transform 180ms var(--ease); }
+.investment-form button:hover { box-shadow: var(--shadow-sm); }
+.investment-table tbody tr { transition: background-color 140ms var(--ease); }
