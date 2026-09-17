@@ -145,6 +145,25 @@
   background: var(--bg);
 }
 
+/* Actions column stays pinned to the right edge while the table scrolls
+   horizontally, so Edit/Delete are always reachable without scrolling all
+   the way across — the main fix for the table being unusable on mobile. */
+.investment-table th:last-child,
+.investment-table td:last-child {
+  position: sticky;
+  right: 0;
+  box-shadow: -8px 0 10px -8px rgba(0,0,0,0.25);
+}
+.investment-table thead th:last-child {
+  z-index: 2;
+}
+.investment-table tbody tr:nth-child(odd) td:last-child {
+  background: var(--card-bg);
+}
+.investment-table tbody tr:nth-child(even) td:last-child {
+  background: var(--bg);
+}
+
 /* Type badges inside the transactions table */
 .tx-type {
   display: inline-block;
@@ -187,6 +206,25 @@
 }
 .investment-form button:hover { filter:brightness(0.95); }
 
+/* Edit/Delete buttons in the transactions table — these were previously
+   unstyled (no rule existed for them at all, so they rendered as plain
+   default browser buttons). */
+.edit-entry-btn, .delete-entry-btn {
+  padding: 5px 10px;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  margin: 2px;
+}
+.edit-entry-btn { color: var(--info); border-color: var(--info); }
+.edit-entry-btn:hover { background: var(--info); color: #fff; }
+.delete-entry-btn { color: var(--danger); border-color: var(--danger); }
+.delete-entry-btn:hover { background: var(--danger); color: #fff; }
+
 /* Year filter */
 #historyYearFilter {
   margin: 8px 0 10px;
@@ -228,8 +266,9 @@
   .yearly-block { flex-direction: column; align-items: stretch; }
   .history-intro { font-size: 0.92rem; }
   .card { padding: 14px; border-radius: 10px; }
-  .investment-table { min-width: 620px; }
+  .investment-table { min-width: 560px; }
   .investment-table th, .investment-table td { padding: 9px 10px; font-size: 0.86rem; }
+  .edit-entry-btn, .delete-entry-btn { display: block; width: 100%; margin: 2px 0; font-size: 0.76rem; padding: 5px 8px; }
   .table-filter-row { gap: 10px; }
   .table-filter-row select { min-width: 0; width: 100%; }
   .table-filter-row > div { flex: 1 1 140px; }
