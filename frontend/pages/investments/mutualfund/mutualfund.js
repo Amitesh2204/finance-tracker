@@ -260,9 +260,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       return;
     }
 
-    // All Funds view: values are for the selected month only (not cumulative).
+    // All Funds view: cumulative totals for each fund, as of the selected month
+    // (i.e. every transaction from the start up through the end of that month).
     if (portfolioPeriodStatus) {
-      portfolioPeriodStatus.textContent = `Portfolio values for ${periodLabel}`;
+      portfolioPeriodStatus.textContent = `Portfolio values through ${periodLabel}`;
     }
     if (portfolioChartTitle) {
       portfolioChartTitle.textContent = `Portfolio Growth - ${periodLabel}`;
@@ -271,7 +272,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const fundValues = {};
     entries.forEach(e => {
       if (typeof window.isMutualFundEntry === 'function' ? window.isMutualFundEntry(e) : (e?.type === 'investment' && String(e?.category || '').toLowerCase().includes('mutual'))) {
-        if (!isWithinPeriod(e, selectedPeriod) || classify(e) === 'yearly-total') return;
+        if (!isBeforePeriodEnd(e, selectedPeriod) || classify(e) === 'yearly-total') return;
         const key = getFundName(e);
         if (key === 'Mutual Fund') return;
         const kind = classify(e);
@@ -288,7 +289,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         .filter(([, values]) => values.invested !== 0 || values.growth !== 0)
         .sort(([a], [b]) => a.localeCompare(b))
         .map(([name, values]) => `<li><span>${escapeHtml(name)}</span><span class="fund-value">${formatINR(values.invested)}<small> invested</small><br>${formatINR(values.growth)}<small> growth</small></span></li>`)
-        .join('') || '<li>No fund activity in this month</li>';
+        .join('') || '<li>No fund holdings recorded through this month</li>';
     }
   }
 
@@ -374,11 +375,15 @@ document.addEventListener('DOMContentLoaded', async () => {
       return;
     }
 
-    // All Funds: snapshot comparison for the selected month only (not cumulative).
+    // All Funds: cumulative Invested/Growth per fund as of the selected month.
+    // Rendered as a horizontal bar chart (fund names on the y-axis) instead of
+    // a categorical line — this avoids the crowded, rotated x-axis labels that
+    // made the previous version unreadable on narrow/mobile screens; Chart.js
+    // thins out y-axis labels automatically if there isn't room for all of them.
     const totalsByFund = {};
     (entries || []).forEach(e => {
       const kind = classify(e);
-      if (!isWithinPeriod(e, selectedPeriod) || kind === 'yearly-total') return;
+      if (!isBeforePeriodEnd(e, selectedPeriod) || kind === 'yearly-total') return;
       const fund = getFundName(e);
       if (fund === 'Mutual Fund') return;
       if (!totalsByFund[fund]) totalsByFund[fund] = { invested: 0, growth: 0 };
@@ -390,19 +395,23 @@ document.addEventListener('DOMContentLoaded', async () => {
     const fundNames = Object.keys(totalsByFund).sort();
 
     window.portfolioChart = new Chart(ctx, {
-      type: 'line',
+      type: 'bar',
       data: {
         labels: fundNames.length ? fundNames : ['No transactions'],
         datasets: [
-          { label: 'Invested', data: fundNames.length ? fundNames.map(name => totalsByFund[name].invested) : [0], borderColor: '#3498db', backgroundColor: 'rgba(52,152,219,0.15)', fill: false, tension: 0.25, pointRadius: 3, pointHitRadius: 12 },
-          { label: 'Growth', data: fundNames.length ? fundNames.map(name => totalsByFund[name].growth) : [0], borderColor: '#1abc9c', backgroundColor: 'rgba(26,188,156,0.15)', fill: false, tension: 0.25, pointRadius: 3, pointHitRadius: 12 }
+          { label: 'Invested', data: fundNames.length ? fundNames.map(name => totalsByFund[name].invested) : [0], backgroundColor: 'rgba(52,152,219,0.75)', borderRadius: 4, maxBarThickness: 22 },
+          { label: 'Growth', data: fundNames.length ? fundNames.map(name => totalsByFund[name].growth) : [0], backgroundColor: 'rgba(26,188,156,0.75)', borderRadius: 4, maxBarThickness: 22 }
         ]
       },
       options: {
+        indexAxis: 'y',
         responsive: true,
         maintainAspectRatio: false,
         plugins: { legend: { position: 'top' } },
-        scales: { x: { ticks: { autoSkip: false, maxRotation: 45, minRotation: 0 } }, y: { beginAtZero: true } }
+        scales: {
+          x: { beginAtZero: true },
+          y: { ticks: { autoSkip: true } }
+        }
       }
     });
   }
