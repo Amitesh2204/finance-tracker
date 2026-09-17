@@ -125,13 +125,13 @@ document.addEventListener('DOMContentLoaded', async () => {
       const dateStr = new Date(e.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
       return `
         <tr data-id="${e._id || e.id || ''}">
-          <td>${dateStr}</td>
-          <td>${escapeHtml(String(fund || '—'))}</td>
-          <td>${escapeHtml(fundUser)}</td>
-          <td><span class="tx-type tx-type--${kind === 'yearly-total' ? 'buy' : kind}">${label}</span></td>
-          <td>${formatINR(e.amount)}</td>
-          <td>${escapeHtml(e.notes || '—')}</td>
-          <td>
+          <td data-label="Date">${dateStr}</td>
+          <td data-label="Fund">${escapeHtml(String(fund || '—'))}</td>
+          <td data-label="Fund User">${escapeHtml(fundUser)}</td>
+          <td data-label="Type"><span class="tx-type tx-type--${kind === 'yearly-total' ? 'buy' : kind}">${label}</span></td>
+          <td data-label="Amount">${formatINR(e.amount)}</td>
+          <td data-label="Notes">${escapeHtml(e.notes || '—')}</td>
+          <td data-label="Actions">
             <button type="button" class="edit-entry-btn" data-id="${e._id || e.id || ''}">Edit</button>
             <button type="button" class="delete-entry-btn" data-id="${e._id || e.id || ''}">Delete</button>
           </td>
