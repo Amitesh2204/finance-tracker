@@ -145,25 +145,6 @@
   background: var(--bg);
 }
 
-/* Actions column stays pinned to the right edge while the table scrolls
-   horizontally, so Edit/Delete are always reachable without scrolling all
-   the way across — the main fix for the table being unusable on mobile. */
-.investment-table th:last-child,
-.investment-table td:last-child {
-  position: sticky;
-  right: 0;
-  box-shadow: -8px 0 10px -8px rgba(0,0,0,0.25);
-}
-.investment-table thead th:last-child {
-  z-index: 2;
-}
-.investment-table tbody tr:nth-child(odd) td:last-child {
-  background: var(--card-bg);
-}
-.investment-table tbody tr:nth-child(even) td:last-child {
-  background: var(--bg);
-}
-
 /* Type badges inside the transactions table */
 .tx-type {
   display: inline-block;
@@ -272,6 +253,60 @@
   .table-filter-row { gap: 10px; }
   .table-filter-row select { min-width: 0; width: 100%; }
   .table-filter-row > div { flex: 1 1 140px; }
+
+  /* Transactions table becomes a stacked list of cards on phones instead of
+     a horizontally-scrolling table. A wide table with 7 nowrap columns is
+     unreliable on mobile browsers (position:sticky on table cells in
+     particular renders incorrectly on mobile Safari — cells overlapping
+     each other), so this avoids table-cell layout/positioning entirely
+     below 600px and uses a plain block/flex card per row instead. */
+  .table-scroll { overflow-x: visible; max-height: none; }
+  .investment-table { min-width: 0; width: 100%; }
+  .investment-table, .investment-table tbody, .investment-table tr {
+    display: block;
+    width: 100%;
+  }
+  .investment-table thead { display: none; }
+  .investment-table tbody tr {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    margin-bottom: 10px;
+    padding: 8px 12px;
+    background: var(--card-bg);
+  }
+  .investment-table tbody tr:nth-child(even) { background: var(--card-bg); }
+  .investment-table td {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    padding: 7px 0;
+    border-bottom: 1px dashed var(--border);
+    white-space: normal;
+    text-align: right;
+    position: static;
+    box-shadow: none;
+  }
+  .investment-table td:last-child { border-bottom: none; }
+  .investment-table td::before {
+    content: attr(data-label);
+    font-weight: 700;
+    color: var(--muted);
+    font-size: 0.76rem;
+    text-align: left;
+    flex: 0 0 auto;
+    margin-right: 10px;
+  }
+  .investment-table td[data-label="Notes"] { white-space: normal; word-break: break-word; }
+  .investment-table td[data-label="Actions"] { gap: 8px; }
+  .investment-table td[data-label="Actions"] .edit-entry-btn,
+  .investment-table td[data-label="Actions"] .delete-entry-btn {
+    display: inline-block;
+    width: auto;
+    flex: 1 1 0;
+    margin: 0;
+    text-align: center;
+  }
 }
 
 /* Accessibility helpers */

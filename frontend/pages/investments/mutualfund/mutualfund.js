@@ -106,6 +106,42 @@ document.addEventListener('DOMContentLoaded', async () => {
     return portfolioFundSelect && portfolioFundSelect.value ? portfolioFundSelect.value : 'all';
   }
 
+  // Short, legend-friendly version of a fund's full name (e.g. "360 ONE Multi
+  // Asset Allocation Fund (G)" -> "360 ONE"). Falls back gracefully for any
+  // custom fund name a user has typed in.
+  function shortFundName(name) {
+    if (!name) return name;
+    const cleaned = String(name).replace(/\(G\)\s*$/i, '').replace(/\bReg\.?\b/gi, '').trim();
+    const stopWords = new Set(['the', 'a', 'an']);
+    const words = cleaned.split(/\s+/).filter(Boolean);
+    const picked = [];
+    for (const w of words) {
+      if (picked.length === 0 && stopWords.has(w.toLowerCase())) continue;
+      picked.push(w);
+      if (picked.length === 2) break;
+    }
+    let short = picked.join(' ') || cleaned || String(name);
+    if (short.length > 20) short = `${short.slice(0, 20)}…`;
+    return short;
+  }
+
+  const CHART_PALETTE = ['#1abc9c', '#3498db', '#e67e22', '#9b59b6', '#e74c3c', '#2ecc71', '#f1c40f', '#16a085', '#8e44ad', '#d35400'];
+
+  // Funds that had at least one (non yearly-total) transaction within the
+  // selected month. Used to decide *which* funds appear in the "All Funds"
+  // view — the displayed amounts for those funds are still cumulative.
+  function fundsActiveInMonth(entries, selectedPeriod) {
+    const names = new Set();
+    (entries || []).forEach(e => {
+      const isMf = typeof window.isMutualFundEntry === 'function' ? window.isMutualFundEntry(e) : (e?.type === 'investment' && String(e?.category || '').toLowerCase().includes('mutual'));
+      if (!isMf || classify(e) === 'yearly-total') return;
+      if (!isWithinPeriod(e, selectedPeriod)) return;
+      const name = getFundName(e);
+      if (name && name !== 'Mutual Fund') names.add(name);
+    });
+    return names;
+  }
+
   function timeline() {
     const start = new Date(2017, 6, 1);
     const now = new Date();
@@ -269,12 +305,13 @@ document.addEventListener('DOMContentLoaded', async () => {
       portfolioChartTitle.textContent = `Portfolio Growth - ${periodLabel}`;
     }
 
+    const activeFunds = fundsActiveInMonth(entries, selectedPeriod);
     const fundValues = {};
     entries.forEach(e => {
       if (typeof window.isMutualFundEntry === 'function' ? window.isMutualFundEntry(e) : (e?.type === 'investment' && String(e?.category || '').toLowerCase().includes('mutual'))) {
         if (!isBeforePeriodEnd(e, selectedPeriod) || classify(e) === 'yearly-total') return;
         const key = getFundName(e);
-        if (key === 'Mutual Fund') return;
+        if (key === 'Mutual Fund' || !activeFunds.has(key)) return;
         const kind = classify(e);
         if (!fundValues[key]) fundValues[key] = { invested: 0, growth: 0 };
         const amount = Number(e.amount) || 0;
@@ -289,7 +326,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         .filter(([, values]) => values.invested !== 0 || values.growth !== 0)
         .sort(([a], [b]) => a.localeCompare(b))
         .map(([name, values]) => `<li><span>${escapeHtml(name)}</span><span class="fund-value">${formatINR(values.invested)}<small> invested</small><br>${formatINR(values.growth)}<small> growth</small></span></li>`)
-        .join('') || '<li>No fund holdings recorded through this month</li>';
+        .join('') || '<li>No fund activity in this month</li>';
     }
   }
 
@@ -375,42 +412,47 @@ document.addEventListener('DOMContentLoaded', async () => {
       return;
     }
 
-    // All Funds: cumulative Invested/Growth per fund as of the selected month.
-    // Rendered as a horizontal bar chart (fund names on the y-axis) instead of
-    // a categorical line — this avoids the crowded, rotated x-axis labels that
-    // made the previous version unreadable on narrow/mobile screens; Chart.js
-    // thins out y-axis labels automatically if there isn't room for all of them.
-    const totalsByFund = {};
-    (entries || []).forEach(e => {
-      const kind = classify(e);
-      if (!isBeforePeriodEnd(e, selectedPeriod) || kind === 'yearly-total') return;
-      const fund = getFundName(e);
-      if (fund === 'Mutual Fund') return;
-      if (!totalsByFund[fund]) totalsByFund[fund] = { invested: 0, growth: 0 };
-      const amount = Number(e.amount) || 0;
-      if (kind === 'profit') totalsByFund[fund].growth += amount;
-      else if (kind === 'sell') totalsByFund[fund].invested -= amount;
-      else totalsByFund[fund].invested += amount;
+    // All Funds: one line per fund that had activity in the selected month,
+    // each line showing that fund's cumulative invested amount building up
+    // over time (an "incremental growth" view) using short fund names in the
+    // legend, per your latest request — a plain line chart (no bars).
+    const activeFunds = [...fundsActiveInMonth(entries, selectedPeriod)].sort();
+    const months = timeline();
+    const labels = months.map(date => date.toLocaleDateString('en-IN', { month: 'short', year: 'numeric' }));
+
+    const datasets = activeFunds.map((fund, idx) => {
+      let running = 0;
+      const data = months.map(month => {
+        (entries || []).forEach(e => {
+          if (getFundName(e) !== fund || classify(e) === 'yearly-total') return;
+          const date = new Date(e.date);
+          if (date.getFullYear() !== month.getFullYear() || date.getMonth() !== month.getMonth()) return;
+          const amount = Number(e.amount) || 0;
+          const kind = classify(e);
+          if (kind === 'sell') running -= amount;
+          else if (kind !== 'profit') running += amount;
+        });
+        return running;
+      });
+      const color = CHART_PALETTE[idx % CHART_PALETTE.length];
+      return { label: shortFundName(fund), data, borderColor: color, backgroundColor: 'transparent', tension: 0.25, borderWidth: 2, pointRadius: 0, pointHitRadius: 10 };
     });
-    const fundNames = Object.keys(totalsByFund).sort();
 
     window.portfolioChart = new Chart(ctx, {
-      type: 'bar',
+      type: 'line',
       data: {
-        labels: fundNames.length ? fundNames : ['No transactions'],
-        datasets: [
-          { label: 'Invested', data: fundNames.length ? fundNames.map(name => totalsByFund[name].invested) : [0], backgroundColor: 'rgba(52,152,219,0.75)', borderRadius: 4, maxBarThickness: 22 },
-          { label: 'Growth', data: fundNames.length ? fundNames.map(name => totalsByFund[name].growth) : [0], backgroundColor: 'rgba(26,188,156,0.75)', borderRadius: 4, maxBarThickness: 22 }
-        ]
+        labels,
+        datasets: datasets.length ? datasets : [{ label: 'No transactions', data: months.map(() => 0), borderColor: '#95a5a6', borderWidth: 2, pointRadius: 0 }]
       },
       options: {
-        indexAxis: 'y',
         responsive: true,
         maintainAspectRatio: false,
-        plugins: { legend: { position: 'top' } },
+        plugins: {
+          legend: { position: 'top', labels: { boxWidth: 12, font: { size: 11 } } }
+        },
         scales: {
-          x: { beginAtZero: true },
-          y: { ticks: { autoSkip: true } }
+          x: { ticks: { autoSkip: true, maxTicksLimit: 10, maxRotation: 0 } },
+          y: { beginAtZero: true }
         }
       }
     });
