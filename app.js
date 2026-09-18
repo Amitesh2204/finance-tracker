@@ -846,8 +846,7 @@
       // Home "Balance" card: all three banks, net of each bank's expenses.
       totalBalance: iciciNet + sbiNet + bobNet,
       totalExpense,
-      // Keep Home aligned with Expense: displayed balances minus this month's
-      // bank expenses are the current total saving.
+      // Bank saving is the remaining balance after each bank's expenses.
       totalSaving: iciciNet + sbiNet + bobNet - totalExpense,
       iciciNet,
       sbiNet,
@@ -904,9 +903,8 @@
 
       const expenseTotals = getExpenseTotals(entries);
       const investmentTotals = getInvestmentTotals(entries);
-      // Savings card mirrors Expense's three bank balance cards. Investments
-      // remain visible in their own breakdown row and are not double-counted.
-      const savingsValue = expenseTotals.totalSaving;
+      // Savings combines the investment total with the remaining bank saving.
+      const savingsValue = investmentTotals.total + expenseTotals.totalSaving;
 
       if (balanceEl) balanceEl.textContent = formatCurrency(expenseTotals.totalBalance);
       if (expensesEl) expensesEl.textContent = formatCurrency(expenseTotals.totalExpense);
