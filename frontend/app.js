@@ -846,8 +846,8 @@
       // Home "Balance" card: all three banks, net of each bank's expenses.
       totalBalance: iciciNet + sbiNet + bobNet,
       totalExpense,
-      // Bank saving is the remaining balance after each bank's expenses.
-      totalSaving: iciciNet + sbiNet + bobNet - totalExpense,
+      // Keep the shared bank saving total aligned with Expense's three cards.
+      totalSaving: [iciciNet, sbiNet, bobNet].reduce((sum, balance) => sum + balance, 0),
       iciciNet,
       sbiNet,
       bobNet,
