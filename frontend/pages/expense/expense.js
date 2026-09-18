@@ -134,15 +134,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     // expenses), so an expense tagged to a bank visibly reduces that bank's card.
     const iciciNet = computeBankTotal('ICICI');
     const sbiNet = computeBankTotal('SBI');
-    const bobNet = computeBankTotal('Bank of Baroda');
+    const bobNet = Math.max(0, computeBankTotal('Bank of Baroda'));
 
     const totalExpense = computeTotalExpense();
     const iciciMonthlyExpense = computeCurrentMonthBankExpense('ICICI');
     const sbiMonthlyExpense = computeCurrentMonthBankExpense('SBI');
     const bobMonthlyExpense = computeCurrentMonthBankExpense('Bank of Baroda');
-    // Total Monthly Saving = ICICI + SBI + Bank of Baroda Total Balance (the
-    // three top cards), all three banks included.
-    const totalSaving = iciciNet + sbiNet + bobNet;
+    // Total Monthly Saving = the three displayed balances less this month's
+    // expenses. The balance cards are cumulative net balances, while the
+    // expense labels represent only the current month.
+    const totalSaving = iciciNet + sbiNet + bobNet - iciciMonthlyExpense - sbiMonthlyExpense - bobMonthlyExpense;
 
     if (iciciEl) iciciEl.textContent = formatINR(iciciNet);
     if (sbiEl) sbiEl.textContent = formatINR(sbiNet);
@@ -187,7 +188,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (t === 'balance') balanceSum += Number(e.amount) || 0;
       else if (t === 'expense' || t === 'trip') expenseSum += Number(e.amount) || 0;
     });
-    return balanceSum - expenseSum;
+    const netBalance = balanceSum - expenseSum;
+    return bankName === 'Bank of Baroda' ? Math.max(0, netBalance) : netBalance;
   }
 
   function computeMonthlyBankSaving(bankName) {
@@ -465,12 +467,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     const cardBalances = {
       ICICI: computeBankTotal('ICICI'),
       SBI: computeBankTotal('SBI'),
-      'Bank of Baroda': computeBankTotal('Bank of Baroda')
+      'Bank of Baroda': Math.max(0, computeBankTotal('Bank of Baroda'))
     };
     const currentCardTotal = bankFilter === 'All'
       ? supportedBanks.reduce((sum, bank) => sum + cardBalances[bank], 0)
       : (cardBalances[bankFilter] || 0);
 
+    const runningSaving = Object.fromEntries(supportedBanks.map(bank => [bank, 0]));
     const rows = monthNames.map(month => {
       const key = `${month}-${selectedYear}`;
       const values = monthlyData[key] || { balance: 0, expense: 0, byBank: {} };
@@ -483,7 +486,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
 
       const isThisTheCurrentMonth = isCurrentYear && month === currentMonthName;
-      if (isThisTheCurrentMonth) {
+      if (isThisTheCurrentMonth && bankFilter === 'All') {
         // Current month: Total Balance = the top card section directly, not
         // mixed with any other month's figures.
         balance = currentCardTotal;
@@ -491,7 +494,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         balance = supportedBanks.reduce((sum, bank) => sum + (values.byBank?.[bank]?.balance || 0), 0);
       } else {
         const b = values.byBank && values.byBank[bankFilter];
-        balance = b ? (b.balance || 0) : 0;
+        const bankBalance = b ? (b.balance || 0) : 0;
+        balance = runningSaving[bankFilter] + bankBalance;
+        runningSaving[bankFilter] = balance - expense;
       }
 
       const saving = (Number(balance) || 0) - (Number(expense) || 0);
