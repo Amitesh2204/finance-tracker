@@ -846,8 +846,8 @@
       // Home "Balance" card: all three banks, net of each bank's expenses.
       totalBalance: iciciNet + sbiNet + bobNet,
       totalExpense,
-      // Home "Savings" card: SBI + Bank of Baroda, net of their own expenses.
-      totalSaving: sbiNet + bobNet,
+      // Home "Savings" card mirrors Expense's three bank balance cards.
+      totalSaving: iciciNet + sbiNet + bobNet,
       iciciNet,
       sbiNet,
       bobNet,
@@ -903,11 +903,9 @@
 
       const expenseTotals = getExpenseTotals(entries);
       const investmentTotals = getInvestmentTotals(entries);
-      // Savings card = SBI + Bank of Baroda (net of their expenses) PLUS total
-      // investments (Mutual Fund + LIC + PPF + Sukanya). This is additive to
-      // the bank-balance fix from before — it now also updates automatically
-      // whenever an investment entry is added/changed on the Investments page.
-      const savingsValue = expenseTotals.totalSaving + investmentTotals.total;
+      // Savings card mirrors Expense's three bank balance cards. Investments
+      // remain visible in their own breakdown row and are not double-counted.
+      const savingsValue = expenseTotals.totalSaving;
 
       if (balanceEl) balanceEl.textContent = formatCurrency(expenseTotals.totalBalance);
       if (expensesEl) expensesEl.textContent = formatCurrency(expenseTotals.totalExpense);
@@ -1015,7 +1013,7 @@
       }));
       window.balanceTrendChartInstance.update();
     }
-    renderMiniTrend('savingsTrendChart', 'savingsTrendChartInstance', entries, year, getMonthlySeries(entries, year, 'Bank of Baroda').map((value, i) => value + getMonthlySeries(entries, year, 'SBI')[i]), '#2f7fb8', 'Savings');
+    renderMiniTrend('savingsTrendChart', 'savingsTrendChartInstance', entries, year, getMonthlySeries(entries, year), '#2f7fb8', 'Savings');
     renderMiniTrend('expenseTrendChart', 'expenseTrendChartInstance', entries, year, Array.from({ length: 12 }, (_, month) => HOME_BANKS.reduce((sum, bank) => sum + getMonthlyBankTotals(entries, year, month)[bank].expense, 0)), '#d1503f', 'Expenses');
   }
 
@@ -1036,7 +1034,7 @@
       const expenseTotals = isCurrentMonth ? getExpenseTotals(entries) : null;
       const balanceValues = isCurrentMonth
         ? [expenseTotals.iciciNet, expenseTotals.sbiNet, expenseTotals.bobNet]
-        : HOME_BANKS.map(bank => totals[bank].balance);
+        : HOME_BANKS.map(bank => totals[bank].balance - totals[bank].expense);
       const expenseValues = HOME_BANKS.map(bank => totals[bank].expense);
       const values = [...balanceValues, ...expenseValues];
       const labels = HOME_BANKS.map(bank => `${bank} balance`).concat(HOME_BANKS.map(bank => `${bank} expense`));
@@ -1201,7 +1199,7 @@
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
 
-      const savingsByMonth = getMonthlySeries(entries, year, bank === 'All' ? ['ICICI', 'Bank of Baroda'] : bank);
+      const savingsByMonth = getMonthlySeries(entries, year, bank === 'All' ? HOME_BANKS : bank);
       destroyChart('savingsChartInstance');
 
       window.savingsChartInstance = new Chart(ctx, {
@@ -1209,7 +1207,7 @@
         data: {
           labels: monthLabels,
           datasets: [{
-            label: `${bank === 'All' ? 'ICICI + Bank of Baroda' : bank} savings ${year}`,
+            label: `${bank === 'All' ? 'All banks' : bank} savings ${year}`,
             data: savingsByMonth,
             backgroundColor: '#3498db'
           }]
