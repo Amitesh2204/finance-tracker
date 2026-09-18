@@ -149,11 +149,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (bobEl) bobEl.textContent = formatINR(bobNet);
     if (totalExpenseEl) totalExpenseEl.textContent = formatINR(totalExpense);
     if (totalSavingEl) totalSavingEl.textContent = formatINR(totalSaving);
-    // Per-bank saving = that bank's Total Balance card minus that bank's
-    // Monthly Expense card (per updated spec).
-    if (savingEls.ICICI) savingEls.ICICI.textContent = formatINR(iciciNet - iciciMonthlyExpense);
-    if (savingEls.SBI) savingEls.SBI.textContent = formatINR(sbiNet - sbiMonthlyExpense);
-    if (savingEls['Bank of Baroda']) savingEls['Bank of Baroda'].textContent = formatINR(bobNet - bobMonthlyExpense);
+    // The bank cards already contain the net balance, so do not subtract the
+    // current month's expense a second time in the saving breakdown.
+    if (savingEls.ICICI) savingEls.ICICI.textContent = formatINR(iciciNet);
+    if (savingEls.SBI) savingEls.SBI.textContent = formatINR(sbiNet);
+    if (savingEls['Bank of Baroda']) savingEls['Bank of Baroda'].textContent = formatINR(bobNet);
     if (bankExpenseEls.ICICI) bankExpenseEls.ICICI.textContent = formatINR(iciciMonthlyExpense);
     if (bankExpenseEls.SBI) bankExpenseEls.SBI.textContent = formatINR(sbiMonthlyExpense);
     if (bankExpenseEls['Bank of Baroda']) bankExpenseEls['Bank of Baroda'].textContent = formatINR(bobMonthlyExpense);
