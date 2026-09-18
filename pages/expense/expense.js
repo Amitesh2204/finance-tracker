@@ -140,10 +140,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     const iciciMonthlyExpense = computeCurrentMonthBankExpense('ICICI');
     const sbiMonthlyExpense = computeCurrentMonthBankExpense('SBI');
     const bobMonthlyExpense = computeCurrentMonthBankExpense('Bank of Baroda');
-    // Total Monthly Saving = the three displayed balances less this month's
-    // expenses. The balance cards are cumulative net balances, while the
-    // expense labels represent only the current month.
-    const totalSaving = iciciNet + sbiNet + bobNet - iciciMonthlyExpense - sbiMonthlyExpense - bobMonthlyExpense;
+    // The bank cards already show each bank's remaining balance. Total
+    // Monthly Saving is the combined value of those three displayed cards.
+    const totalSaving = [iciciNet, sbiNet, bobNet].reduce((sum, balance) => sum + balance, 0);
 
     if (iciciEl) iciciEl.textContent = formatINR(iciciNet);
     if (sbiEl) sbiEl.textContent = formatINR(sbiNet);
