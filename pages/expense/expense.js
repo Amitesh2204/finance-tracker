@@ -460,6 +460,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const now = new Date();
     const isCurrentYear = Number(selectedYear) === now.getFullYear();
     const currentMonthName = monthNames[now.getMonth()];
+    const selectedYearNumber = Number(selectedYear);
 
     // Live top-card totals - only used to override the CURRENT month's row
     // (the card is an "as of now" figure, so it only makes sense to line up
@@ -475,6 +476,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const runningSaving = Object.fromEntries(supportedBanks.map(bank => [bank, 0]));
     const rows = monthNames.map(month => {
+      const monthIndex = monthNames.indexOf(month);
       const key = `${month}-${selectedYear}`;
       const values = monthlyData[key] || { balance: 0, expense: 0, byBank: {} };
       let balance = 0, expense = 0;
@@ -495,8 +497,11 @@ document.addEventListener('DOMContentLoaded', async () => {
       } else {
         const b = values.byBank && values.byBank[bankFilter];
         const bankBalance = b ? (b.balance || 0) : 0;
-        balance = runningSaving[bankFilter] + bankBalance;
-        runningSaving[bankFilter] = balance - expense;
+        const isPastOrCurrentMonth = selectedYearNumber < now.getFullYear()
+          || (selectedYearNumber === now.getFullYear() && monthIndex <= now.getMonth());
+        balance = (isPastOrCurrentMonth ? runningSaving[bankFilter] : 0) + bankBalance;
+        const saving = balance - expense;
+        if (isPastOrCurrentMonth) runningSaving[bankFilter] = saving;
       }
 
       const saving = (Number(balance) || 0) - (Number(expense) || 0);
