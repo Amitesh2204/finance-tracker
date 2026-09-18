@@ -499,9 +499,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         const bankBalance = b ? (b.balance || 0) : 0;
         const isPastOrCurrentMonth = selectedYearNumber < now.getFullYear()
           || (selectedYearNumber === now.getFullYear() && monthIndex <= now.getMonth());
-        balance = (isPastOrCurrentMonth ? runningSaving[bankFilter] : 0) + bankBalance;
+        const calculatedBalance = (isPastOrCurrentMonth ? runningSaving[bankFilter] : 0) + bankBalance;
+        balance = bankFilter === 'Bank of Baroda' ? Math.max(0, calculatedBalance) : calculatedBalance;
         const saving = balance - expense;
-        if (isPastOrCurrentMonth) runningSaving[bankFilter] = saving;
+        if (isPastOrCurrentMonth) runningSaving[bankFilter] = Math.max(0, saving);
       }
 
       const saving = (Number(balance) || 0) - (Number(expense) || 0);
