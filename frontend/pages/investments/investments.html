@@ -56,33 +56,24 @@
           <a href="sukanya/sukanya.html" class="card sukanya"><h3>Sukanya Yojana</h3><p id="sukanyaTotal">₹0.00</p></a>
         </div>
 
-        <!-- Investment Growth chart -->
-        <div class="chart-row">
-          <div class="chart card same-size">
-            <h3>Mutual Fund Growth</h3>
-            <canvas id="mutualFundGrowthChart"></canvas>
-          </div>
-          <div class="chart card same-size">
-            <h3>LIC Growth</h3>
-            <canvas id="licGrowthChart"></canvas>
-          </div>
-        </div>
-
-        <div class="chart-row">
-          <div class="chart card same-size">
-            <h3>PPF Growth</h3>
-            <canvas id="ppfGrowthChart"></canvas>
-          </div>
-          <div class="chart card same-size">
-            <h3>Sukanya Yojana Growth</h3>
-            <canvas id="sukanyaGrowthChart"></canvas>
-          </div>
+        <!-- Investment Growth chart (merged, cumulative Total Investment only) -->
+        <div class="chart card same-size">
+          <h3>Investment Growth (Cumulative)</h3>
+          <canvas id="investmentGrowthChart"></canvas>
         </div>
 
 
         <!-- Saved Investments table -->
         <div class="card">
           <h3>Saved Investments</h3>
+          <label for="savedTypeSelect">Investment Type:</label>
+          <select id="savedTypeSelect">
+            <option value="all" selected>All Types</option>
+            <option value="mutualfund">Mutual Fund</option>
+            <option value="lic">LIC</option>
+            <option value="ppf">PPF</option>
+            <option value="sukanya">Sukanya</option>
+          </select>
           <label for="savedYearSelect">Select Year:</label>
           <select id="savedYearSelect">
             <option value="all">All years</option>

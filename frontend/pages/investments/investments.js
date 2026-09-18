@@ -6,15 +6,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   const investmentTableBody = document.querySelector('#investmentsTable tbody');
   const savedYearSelect = document.getElementById('savedYearSelect'); // optional year selector
   const savedMonthSelect = document.getElementById('savedMonthSelect'); // optional month selector
+  const savedTypeSelect = document.getElementById('savedTypeSelect'); // optional investment-type selector
   const mutualFundTotalEl = document.getElementById('mutualFundTotal');
   const licTotalEl = document.getElementById('licTotal');
   const ppfTotalEl = document.getElementById('ppfTotal');
   const sukanyaTotalEl = document.getElementById('sukanyaTotal');
 
-  const mutualFundCanvas = document.getElementById('mutualFundGrowthChart');
-  const licCanvas = document.getElementById('licGrowthChart');
-  const ppfCanvas = document.getElementById('ppfGrowthChart');
-  const sukanyaCanvas = document.getElementById('sukanyaGrowthChart');
+  const investmentGrowthCanvas = document.getElementById('investmentGrowthChart');
 
   // Safe formatter
   function formatINR(amount) {
@@ -25,9 +23,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
+  // Which of the four investment types a category string belongs to.
+  function matchesInvestmentType(category, type) {
+    if (!type || type === 'all') return true;
+    const cat = String(category || '').toLowerCase();
+    if (type === 'mutualfund') return cat.includes('mutual');
+    if (type === 'lic') return cat.includes('lic');
+    if (type === 'ppf') return cat.includes('ppf');
+    if (type === 'sukanya') return cat.includes('sukanya');
+    return true;
+  }
+
   // Render investments table as individual entries (not summed), filtered by
-  // year/month, each with a Delete action so a bad entry can be removed.
-  function renderInvestmentsTable(entries = [], selectedYear = null, selectedMonth = null) {
+  // type/year/month, each with a Delete action so a bad entry can be removed.
+  function renderInvestmentsTable(entries = [], selectedYear = null, selectedMonth = null, selectedType = null) {
     if (!investmentTableBody) return;
 
     const normalized = (entries || [])
@@ -41,6 +50,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       .filter(e => e.date && !Number.isNaN(e.date.getTime()));
 
     let filtered = normalized;
+    if (selectedType && selectedType !== 'all') {
+      filtered = filtered.filter(e => matchesInvestmentType(e.category, selectedType));
+    }
     if (selectedYear && selectedYear !== 'all') {
       filtered = filtered.filter(e => e.date.getFullYear() === Number(selectedYear));
     }
@@ -141,19 +153,23 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (ppfTotalEl) ppfTotalEl.textContent = formatINR(totals['PPF']);
     if (sukanyaTotalEl) sukanyaTotalEl.textContent = formatINR(totals['Sukanya Yojana']);
 
-    // Each chart gets its own year range, derived only from that category's
-    // own entries — not from a shared range across all investment types.
-    function yearsFor(entriesForCategory) {
-      const nowYear = new Date().getFullYear();
-      const found = Array.from(new Set(entriesForCategory.map(i => {
-        const d = new Date(i.date);
-        return Number.isNaN(d.getFullYear()) ? null : d.getFullYear();
-      }).filter(Boolean))).sort((a, b) => a - b);
-      return found.length ? found : [nowYear];
+    // Each investment counts toward the "Total Investment Amount" line unless
+    // it's a profit/growth entry; sells subtract from the running total.
+    function investedAmountOnly(entry) {
+      const amount = Number(entry.amount) || 0;
+      const subtype = String(entry.subtype || '').toLowerCase();
+      const notes = String(entry.notes || '').toLowerCase();
+      const isProfit = subtype === 'profit' || notes.includes('profit');
+      const isSell = subtype === 'sell' || notes.includes(' sell') || notes.includes('sold');
+      if (isProfit) return 0;
+      return isSell ? -amount : amount;
     }
 
-    // Mutual Fund growth chart (continuous range from earliest to current year)
-    if (mutualFundCanvas) {
+    // Merged growth chart: one line per investment type, each showing that
+    // type's Total Investment Amount accumulated year over year (so every
+    // year's figure includes everything invested in prior years too), all
+    // sharing a single continuous year axis across every category.
+    if (investmentGrowthCanvas) {
       const allYears = Array.from(new Set((investments || []).map(e => {
         const d = new Date(e.date);
         return Number.isNaN(d.getFullYear()) ? null : d.getFullYear();
@@ -163,76 +179,34 @@ document.addEventListener('DOMContentLoaded', async () => {
       const labels = [];
       for (let y = startYear; y <= endYear; y++) labels.push(String(y));
 
-      const investmentSeries = labels.map(y => {
-        const year = Number(y);
-        return (investments || [])
-          .filter(e => new Date(e.date).getFullYear() === year)
-          .reduce((sum, entry) => {
-            const amount = Number(entry.amount) || 0;
-            const notes = String(entry.notes || '').toLowerCase();
-            const isProfit = entry.subtype === 'profit' || notes.includes('profit');
-            const isSell = entry.subtype === 'sell' || notes.includes(' sell') || notes.includes('sold');
-            if (isProfit) return sum;
-            return sum + (isSell ? -amount : amount);
-          }, 0);
+      const seriesConfig = [
+        { key: 'Mutual Fund', label: 'Mutual Fund', color: '#1abc9c' },
+        { key: 'LIC', label: 'LIC', color: '#3498db' },
+        { key: 'PPF', label: 'PPF', color: '#e67e22' },
+        { key: 'Sukanya Yojana', label: 'Sukanya Yojana', color: '#9b59b6' }
+      ];
+
+      const datasets = seriesConfig.map(({ key, label, color }) => {
+        let running = 0;
+        const data = labels.map(y => {
+          const year = Number(y);
+          running += byCategory[key]
+            .filter(e => new Date(e.date).getFullYear() === year)
+            .reduce((sum, entry) => sum + investedAmountOnly(entry), 0);
+          return running;
+        });
+        return { label, data, borderColor: color, backgroundColor: 'transparent', fill: false, tension: 0.3 };
       });
 
-      const profitSeries = labels.map(y => {
-        const year = Number(y);
-        return (investments || [])
-          .filter(e => new Date(e.date).getFullYear() === year)
-          .reduce((sum, entry) => {
-            const notes = String(entry.notes || '').toLowerCase();
-            if (entry.subtype === 'profit' || notes.includes('profit')) {
-              return sum + (Number(entry.amount) || 0);
-            }
-            return sum;
-          }, 0);
-      });
-
-      createOrUpdateChart('mutualFundGrowthChartInstance', mutualFundCanvas, {
+      createOrUpdateChart('investmentGrowthChartInstance', investmentGrowthCanvas, {
         type: 'line',
-        data: {
-          labels,
-          datasets: [
-            { label: 'Total Investment', data: investmentSeries, borderColor: '#1abc9c', backgroundColor: 'rgba(26,188,156,0.15)', fill: false, tension: 0.3 },
-            { label: 'Profit', data: profitSeries, borderColor: '#3498db', backgroundColor: 'rgba(52,152,219,0.15)', fill: false, tension: 0.3 }
-          ]
-        },
-        options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } } }
-      });
-    }
-
-    // LIC chart (its own year range)
-    if (licCanvas) {
-      const labels = yearsFor(byCategory['LIC']);
-      const data = labels.map(y => byCategory['LIC'].filter(e => new Date(e.date).getFullYear() === y).reduce((s, it) => s + (Number(it.amount) || 0), 0));
-      createOrUpdateChart('licGrowthChartInstance', licCanvas, {
-        type: 'line',
-        data: { labels, datasets: [{ label: 'LIC Growth', data, borderColor: '#3498db', backgroundColor: 'rgba(52,152,219,0.15)', fill: true, tension: 0.3 }] },
-        options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } } }
-      });
-    }
-
-    // PPF chart (its own year range)
-    if (ppfCanvas) {
-      const labels = yearsFor(byCategory['PPF']);
-      const data = labels.map(y => byCategory['PPF'].filter(e => new Date(e.date).getFullYear() === y).reduce((s, it) => s + (Number(it.amount) || 0), 0));
-      createOrUpdateChart('ppfGrowthChartInstance', ppfCanvas, {
-        type: 'line',
-        data: { labels, datasets: [{ label: 'PPF Growth', data, borderColor: '#e67e22', backgroundColor: 'rgba(230,126,34,0.15)', fill: true, tension: 0.3 }] },
-        options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } } }
-      });
-    }
-
-    // Sukanya chart (its own year range)
-    if (sukanyaCanvas) {
-      const labels = yearsFor(byCategory['Sukanya Yojana']);
-      const data = labels.map(y => byCategory['Sukanya Yojana'].filter(e => new Date(e.date).getFullYear() === y).reduce((s, it) => s + (Number(it.amount) || 0), 0));
-      createOrUpdateChart('sukanyaGrowthChartInstance', sukanyaCanvas, {
-        type: 'line',
-        data: { labels, datasets: [{ label: 'Sukanya Yojana Growth', data, borderColor: '#9b59b6', backgroundColor: 'rgba(155,89,182,0.15)', fill: true, tension: 0.3 }] },
-        options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } } }
+        data: { labels, datasets },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { position: 'top' } },
+          scales: { y: { beginAtZero: true } }
+        }
       });
     }
   }
@@ -264,10 +238,11 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (!savedYearSelect.value) savedYearSelect.value = (new Date()).getFullYear();
     }
 
-    // Render table (use selected year + month if available)
+    // Render table (use selected type/year/month if available)
+    const selectedType = savedTypeSelect ? savedTypeSelect.value : null;
     const selectedYear = savedYearSelect ? savedYearSelect.value : null;
     const selectedMonth = savedMonthSelect ? savedMonthSelect.value : null;
-    renderInvestmentsTable(investments, selectedYear, selectedMonth);
+    renderInvestmentsTable(investments, selectedYear, selectedMonth, selectedType);
 
     // Render totals and charts
     await renderInvestments(investments);
@@ -282,15 +257,19 @@ document.addEventListener('DOMContentLoaded', async () => {
       const cat = String(e.category || '').toLowerCase();
       return t === 'investment' || cat.includes('mutual') || cat.includes('lic') || cat.includes('ppf') || cat.includes('sukanya');
     });
-    renderInvestmentsTable(investments, savedYearSelect ? savedYearSelect.value : null, savedMonthSelect ? savedMonthSelect.value : null);
+    renderInvestmentsTable(investments, savedYearSelect ? savedYearSelect.value : null, savedMonthSelect ? savedMonthSelect.value : null, savedTypeSelect ? savedTypeSelect.value : null);
   }
 
-  // Wire savedYearSelect / savedMonthSelect change to re-render table only
+  // Wire savedYearSelect / savedMonthSelect / savedTypeSelect change to
+  // re-render the table only
   if (savedYearSelect) {
     savedYearSelect.addEventListener('change', refreshTableOnly);
   }
   if (savedMonthSelect) {
     savedMonthSelect.addEventListener('change', refreshTableOnly);
+  }
+  if (savedTypeSelect) {
+    savedTypeSelect.addEventListener('change', refreshTableOnly);
   }
 
   // Delete an entry (event delegation so it keeps working after re-renders)

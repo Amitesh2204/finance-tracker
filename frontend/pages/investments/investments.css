@@ -64,6 +64,11 @@
 .chart.same-size {
   height:400px;
 }
+@media(max-width:600px) {
+  .chart.same-size {
+    height: 300px;
+  }
+}
 
 /* Ensure charts stack vertically */
 .chart.card {
