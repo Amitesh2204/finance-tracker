@@ -836,7 +836,7 @@
 
     const iciciNet = netForBank('ICICI');
     const sbiNet = netForBank('SBI');
-    const bobNet = netForBank('Bank of Baroda');
+    const bobNet = Math.max(0, netForBank('Bank of Baroda'));
 
     const totalExpense = entries
       .filter(e => ['expense', 'trip'].includes(String(e.type || '').toLowerCase()) && isCurrentMonthEntry(e.date))
@@ -846,8 +846,9 @@
       // Home "Balance" card: all three banks, net of each bank's expenses.
       totalBalance: iciciNet + sbiNet + bobNet,
       totalExpense,
-      // Home "Savings" card mirrors Expense's three bank balance cards.
-      totalSaving: iciciNet + sbiNet + bobNet,
+      // Keep Home aligned with Expense: displayed balances minus this month's
+      // bank expenses are the current total saving.
+      totalSaving: iciciNet + sbiNet + bobNet - totalExpense,
       iciciNet,
       sbiNet,
       bobNet,
