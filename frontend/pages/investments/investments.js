@@ -138,14 +138,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Totals by category (robust)
     const totals = { 'Mutual Fund':0, 'LIC':0, 'PPF':0, 'Sukanya Yojana':0 };
-    const byCategory = { 'Mutual Fund':[], 'LIC':[], 'PPF':[], 'Sukanya Yojana':[] };
     investments.forEach(e => {
       const cat = String(e.category || '').trim();
       const amt = Number(e.amount) || 0;
-      if (/mutual/i.test(cat)) { totals['Mutual Fund'] += amt; byCategory['Mutual Fund'].push(e); }
-      else if (/lic/i.test(cat)) { totals['LIC'] += amt; byCategory['LIC'].push(e); }
-      else if (/ppf/i.test(cat)) { totals['PPF'] += amt; byCategory['PPF'].push(e); }
-      else if (/sukanya/i.test(cat)) { totals['Sukanya Yojana'] += amt; byCategory['Sukanya Yojana'].push(e); }
+      if (/mutual/i.test(cat)) { totals['Mutual Fund'] += amt; }
+      else if (/lic/i.test(cat)) { totals['LIC'] += amt; }
+      else if (/ppf/i.test(cat)) { totals['PPF'] += amt; }
+      else if (/sukanya/i.test(cat)) { totals['Sukanya Yojana'] += amt; }
     });
 
     if (mutualFundTotalEl) mutualFundTotalEl.textContent = formatINR(mutualFundSummary.bought + mutualFundSummary.growth);
@@ -165,10 +164,11 @@ document.addEventListener('DOMContentLoaded', async () => {
       return isSell ? -amount : amount;
     }
 
-    // Merged growth chart: one line per investment type, each showing that
-    // type's Total Investment Amount accumulated year over year (so every
-    // year's figure includes everything invested in prior years too), all
-    // sharing a single continuous year axis across every category.
+    // Merged growth chart: the portfolio's Total Investment and Total Growth
+    // across all four investment types combined, each accumulated year over
+    // year (so every year's figure includes everything from prior years
+    // too), plus their sum as a third "Total Amount" line — a single,
+    // simplified view instead of one line per investment type.
     if (investmentGrowthCanvas) {
       const allYears = Array.from(new Set((investments || []).map(e => {
         const d = new Date(e.date);
@@ -179,28 +179,40 @@ document.addEventListener('DOMContentLoaded', async () => {
       const labels = [];
       for (let y = startYear; y <= endYear; y++) labels.push(String(y));
 
-      const seriesConfig = [
-        { key: 'Mutual Fund', label: 'Mutual Fund', color: '#1abc9c' },
-        { key: 'LIC', label: 'LIC', color: '#3498db' },
-        { key: 'PPF', label: 'PPF', color: '#e67e22' },
-        { key: 'Sukanya Yojana', label: 'Sukanya Yojana', color: '#9b59b6' }
-      ];
-
-      const datasets = seriesConfig.map(({ key, label, color }) => {
-        let running = 0;
-        const data = labels.map(y => {
-          const year = Number(y);
-          running += byCategory[key]
-            .filter(e => new Date(e.date).getFullYear() === year)
-            .reduce((sum, entry) => sum + investedAmountOnly(entry), 0);
-          return running;
+      let runningInvested = 0;
+      let runningGrowth = 0;
+      const investedData = [];
+      const growthData = [];
+      const totalData = [];
+      labels.forEach(y => {
+        const year = Number(y);
+        (investments || []).forEach(entry => {
+          if (new Date(entry.date).getFullYear() !== year) return;
+          const amount = Number(entry.amount) || 0;
+          const subtype = String(entry.subtype || '').toLowerCase();
+          const notes = String(entry.notes || '').toLowerCase();
+          const isProfit = subtype === 'profit' || notes.includes('profit');
+          if (isProfit) {
+            runningGrowth += amount;
+          } else {
+            runningInvested += investedAmountOnly(entry);
+          }
         });
-        return { label, data, borderColor: color, backgroundColor: 'transparent', fill: false, tension: 0.3 };
+        investedData.push(runningInvested);
+        growthData.push(runningGrowth);
+        totalData.push(runningInvested + runningGrowth);
       });
 
       createOrUpdateChart('investmentGrowthChartInstance', investmentGrowthCanvas, {
         type: 'line',
-        data: { labels, datasets },
+        data: {
+          labels,
+          datasets: [
+            { label: 'Total Investment', data: investedData, borderColor: '#1abc9c', backgroundColor: 'transparent', fill: false, tension: 0.3, borderWidth: 2 },
+            { label: 'Total Growth', data: growthData, borderColor: '#3498db', backgroundColor: 'transparent', fill: false, tension: 0.3, borderWidth: 2 },
+            { label: 'Total Amount', data: totalData, borderColor: '#9b59b6', backgroundColor: 'transparent', fill: false, tension: 0.3, borderWidth: 3 }
+          ]
+        },
         options: {
           responsive: true,
           maintainAspectRatio: false,
