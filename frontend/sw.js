@@ -1,4 +1,4 @@
-const CACHE_NAME = 'finance-v1';
+const CACHE_NAME = 'finance-v2';
 const FILES = [
   '/',
   '/index.html',
@@ -14,11 +14,22 @@ self.addEventListener('install', evt => {
 });
 
 self.addEventListener('activate', evt => {
-  evt.waitUntil(self.clients.claim());
+  evt.waitUntil(
+    caches.keys()
+      .then(keys => Promise.all(keys.filter(key => key !== CACHE_NAME).map(key => caches.delete(key))))
+      .then(() => self.clients.claim())
+  );
 });
 
 self.addEventListener('fetch', evt => {
+  if (evt.request.method !== 'GET' || new URL(evt.request.url).origin !== self.location.origin) return;
   evt.respondWith(
-    caches.match(evt.request).then(resp => resp || fetch(evt.request).catch(() => caches.match('/')))
+    fetch(evt.request)
+      .then(response => {
+        const copy = response.clone();
+        caches.open(CACHE_NAME).then(cache => cache.put(evt.request, copy));
+        return response;
+      })
+      .catch(() => caches.match(evt.request).then(resp => resp || caches.match('/')))
   );
 });
