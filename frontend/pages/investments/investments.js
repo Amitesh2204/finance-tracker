@@ -216,7 +216,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         options: {
           responsive: true,
           maintainAspectRatio: false,
-          plugins: { legend: { position: 'top' } },
+          plugins: { legend: { position: 'top', labels: { boxWidth: 14, font: { size: 12 } } } },
           scales: { y: { beginAtZero: true } }
         }
       });
