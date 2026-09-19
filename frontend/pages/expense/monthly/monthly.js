@@ -25,7 +25,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Canonical categories and colors (kept local to this file)
   const EXPENSE_CATEGORIES = [
     'School Fees','Rent','Food & Fruit','Vegetables','Electricity',
-    'Doctor Fees','Medicine & Tests','Loan','Saving','Clothes','BC','Other'
+    'Doctor Fees','Medicine & Tests','Loan','Saving','Clothes','BC',
+    'Food','Fruit','Milk','Grocery','Mobile Recharge/Bill','Junk Food',
+    'ATM Withdrawal','Worship Item','Other'
   ];
 
   const CATEGORY_COLORS = {
@@ -40,6 +42,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     'Saving': '#1abc9c',
     'Clothes': '#d35400',
     'BC': '#7f8c8d',
+    'Food': '#f7ca18',
+    'Fruit': '#e74c3c',
+    'Milk': '#aed6f1',
+    'Grocery': '#58d68d',
+    'Mobile Recharge/Bill': '#5499c7',
+    'Junk Food': '#cb4335',
+    'ATM Withdrawal': '#616a6b',
+    'Worship Item': '#af7ac5',
     'Other': '#95a5a6'
   };
 
