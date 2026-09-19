@@ -13,6 +13,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const sukanyaTotalEl = document.getElementById('sukanyaTotal');
 
   const investmentGrowthCanvas = document.getElementById('investmentGrowthChart');
+  const investmentsByTypeCanvas = document.getElementById('investmentsByTypeChart');
 
   // Safe formatter
   function formatINR(amount) {
@@ -164,21 +165,23 @@ document.addEventListener('DOMContentLoaded', async () => {
       return isSell ? -amount : amount;
     }
 
+    // Shared year range for both growth charts below (so they line up on the
+    // same x-axis when shown side by side).
+    const allYears = Array.from(new Set((investments || []).map(e => {
+      const d = new Date(e.date);
+      return Number.isNaN(d.getFullYear()) ? null : d.getFullYear();
+    }).filter(Boolean))).sort((a, b) => a - b);
+    const startYear = allYears.length ? Math.min(...allYears) : new Date().getFullYear();
+    const endYear = Math.max(new Date().getFullYear(), ...(allYears.length ? allYears : [new Date().getFullYear()]));
+    const labels = [];
+    for (let y = startYear; y <= endYear; y++) labels.push(String(y));
+
     // Merged growth chart: the portfolio's Total Investment and Total Growth
     // across all four investment types combined, each accumulated year over
     // year (so every year's figure includes everything from prior years
     // too), plus their sum as a third "Total Amount" line — a single,
     // simplified view instead of one line per investment type.
     if (investmentGrowthCanvas) {
-      const allYears = Array.from(new Set((investments || []).map(e => {
-        const d = new Date(e.date);
-        return Number.isNaN(d.getFullYear()) ? null : d.getFullYear();
-      }).filter(Boolean))).sort((a, b) => a - b);
-      const startYear = allYears.length ? Math.min(...allYears) : new Date().getFullYear();
-      const endYear = Math.max(new Date().getFullYear(), ...(allYears.length ? allYears : [new Date().getFullYear()]));
-      const labels = [];
-      for (let y = startYear; y <= endYear; y++) labels.push(String(y));
-
       let runningInvested = 0;
       let runningGrowth = 0;
       const investedData = [];
@@ -213,6 +216,50 @@ document.addEventListener('DOMContentLoaded', async () => {
             { label: 'Total Amount', data: totalData, borderColor: '#9b59b6', backgroundColor: 'transparent', fill: false, tension: 0.3, borderWidth: 3 }
           ]
         },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { position: 'top', labels: { boxWidth: 14, font: { size: 12 } } } },
+          scales: { y: { beginAtZero: true } }
+        }
+      });
+    }
+
+    // Investments by Type chart: one cumulative line per investment type
+    // (Mutual Fund / LIC / PPF / Sukanya Yojana), each its own color, sharing
+    // the same year axis as the chart above.
+    if (investmentsByTypeCanvas) {
+      const byCategory = { 'Mutual Fund': [], 'LIC': [], 'PPF': [], 'Sukanya Yojana': [] };
+      investments.forEach(e => {
+        const cat = String(e.category || '').trim();
+        if (/mutual/i.test(cat)) byCategory['Mutual Fund'].push(e);
+        else if (/lic/i.test(cat)) byCategory['LIC'].push(e);
+        else if (/ppf/i.test(cat)) byCategory['PPF'].push(e);
+        else if (/sukanya/i.test(cat)) byCategory['Sukanya Yojana'].push(e);
+      });
+
+      const typeSeriesConfig = [
+        { key: 'Mutual Fund', color: '#1abc9c' },
+        { key: 'LIC', color: '#3498db' },
+        { key: 'PPF', color: '#e67e22' },
+        { key: 'Sukanya Yojana', color: '#9b59b6' }
+      ];
+
+      const typeDatasets = typeSeriesConfig.map(({ key, color }) => {
+        let running = 0;
+        const data = labels.map(y => {
+          const year = Number(y);
+          running += byCategory[key]
+            .filter(e => new Date(e.date).getFullYear() === year)
+            .reduce((sum, entry) => sum + investedAmountOnly(entry), 0);
+          return running;
+        });
+        return { label: key, data, borderColor: color, backgroundColor: 'transparent', fill: false, tension: 0.3, borderWidth: 2 };
+      });
+
+      createOrUpdateChart('investmentsByTypeChartInstance', investmentsByTypeCanvas, {
+        type: 'line',
+        data: { labels, datasets: typeDatasets },
         options: {
           responsive: true,
           maintainAspectRatio: false,

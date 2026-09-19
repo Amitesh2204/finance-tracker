@@ -56,10 +56,17 @@
           <a href="sukanya/sukanya.html" class="card sukanya"><h3>Sukanya Yojana</h3><p id="sukanyaTotal">₹0.00</p></a>
         </div>
 
-        <!-- Investment Growth chart (merged, cumulative Total Investment only) -->
-        <div class="chart card same-size">
-          <h3>Investment Growth (Cumulative)</h3>
-          <canvas id="investmentGrowthChart"></canvas>
+        <!-- Investment Growth charts: cumulative portfolio totals, and a
+             per-type breakdown, shown side by side -->
+        <div class="chart-row">
+          <div class="chart card same-size">
+            <h3>Investment Growth (Cumulative)</h3>
+            <canvas id="investmentGrowthChart"></canvas>
+          </div>
+          <div class="chart card same-size">
+            <h3>Investments by Type</h3>
+            <canvas id="investmentsByTypeChart"></canvas>
+          </div>
         </div>
 
 
