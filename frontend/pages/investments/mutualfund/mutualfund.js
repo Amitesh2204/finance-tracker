@@ -181,7 +181,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   function renderTable(selectedMonthYear = null, selectedYear = 'all', selectedMonth = 'all') {
     const months = Object.keys(monthlyData);
     if (months.length === 0) {
-      tableBody.innerHTML = '<tr><td colspan="5">No data yet</td></tr>';
+      tableBody.innerHTML = '<tr><td colspan="4">No data yet</td></tr>';
       return;
     }
 
@@ -198,15 +198,26 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     tableBody.innerHTML = filtered.map(m => {
       const d = monthlyData[m];
-      const growthPct = d.profit && d.invested ? ((d.profit / d.invested) * 100).toFixed(2) : "0.00";
       return `<tr>
         <td>${m}</td>
         <td>Mutual Fund</td>
         <td>${formatINR(d.invested)}</td>
-        <td>${formatINR(d.profit)}</td>
-        <td>${growthPct}%</td>
+        <td>${formatINR(d.combined)}</td>
       </tr>`;
-    }).join('') || '<tr><td colspan="5">No data for the chosen filters</td></tr>';
+    }).join('') || '<tr><td colspan="4">No data for the chosen filters</td></tr>';
+
+    if (selectedYear !== 'all' && selectedMonth === 'all') {
+      const yearData = months
+        .filter(month => month.endsWith(`-${selectedYear}`))
+        .reduce((totals, month) => {
+          totals.invested += monthlyData[month].invested;
+          totals.profit += monthlyData[month].profit;
+          return totals;
+        }, { invested: 0, profit: 0 });
+      const percentage = yearData.invested > 0 ? ((yearData.profit / yearData.invested) * 100).toFixed(2) : '0.00';
+      const totalAmount = yearData.invested + yearData.profit;
+      tableBody.insertAdjacentHTML('beforeend', `<tr class="year-total-row"><td>Total Amount (${selectedYear})</td><td>Mutual Fund</td><td>${formatINR(yearData.invested)}</td><td>${formatINR(totalAmount)} <small>Profit: ${formatINR(yearData.profit)} (${percentage}%)</small></td></tr>`);
+    }
   }
 
   function renderChart(mfEntries) {

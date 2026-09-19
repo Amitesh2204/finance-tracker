@@ -5,12 +5,17 @@ document.addEventListener('DOMContentLoaded', async () => {
   const investedCard = document.getElementById('ppfTotalInvested');
   const growthCard = document.getElementById('ppfTotalGrowth');
   const tableBody = document.querySelector('#ppfTable tbody');
-  const monthYearFilter = document.getElementById('ppfMonthYearFilter');
+  const summaryYearSelect = document.getElementById('ppfSummaryYear');
+  const summaryMonthSelect = document.getElementById('ppfSummaryMonth');
   const clearFilterBtn = document.getElementById('ppfClearFilterBtn');
   const exportBtn = document.getElementById('ppfExportBtn');
   const importInput = document.getElementById('ppfImportInput');
   const ppfInvestmentForm = document.getElementById('ppfInvestmentForm');
   const investmentMonthInput = document.getElementById('ppfInvestmentMonth');
+  const investmentMonthWrapper = document.getElementById('ppfInvestmentMonthWrapper');
+  const profitYearWrapper = document.getElementById('ppfProfitYearWrapper');
+  const profitYearSelect = document.getElementById('ppfProfitYear');
+  const profitHint = document.getElementById('ppfProfitHint');
   const categorySelect = document.getElementById('ppfCategory');
   const bankSelect = document.getElementById('ppfBank');
   const amountInput = document.getElementById('ppfAmount');
@@ -19,6 +24,20 @@ document.addEventListener('DOMContentLoaded', async () => {
   let totalGrowth = 0;
   let monthlyData = {};
   let allEntries = [];
+
+  function updateEntryTypeUI() {
+    const isProfit = categorySelect?.value === 'profit';
+    if (investmentMonthWrapper) investmentMonthWrapper.style.display = isProfit ? 'none' : '';
+    if (profitYearWrapper) profitYearWrapper.style.display = isProfit ? '' : 'none';
+    if (profitHint) profitHint.style.display = isProfit ? '' : 'none';
+    if (investmentMonthInput) investmentMonthInput.required = !isProfit;
+    if (profitYearSelect) profitYearSelect.required = isProfit;
+  }
+
+  if (categorySelect) {
+    categorySelect.addEventListener('change', updateEntryTypeUI);
+    updateEntryTypeUI();
+  }
 
   function formatINR(amount) {
     return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(amount || 0);
@@ -59,6 +78,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (ppfInvestmentForm) ppfInvestmentForm.reset();
     if (investmentMonthInput) investmentMonthInput.value = new Date().toISOString().slice(0, 7);
     if (categorySelect) categorySelect.value = 'investment';
+    updateEntryTypeUI();
     if (bankSelect) bankSelect.value = 'ICICI';
     if (ppfInvestmentEditId) ppfInvestmentEditId.value = '';
     const submit = ppfInvestmentForm?.querySelector('button[type="submit"]');
@@ -69,17 +89,21 @@ document.addEventListener('DOMContentLoaded', async () => {
     const keys = Object.keys(monthlyData);
     if (!tableBody) return;
     if (!keys.length) {
-      tableBody.innerHTML = '<tr><td colspan="7">No data yet</td></tr>';
+      tableBody.innerHTML = '<tr><td colspan="8">No data yet</td></tr>';
       return;
     }
 
-    const filtered = (filterMonthYear
-      ? keys.filter(k => monthlyData[k].monthYearValue === filterMonthYear)
-      : keys
-    ).sort((a, b) => monthlyData[b].sortKey - monthlyData[a].sortKey);
+    const selectedYear = summaryYearSelect?.value || 'all';
+    const selectedMonth = summaryMonthSelect?.value || 'all';
+    const filtered = keys.filter(key => {
+      const data = monthlyData[key];
+      const [year, month] = data.monthYearValue.split('-').map(Number);
+      return (selectedYear === 'all' || year === Number(selectedYear)) &&
+        (selectedMonth === 'all' || month - 1 === Number(selectedMonth));
+    }).sort((a, b) => monthlyData[b].sortKey - monthlyData[a].sortKey);
 
     if (!filtered.length) {
-      tableBody.innerHTML = '<tr><td colspan="7">No data for the selected month</td></tr>';
+      tableBody.innerHTML = '<tr><td colspan="8">No data for the selected period</td></tr>';
       return;
     }
 
@@ -95,12 +119,22 @@ document.addEventListener('DOMContentLoaded', async () => {
         <td>${formatINR(invested)}</td>
         <td>${formatINR(profit)}</td>
         <td>${growthPct}%</td>
+        <td>${formatINR(invested + profit)}</td>
         <td>
           <button type="button" class="edit-entry-btn" data-key="${escapeHtml(key)}">Edit</button>
           <button type="button" class="delete-entry-btn" data-key="${escapeHtml(key)}">Delete</button>
         </td>
       </tr>`;
     }).join('');
+
+    if (selectedYear !== 'all' && selectedMonth === 'all') {
+      const yearEntries = allEntries.filter(entry => new Date(entry.date).getFullYear() === Number(selectedYear));
+      const invested = yearEntries.filter(entry => entry.subtype !== 'profit').reduce((sum, entry) => sum + (Number(entry.amount) || 0), 0);
+      const profit = yearEntries.filter(entry => entry.subtype === 'profit').reduce((sum, entry) => sum + (Number(entry.amount) || 0), 0);
+      const total = invested + profit;
+      const percentage = invested > 0 ? ((profit / invested) * 100).toFixed(2) : '0.00';
+      tableBody.insertAdjacentHTML('beforeend', `<tr class="year-total-row"><td>Total Amount (${selectedYear})</td><td>PPF</td><td>All banks</td><td>${formatINR(invested)}</td><td>${formatINR(profit)}</td><td>${percentage}%</td><td>${formatINR(total)}</td><td>Yearly total</td></tr>`);
+    }
 
     tableBody.querySelectorAll('.delete-entry-btn').forEach(btn => {
       btn.addEventListener('click', async () => {
@@ -121,6 +155,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (!doc) return;
         if (amountInput) amountInput.value = doc.amount || '';
         if (categorySelect) categorySelect.value = doc.subtype === 'profit' ? 'profit' : 'investment';
+        if (profitYearSelect && doc.subtype === 'profit') profitYearSelect.value = String(new Date(doc.date).getFullYear());
+        updateEntryTypeUI();
         if (bankSelect) bankSelect.value = doc.bank || 'ICICI';
         if (investmentMonthInput) investmentMonthInput.value = rowData.monthYearValue || '';
         if (ppfInvestmentEditId) ppfInvestmentEditId.value = doc._id || '';
@@ -314,7 +350,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     updateCards();
-    renderTable(monthYearFilter?.value || '');
+    const years = [...new Set(allEntries.map(entry => new Date(entry.date).getFullYear()).filter(Number.isFinite))].sort((a, b) => b - a);
+    if (summaryYearSelect) {
+      summaryYearSelect.innerHTML = '<option value="all">All years</option>' + years.map(year => `<option value="${year}">${year}</option>`).join('');
+      summaryYearSelect.value = years.includes(new Date().getFullYear()) ? String(new Date().getFullYear()) : 'all';
+    }
+    if (profitYearSelect) profitYearSelect.innerHTML = [...new Set([new Date().getFullYear(), ...years])].sort((a, b) => b - a).map(year => `<option value="${year}">${year}</option>`).join('');
+    renderTable();
     renderChart();
   }
 
@@ -326,9 +368,11 @@ document.addEventListener('DOMContentLoaded', async () => {
       e.preventDefault();
       const amt = parseFloat(amountInput?.value);
       if (Number.isNaN(amt) || amt <= 0) return;
-      const monthValue = investmentMonthInput?.value; // "YYYY-MM"
-      if (!monthValue) return;
       const subtype = categorySelect?.value === 'profit' ? 'profit' : 'investment';
+      const monthValue = investmentMonthInput?.value; // "YYYY-MM"
+      const profitYear = Number(profitYearSelect?.value);
+      if (subtype === 'investment' && !monthValue) return;
+      if (subtype === 'profit' && !Number.isFinite(profitYear)) return;
       const bank = bankSelect?.value || 'ICICI';
       const docId = ppfInvestmentEditId?.value || '';
       const payload = {
@@ -337,7 +381,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         subtype,
         amount: amt,
         currency: 'INR',
-        date: `${monthValue}-01`,
+        date: subtype === 'profit' ? `${profitYear}-01-01` : `${monthValue}-01`,
         notes: subtype === 'profit' ? 'PPF profit' : 'PPF investment',
         bank
       };
@@ -348,8 +392,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  if (monthYearFilter) monthYearFilter.addEventListener('change', () => renderTable(monthYearFilter.value || ''));
-  if (clearFilterBtn) clearFilterBtn.addEventListener('click', () => { if (monthYearFilter) monthYearFilter.value = ''; renderTable(''); });
+  [summaryYearSelect, summaryMonthSelect].forEach(select => {
+    if (select) select.addEventListener('change', () => renderTable());
+  });
+  if (clearFilterBtn) clearFilterBtn.addEventListener('click', () => { if (summaryYearSelect) summaryYearSelect.value = 'all'; if (summaryMonthSelect) summaryMonthSelect.value = 'all'; renderTable(); });
 
   await loadEntries();
 });

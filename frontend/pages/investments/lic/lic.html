@@ -82,8 +82,9 @@
               </select>
               <div class="date-row">
                 <div><label for="licEntryYear">Year</label><select id="licEntryYear"></select></div>
-                <div><label for="licEntryMonth">Month</label><select id="licEntryMonth"></select></div>
+                <div id="licEntryMonthWrapper"><label for="licEntryMonth">Month</label><select id="licEntryMonth"></select></div>
               </div>
+              <p id="licProfitHint" class="form-hint" style="display:none;">Profit is recorded once for the whole year. Select the year and enter the yearly profit.</p>
               <label for="licAmount">Amount</label>
               <input id="licAmount" type="number" min="0" step="0.01" required />
               <button type="submit">Add Entry</button>
@@ -110,13 +111,11 @@
                   <th>Month-Year</th>
                   <th>Policy Name</th>
                   <th>Monthly Invested</th>
-                  <th>Total Profit</th>
-                  <th>Growth %</th>
                   <th>Actions</th>
                 </tr>
               </thead>
 
-              <tbody><tr><td colspan="6">No data yet</td></tr></tbody>
+              <tbody><tr><td colspan="4">No data yet</td></tr></tbody>
             </table>
           </div>
         </div>

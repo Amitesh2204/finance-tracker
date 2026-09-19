@@ -141,7 +141,14 @@
               <input id="historyAmount" type="number" min="0" step="0.01" />
 
               <label for="historyDate">Date</label>
-              <input id="historyDate" type="date" />
+              <div id="historyDateWrapper">
+                <input id="historyDate" type="date" />
+              </div>
+
+              <div id="historyProfitYearWrapper" style="display:none;">
+                <label for="historyProfitYear">Profit Year</label>
+                <select id="historyProfitYear"></select>
+              </div>
 
               <label for="historyNotes">Notes (optional — folio no., units, etc.)</label>
               <input id="historyNotes" type="text" placeholder="e.g. Folio 12345, 42.5 units" />

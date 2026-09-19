@@ -70,7 +70,11 @@
             <div class="form-grid">
               <div>
                 <label for="ppfInvestmentMonth">Month &amp; Year</label>
-                <input id="ppfInvestmentMonth" type="month" required />
+                <div id="ppfInvestmentMonthWrapper"><input id="ppfInvestmentMonth" type="month" required /></div>
+              </div>
+              <div id="ppfProfitYearWrapper" style="display:none;">
+                <label for="ppfProfitYear">Profit Year</label>
+                <select id="ppfProfitYear"></select>
               </div>
               <div>
                 <label for="ppfCategory">Category</label>
@@ -91,6 +95,7 @@
                 <input id="ppfAmount" type="number" min="0" step="0.01" required />
               </div>
             </div>
+            <p id="ppfProfitHint" class="form-hint" style="display:none;">Profit is recorded once for the whole year. Select the year and enter the yearly profit.</p>
             <button type="submit">Add Investment</button>
           </form>
         </div>
@@ -99,8 +104,16 @@
         <div class="card">
           <h3>Monthly PPF Summary</h3>
           <div class="table-controls">
-            <label for="ppfMonthYearFilter">Filter Month &amp; Year</label>
-            <input id="ppfMonthYearFilter" type="month" />
+            <label for="ppfSummaryYear">Year</label>
+            <select id="ppfSummaryYear"></select>
+            <label for="ppfSummaryMonth">Month</label>
+            <select id="ppfSummaryMonth">
+              <option value="all">All Months</option>
+              <option value="0">January</option><option value="1">February</option><option value="2">March</option>
+              <option value="3">April</option><option value="4">May</option><option value="5">June</option>
+              <option value="6">July</option><option value="7">August</option><option value="8">September</option>
+              <option value="9">October</option><option value="10">November</option><option value="11">December</option>
+            </select>
             <button type="button" id="ppfClearFilterBtn" class="secondary-btn">Show All</button>
             <button type="button" id="ppfExportBtn" class="secondary-btn">Export Excel</button>
             <label class="secondary-btn" for="ppfImportInput" style="display:inline-block; cursor:pointer;">Import Excel</label>
@@ -116,10 +129,11 @@
                   <th>Monthly Invested</th>
                   <th>Total Profit</th>
                   <th>Growth %</th>
+                  <th>Total Amount</th>
                   <th>Actions</th>
                 </tr>
               </thead>
-              <tbody><tr><td colspan="7">No data yet</td></tr></tbody>
+              <tbody><tr><td colspan="8">No data yet</td></tr></tbody>
             </table>
           </div>
         </div>

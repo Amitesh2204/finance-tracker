@@ -11,6 +11,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   const policyMonthSelect = document.getElementById('policyMonthSelect');
   const entryYearSelect = document.getElementById('licEntryYear');
   const entryMonthSelect = document.getElementById('licEntryMonth');
+  const entryMonthWrapper = document.getElementById('licEntryMonthWrapper');
+  const profitHint = document.getElementById('licProfitHint');
   const categorySelect = document.getElementById('licCategory');
   const exportBtn = document.getElementById('licExportBtn');
   const importInput = document.getElementById('licImportInput');
@@ -46,6 +48,17 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   const licInvestmentEditId = ensureHiddenInput(licInvestmentForm, 'licInvestmentEditingId');
+
+  function updateEntryTypeUI() {
+    const isProfit = categorySelect?.value === 'profit';
+    if (entryMonthWrapper) entryMonthWrapper.style.display = isProfit ? 'none' : '';
+    if (entryMonthSelect) entryMonthSelect.required = !isProfit;
+    if (profitHint) profitHint.style.display = isProfit ? '' : 'none';
+  }
+  if (categorySelect) {
+    categorySelect.addEventListener('change', updateEntryTypeUI);
+    updateEntryTypeUI();
+  }
 
   const monthNames = Array.from({ length: 12 }, (_, month) => new Date(2020, month, 1).toLocaleString('default', { month: 'long' }));
 
@@ -89,13 +102,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     const policies = ['Jeevan Lakshya', 'New Jeevan Labh'];
     tableBody.innerHTML = policies.map(policy => {
       const policyData = data.policies?.[policy] || { invested: 0, profit: 0 };
-      const growthPct = policyData.invested > 0 ? ((policyData.profit / policyData.invested) * 100).toFixed(2) : '0.00';
       return `<tr>
         <td>${key}</td>
         <td>LIC ${policy === 'New Jeevan Labh' ? 'New Jeevan Labh Plan' : 'Jeevan Lakshya'}</td>
         <td>${formatINR(policyData.invested)}</td>
-        <td>${formatINR(policyData.profit)}</td>
-        <td>${growthPct}%</td>
         <td>
           <button type="button" class="edit-entry-btn" data-id="${key}" data-policy="${policy}">Edit</button>
           <button type="button" class="delete-entry-btn" data-id="${key}" data-policy="${policy}">Delete</button>
@@ -123,6 +133,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (policyField) policyField.value = getPolicyName(doc);
         if (amountField) amountField.value = doc.amount || '';
         if (categorySelect) categorySelect.value = doc.subtype === 'profit' ? 'profit' : 'investment';
+        updateEntryTypeUI();
         const date = new Date(doc.date);
         if (entryYearSelect) entryYearSelect.value = String(date.getFullYear());
         if (entryMonthSelect) entryMonthSelect.value = String(date.getMonth());
@@ -346,6 +357,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (docId) await window.updateEntry(docId, payload);
       else await window.addEntry(payload);
       e.target.reset();
+      updateEntryTypeUI();
       if (licInvestmentEditId) licInvestmentEditId.value = '';
       const submit = licInvestmentForm.querySelector('button[type="submit"]');
       if (submit) submit.textContent = 'Add Entry';

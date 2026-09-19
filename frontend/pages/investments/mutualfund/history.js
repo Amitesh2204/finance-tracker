@@ -20,6 +20,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   const typeEl = document.getElementById('historyType');
   const amountEl = document.getElementById('historyAmount');
   const dateEl = document.getElementById('historyDate');
+  const dateWrapper = document.getElementById('historyDateWrapper');
+  const profitYearWrapper = document.getElementById('historyProfitYearWrapper');
+  const profitYearSelect = document.getElementById('historyProfitYear');
   const notesEl = document.getElementById('historyNotes');
 
   // Elements for custom fund support and yearly controls
@@ -75,6 +78,30 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   let allEntries = [];
+
+  function populateProfitYears() {
+    if (!profitYearSelect) return;
+    const years = new Set([new Date().getFullYear()]);
+    allEntries.forEach(entry => {
+      const year = new Date(entry.date).getFullYear();
+      if (Number.isFinite(year)) years.add(year);
+    });
+    profitYearSelect.innerHTML = [...years].sort((a, b) => b - a)
+      .map(year => `<option value="${year}">${year}</option>`).join('');
+  }
+
+  function updateTransactionTypeUI() {
+    const isProfit = typeEl?.value === 'profit';
+    if (dateWrapper) dateWrapper.style.display = isProfit ? 'none' : '';
+    if (profitYearWrapper) profitYearWrapper.style.display = isProfit ? '' : 'none';
+    if (dateEl) dateEl.required = !isProfit;
+    if (profitYearSelect) profitYearSelect.required = isProfit;
+  }
+
+  if (typeEl) {
+    typeEl.addEventListener('change', updateTransactionTypeUI);
+    updateTransactionTypeUI();
+  }
 
   function renderSummary(entries) {
     const summary = typeof window.getMutualFundSummary === 'function'
@@ -161,8 +188,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (customFundInput && fundSelect && fundSelect.value === 'Other') customFundInput.value = entry.fund || '';
         if (yearlyToggle) yearlyToggle.checked = classify(entry) === 'yearly-total';
         if (typeEl) typeEl.value = classify(entry) === 'profit' ? 'profit' : classify(entry) === 'sell' ? 'sell' : 'buy';
+        updateTransactionTypeUI();
         if (amountEl) amountEl.value = entry.amount || '';
         if (dateEl) dateEl.value = new Date(entry.date).toISOString().slice(0, 10);
+        if (profitYearSelect) profitYearSelect.value = String(new Date(entry.date).getFullYear());
         if (notesEl) notesEl.value = entry.notes || '';
         if (editingIdInput) editingIdInput.value = id;
         if (cancelEditBtn) cancelEditBtn.style.display = 'inline-block';
@@ -297,6 +326,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     renderSummary(allEntries);
     populateYearFilter(allEntries);
+    populateProfitYears();
 
     const selectedYear = yearFilter ? yearFilter.value : 'all';
     const selectedMonth = monthFilter ? monthFilter.value : 'all';
@@ -428,7 +458,9 @@ document.addEventListener('DOMContentLoaded', async () => {
           subtype: type === 'sell' ? 'sell' : type === 'profit' ? 'profit' : 'investment',
           amount: Number(amount) || 0,
           currency: 'INR',
-          date: new Date(dateVal).toISOString(),
+          date: type === 'profit'
+            ? new Date(Number(profitYearSelect.value), 0, 1).toISOString()
+            : new Date(dateVal).toISOString(),
           fund: fundName,
           notes: notesInput || `Mutual Fund ${type}`,
           bank: 'N/A',
@@ -511,7 +543,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
 
       // Otherwise, normal dated transaction
-      if (Number.isNaN(amount) || amount <= 0 || !dateVal) {
+      const profitYear = profitYearSelect ? Number(profitYearSelect.value) : NaN;
+      if (Number.isNaN(amount) || amount <= 0 || (type === 'profit' ? !Number.isFinite(profitYear) : !dateVal)) {
         if (amountEl) amountEl.focus();
         return;
       }
@@ -526,7 +559,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         subtype,
         amount,
         currency: 'INR',
-        date: new Date(dateVal).toISOString(),
+        date: type === 'profit' ? new Date(profitYear, 0, 1).toISOString() : new Date(dateVal).toISOString(),
         fund: fundName,
         fundUser: fundUserSelect ? fundUserSelect.value : 'Amitesh',
         notes
@@ -535,6 +568,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       await addEntryObject(entry);
       form.reset();
       if (customFundInput) customFundInput.value = '';
+      updateTransactionTypeUI();
       await loadAndRender();
     });
   }
