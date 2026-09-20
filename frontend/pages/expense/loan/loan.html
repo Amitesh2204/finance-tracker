@@ -1,0 +1,241 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Loan Tracker</title>
+  <link rel="stylesheet" href="../../../style.css">
+  <link rel="stylesheet" href="loan.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+
+  <script src="https://unpkg.com/pouchdb@7.3.1/dist/pouchdb.min.js"></script>
+  <script src="../../../config.js" defer></script>
+  <script src="../../../db.js" defer></script>
+  <script src="../../../app.js" defer></script>
+  <script src="loan.js" defer></script>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand"><h1>Wealty</h1></div>
+      <nav class="main-menu">
+        <a href="../../../../index.html">🏠 Home</a>
+        <a href="../../budget/budget.html">📊 Budget</a>
+        <div class="submenu">
+          <a href="../expense.html" class="submenu-toggle">💸 Expense ▾</a>
+          <ul class="submenu-list">
+            <li><a href="../monthly/monthly.html">Monthly Expense</a></li>
+            <li><a href="../trip/trip.html">Trip Expense</a></li>
+            <li><a href="../flat-emi/flat-emi.html">Flat &amp; EMI Tracker</a></li>
+            <li><a href="loan.html" class="active">Loan Tracker</a></li>
+          </ul>
+        </div>
+        <a href="../../investments/investments.html">📈 Investments</a>
+        <a href="../../report.html">📑 Report</a>
+      </nav>
+      <div class="sidebar-footer">
+        <a href="../../settings.html">⚙️ Settings</a>
+        <a href="../../login.html">🚪 Logout</a>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar"><h2>Loan Tracker</h2></header>
+
+      <section class="content expense-subpage">
+        <aside class="content-panel left-panel">
+          <div class="cards summary-cards">
+            <article class="card summary-card">
+              <h3>Total Monthly EMI</h3>
+              <p id="loanTotalEmi">₹0.00</p>
+            </article>
+            <article class="card summary-card">
+              <h3>Active Loans</h3>
+              <p id="loanActiveCount">0</p>
+            </article>
+            <article class="card summary-card">
+              <h3>Old Loans Paid Off</h3>
+              <p id="loanTotalPaidOff">₹0.00</p>
+            </article>
+          </div>
+
+          <!-- Collapsible: Add Current Loan (EMI) -->
+          <div class="collapsible" id="addCurrentLoanSection" data-default-open="true">
+            <div class="collapsible-header" role="button" tabindex="0" aria-expanded="true">
+              <div class="title">Add Current Loan (EMI)</div>
+              <div class="controls"><div class="chev">▲</div></div>
+            </div>
+            <div class="collapsible-content">
+              <article class="card section-card" style="background:transparent; box-shadow:none; padding:0;">
+                <form id="currentLoanForm" class="investment-form">
+                  <label for="currentLoanType">Loan Type</label>
+                  <select id="currentLoanType">
+                    <option value="Personal Loan" selected>Personal Loan</option>
+                    <option value="Home Loan">Home Loan</option>
+                    <option value="Car Loan">Car Loan</option>
+                    <option value="Education Loan">Education Loan</option>
+                    <option value="Credit Card">Credit Card</option>
+                    <option value="Other">Other</option>
+                  </select>
+
+                  <label for="currentLoanLender">Lender / Bank (optional)</label>
+                  <input id="currentLoanLender" type="text" placeholder="e.g. ICICI Bank" />
+
+                  <label for="currentLoanAmount">Loan Amount (Principal)</label>
+                  <input id="currentLoanAmount" type="number" min="0" step="0.01" required />
+
+                  <label for="currentLoanEmi">Monthly EMI</label>
+                  <input id="currentLoanEmi" type="number" min="0" step="0.01" required />
+
+                  <label for="currentLoanStart">Start Date</label>
+                  <input id="currentLoanStart" type="date" required />
+
+                  <label for="currentLoanEnd">End Date</label>
+                  <input id="currentLoanEnd" type="date" />
+
+                  <label for="currentLoanStatus">Status</label>
+                  <select id="currentLoanStatus">
+                    <option value="Active" selected>Active</option>
+                    <option value="Closed">Closed</option>
+                  </select>
+
+                  <label for="currentLoanNotes">Notes (optional)</label>
+                  <input id="currentLoanNotes" type="text" placeholder="Optional note" />
+
+                  <button type="submit">Add Current Loan</button>
+                </form>
+              </article>
+            </div>
+          </div>
+
+          <!-- Collapsible: Add Old Loan (one-time entry) -->
+          <div class="collapsible" id="addOldLoanSection" data-default-open="false">
+            <div class="collapsible-header" role="button" tabindex="0" aria-expanded="false">
+              <div class="title">Add Old Loan (Already Paid)</div>
+              <div class="controls"><div class="chev">▼</div></div>
+            </div>
+            <div class="collapsible-content">
+              <article class="card section-card" style="background:transparent; box-shadow:none; padding:0;">
+                <p class="loan-hint">For a loan that's already fully paid off — record it once as a single historical entry rather than month by month.</p>
+                <form id="oldLoanForm" class="investment-form">
+                  <label for="oldLoanType">Loan Type</label>
+                  <select id="oldLoanType">
+                    <option value="Personal Loan" selected>Personal Loan</option>
+                    <option value="Home Loan">Home Loan</option>
+                    <option value="Car Loan">Car Loan</option>
+                    <option value="Education Loan">Education Loan</option>
+                    <option value="Credit Card">Credit Card</option>
+                    <option value="Other">Other</option>
+                  </select>
+
+                  <label for="oldLoanLender">Lender / Bank (optional)</label>
+                  <input id="oldLoanLender" type="text" placeholder="e.g. SBI" />
+
+                  <label for="oldLoanAmount">Total Amount Paid</label>
+                  <input id="oldLoanAmount" type="number" min="0" step="0.01" required />
+
+                  <label for="oldLoanStart">Start Date</label>
+                  <input id="oldLoanStart" type="date" />
+
+                  <label for="oldLoanEnd">Date Closed</label>
+                  <input id="oldLoanEnd" type="date" required />
+
+                  <label for="oldLoanNotes">Notes (optional)</label>
+                  <input id="oldLoanNotes" type="text" placeholder="Optional note" />
+
+                  <button type="submit">Add Old Loan</button>
+                </form>
+              </article>
+            </div>
+          </div>
+        </aside>
+
+        <section class="content-panel right-panel">
+          <!-- Collapsible: Current Loans table -->
+          <div class="collapsible" id="currentLoansSection" data-default-open="true">
+            <div class="collapsible-header" role="button" tabindex="0" aria-expanded="true">
+              <div class="title">Current Loans</div>
+              <div class="controls"><div class="chev">▲</div></div>
+            </div>
+            <div class="collapsible-content">
+              <article class="card section-card" style="background:transparent; box-shadow:none; padding:0;">
+                <div class="table-scroll">
+                  <table id="currentLoansTable" class="investment-table">
+                    <thead>
+                      <tr>
+                        <th>Type</th>
+                        <th>Lender</th>
+                        <th>Principal</th>
+                        <th>EMI</th>
+                        <th>Start</th>
+                        <th>End</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody><tr><td colspan="8">No current loans yet</td></tr></tbody>
+                  </table>
+                </div>
+              </article>
+            </div>
+          </div>
+
+          <!-- Collapsible: Old Loans table -->
+          <div class="collapsible" id="oldLoansSection" data-default-open="true">
+            <div class="collapsible-header" role="button" tabindex="0" aria-expanded="true">
+              <div class="title">Old Loans (Paid Off)</div>
+              <div class="controls"><div class="chev">▲</div></div>
+            </div>
+            <div class="collapsible-content">
+              <article class="card section-card" style="background:transparent; box-shadow:none; padding:0;">
+                <div class="table-scroll">
+                  <table id="oldLoansTable" class="investment-table">
+                    <thead>
+                      <tr>
+                        <th>Type</th>
+                        <th>Lender</th>
+                        <th>Amount Paid</th>
+                        <th>Start</th>
+                        <th>Closed</th>
+                        <th>Notes</th>
+                        <th>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody><tr><td colspan="7">No old loans recorded yet</td></tr></tbody>
+                  </table>
+                </div>
+              </article>
+            </div>
+          </div>
+        </section>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    // Collapsible behavior (same pattern used across the other Expense sub-pages)
+    (function () {
+      document.addEventListener('DOMContentLoaded', () => {
+        document.querySelectorAll('.collapsible').forEach(section => {
+          const header = section.querySelector('.collapsible-header');
+          if (!header) return;
+          const chev = header.querySelector('.chev');
+          const defaultOpen = section.getAttribute('data-default-open') === 'true';
+          const isMobile = window.matchMedia('(max-width:800px)').matches;
+          if (!isMobile || defaultOpen) section.classList.add('open');
+          if (chev) chev.textContent = section.classList.contains('open') ? '▲' : '▼';
+          const toggle = () => {
+            section.classList.toggle('open');
+            header.setAttribute('aria-expanded', section.classList.contains('open') ? 'true' : 'false');
+            if (chev) chev.textContent = section.classList.contains('open') ? '▲' : '▼';
+          };
+          header.addEventListener('click', toggle);
+          header.addEventListener('keydown', ev => {
+            if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); toggle(); }
+          });
+        });
+      });
+    })();
+  </script>
+</body>
+</html>
