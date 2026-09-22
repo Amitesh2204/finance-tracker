@@ -167,7 +167,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     const now = new Date();
     return allEntries.reduce((sum, entry) => {
       const date = parseLocalDateValue(entry.date);
-      if ((entry.bank || 'ICICI') !== bankName || date.getFullYear() !== now.getFullYear() || date.getMonth() !== now.getMonth()) return sum;
+      const entryBank = String(entry.bank || 'ICICI').trim().toLowerCase();
+      if (entryBank !== bankName.trim().toLowerCase() || date.getFullYear() !== now.getFullYear() || date.getMonth() !== now.getMonth()) return sum;
       const type = String(entry.type || '').toLowerCase();
       if (type === 'expense' || type === 'trip') return sum + (Number(entry.amount) || 0);
       return sum;
@@ -182,7 +183,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     let expenseSum = 0;
     allEntries.forEach(e => {
       const t = String(e.type || '').toLowerCase();
-      const b = e.bank || 'ICICI';
+      const b = String(e.bank || 'ICICI').trim();
       if (bankName !== 'All' && b !== bankName) return;
       if (t === 'balance') balanceSum += Number(e.amount) || 0;
       else if (t === 'expense' || t === 'trip') expenseSum += Number(e.amount) || 0;
@@ -489,11 +490,17 @@ document.addEventListener('DOMContentLoaded', async () => {
           || (selectedYearNumber === now.getFullYear() && monthIndex <= now.getMonth());
         const calculatedBalance = (isPastOrCurrentMonth ? runningSaving[bankFilter] : 0) + bankBalance;
         balance = bankFilter === 'Bank of Baroda' ? Math.max(0, calculatedBalance) : calculatedBalance;
-        const saving = balance - expense;
-        if (isPastOrCurrentMonth) runningSaving[bankFilter] = Math.max(0, saving);
+        if (isPastOrCurrentMonth) runningSaving[bankFilter] = Math.max(0, balance - expense);
       }
 
-      const saving = (Number(balance) || 0) - (Number(expense) || 0);
+      const hasMonthlyActivity = bankFilter === 'All'
+        ? supportedBanks.some(bank => {
+            const bankValues = values.byBank?.[bank];
+            return bankValues && ((bankValues.balance || 0) !== 0 || (bankValues.expense || 0) !== 0);
+          })
+        : Boolean(values.byBank?.[bankFilter]
+          && ((values.byBank[bankFilter].balance || 0) !== 0 || (values.byBank[bankFilter].expense || 0) !== 0));
+      const saving = hasMonthlyActivity ? (Number(balance) || 0) - (Number(expense) || 0) : 0;
       return `
         <tr>
           <td>${month}</td>
