@@ -973,10 +973,21 @@
   }
 
   function getMonthlySeries(entries = [], year, bank = null) {
+    const currentDate = new Date();
+    const currentTotals = Number(year) === currentDate.getFullYear() ? getExpenseTotals(entries) : null;
+    const currentValues = currentTotals ? {
+      ICICI: currentTotals.iciciNet,
+      SBI: currentTotals.sbiNet,
+      'Bank of Baroda': currentTotals.bobNet
+    } : null;
     return Array.from({ length: 12 }, (_, month) => {
       const totals = getMonthlyBankTotals(entries, year, month);
       const banks = Array.isArray(bank) ? bank : (bank ? [bank] : HOME_BANKS);
-      return banks.reduce((sum, name) => sum + totals[name].balance - totals[name].expense, 0);
+      return banks.reduce((sum, name) => {
+        if (currentValues && month === currentDate.getMonth()) return sum + currentValues[name];
+        const net = totals[name].balance - totals[name].expense;
+        return sum + (name === 'Bank of Baroda' ? Math.max(0, net) : net);
+      }, 0);
     });
   }
 

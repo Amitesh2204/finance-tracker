@@ -457,21 +457,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   function renderYearlyTable(selectedYear, bankFilter = 'All') {
     const supportedBanks = ['ICICI', 'SBI', 'Bank of Baroda'];
     const now = new Date();
-    const isCurrentYear = Number(selectedYear) === now.getFullYear();
-    const currentMonthName = monthNames[now.getMonth()];
     const selectedYearNumber = Number(selectedYear);
-
-    // Live top-card totals - only used to override the CURRENT month's row
-    // (the card is an "as of now" figure, so it only makes sense to line up
-    // with the month that's actually happening now).
-    const cardBalances = {
-      ICICI: computeBankTotal('ICICI'),
-      SBI: computeBankTotal('SBI'),
-      'Bank of Baroda': Math.max(0, computeBankTotal('Bank of Baroda'))
-    };
-    const currentCardTotal = bankFilter === 'All'
-      ? supportedBanks.reduce((sum, bank) => sum + cardBalances[bank], 0)
-      : (cardBalances[bankFilter] || 0);
 
     const runningSaving = Object.fromEntries(supportedBanks.map(bank => [bank, 0]));
     const rows = monthNames.map(month => {
@@ -486,13 +472,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         expense = b ? (b.expense || 0) : 0;
       }
 
-      const isThisTheCurrentMonth = isCurrentYear && month === currentMonthName;
-      if (isThisTheCurrentMonth && bankFilter === 'All') {
-        // Current month: Total Balance = the top card section directly, not
-        // mixed with any other month's figures.
-        balance = currentCardTotal;
-      } else if (bankFilter === 'All') {
-        balance = supportedBanks.reduce((sum, bank) => sum + (values.byBank?.[bank]?.balance || 0), 0);
+      if (bankFilter === 'All') {
+        balance = supportedBanks.reduce((sum, bank) => {
+          const bankValues = values.byBank?.[bank];
+          const bankBalance = bankValues ? (bankValues.balance || 0) : 0;
+          const bankExpense = bankValues ? (bankValues.expense || 0) : 0;
+          const calculatedBalance = runningSaving[bank] + bankBalance;
+          const normalizedBalance = bank === 'Bank of Baroda' ? Math.max(0, calculatedBalance) : calculatedBalance;
+          runningSaving[bank] = Math.max(0, normalizedBalance - bankExpense);
+          return sum + normalizedBalance;
+        }, 0);
       } else {
         const b = values.byBank && values.byBank[bankFilter];
         const bankBalance = b ? (b.balance || 0) : 0;
