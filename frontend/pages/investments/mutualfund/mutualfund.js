@@ -14,10 +14,29 @@ document.addEventListener('DOMContentLoaded', async () => {
   const historyFundDetails = document.getElementById('historyFundDetails');
   const portfolioPeriodStatus = document.getElementById('portfolioPeriodStatus');
   const portfolioChartTitle = document.getElementById('portfolioChartTitle');
+  const marketTableBody = document.querySelector('#marketPerformanceTable tbody');
+  const marketStatus = document.getElementById('marketPerformanceStatus');
+  const marketYearFilter = document.getElementById('marketYearFilter');
+  const marketMonthFilter = document.getElementById('marketMonthFilter');
+  const marketDateFilter = document.getElementById('marketDateFilter');
 
   let totalInvested = 0;
   let totalGrowth = 0;
   let monthlyData = {}; // { "Jul-2026": { invested: X, profit: Y } }
+  let marketHistory = [];
+  let marketRefreshInProgress = false;
+
+  const MARKET_DOC_PREFIX = 'mf-market-nav:';
+  const MARKET_FUNDS = [
+    { name: '360 ONE Multi Asset Allocation Fund (G)', schemeCode: '153772' },
+    { name: 'Abakkus Small Cap Fund (G)', schemeCode: '154214' },
+    { name: 'Bajaj Finserv Small Cap Fund (G)', schemeCode: '45801' },
+    { name: 'Edelweiss Aggressive Hybrid Fund (G)', schemeCode: '112108' },
+    { name: 'Groww Multi Cap Fund Reg (G)', schemeCode: '153100' },
+    { name: 'JM Large & Mid Cap Fund Reg (G)', schemeCode: '153627' },
+    { name: 'The Wealth Company Flexi Cap Fund Reg (G)', schemeCode: '153870' },
+    { name: 'WhiteOak Capital Large & Mid Cap Fund Reg (G)', schemeCode: '152225' }
+  ];
 
   const fundAliases = [
     ['Abakkus Small Cap Fund (G)', ['abakkus small cap fund', 'abakkus']],
@@ -38,6 +57,132 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   function escapeHtml(value) {
     return String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+  }
+
+  function marketDateKey(apiDate) {
+    const match = String(apiDate || '').match(/^(\d{2})-(\d{2})-(\d{4})$/);
+    if (match) return `${match[3]}-${match[2]}-${match[1]}`;
+    const parsed = new Date(apiDate);
+    if (Number.isNaN(parsed.getTime())) return null;
+    return `${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, '0')}-${String(parsed.getDate()).padStart(2, '0')}`;
+  }
+
+  function formatMarketDate(dateKey) {
+    const [year, month, day] = dateKey.split('-').map(Number);
+    return new Date(year, month - 1, day).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+  }
+
+  function formatNav(value) {
+    return new Intl.NumberFormat('en-IN', { minimumFractionDigits: 4, maximumFractionDigits: 4 }).format(Number(value));
+  }
+
+  async function loadMarketHistory() {
+    if (!window.financeDB || typeof window.financeDB.allDocs !== 'function') return [];
+    const result = await window.financeDB.allDocs({
+      startkey: MARKET_DOC_PREFIX,
+      endkey: `${MARKET_DOC_PREFIX}\uffff`,
+      include_docs: true
+    });
+    return result.rows.map(row => row.doc).filter(doc => doc && doc.docType === 'mf-market-nav');
+  }
+
+  function renderMarketHistory() {
+    if (!marketTableBody) return;
+    const previousYear = marketYearFilter?.value || 'all';
+    const years = [...new Set(marketHistory.map(item => item.date.slice(0, 4)))].sort((a, b) => Number(b) - Number(a));
+
+    if (marketYearFilter) {
+      marketYearFilter.innerHTML = '<option value="all">All years</option>' + years.map(year => `<option value="${year}">${year}</option>`).join('');
+      marketYearFilter.value = years.includes(previousYear) ? previousYear : 'all';
+    }
+
+    const selectedYear = marketYearFilter?.value || 'all';
+    const selectedMonth = marketMonthFilter?.value || 'all';
+    const dates = [...new Set(marketHistory
+      .filter(item => (selectedYear === 'all' || item.date.slice(0, 4) === selectedYear) &&
+        (selectedMonth === 'all' || item.date.slice(5, 7) === selectedMonth))
+      .map(item => item.date))].sort().reverse();
+    const previousDate = marketDateFilter?.value || 'all';
+    if (marketDateFilter) {
+      marketDateFilter.innerHTML = '<option value="all">All dates</option>' + dates.map(date => `<option value="${date}">${formatMarketDate(date)}</option>`).join('');
+      marketDateFilter.value = dates.includes(previousDate) ? previousDate : 'all';
+    }
+
+    const selectedDate = marketDateFilter?.value || 'all';
+    const filtered = marketHistory.filter(item =>
+      (selectedYear === 'all' || item.date.slice(0, 4) === selectedYear) &&
+      (selectedMonth === 'all' || item.date.slice(5, 7) === selectedMonth) &&
+      (selectedDate === 'all' || item.date === selectedDate)
+    ).sort((a, b) => b.date.localeCompare(a.date) || a.schemeName.localeCompare(b.schemeName));
+
+    marketTableBody.innerHTML = filtered.map(item => {
+      const change = Number.isFinite(item.dailyChangePercent)
+        ? `<span class="market-change ${item.dailyChangePercent > 0 ? 'positive' : item.dailyChangePercent < 0 ? 'negative' : ''}">${item.dailyChangePercent > 0 ? '+' : ''}${item.dailyChangePercent.toFixed(2)}%</span>`
+        : '—';
+      return `<tr><td>${formatMarketDate(item.date)}</td><td>${escapeHtml(item.schemeName)} <small class="market-scheme-code">${escapeHtml(item.schemeCode)}</small></td><td>${formatNav(item.nav)}</td><td>${change}</td></tr>`;
+    }).join('') || '<tr><td colspan="4">No saved NAV data for the selected period</td></tr>';
+  }
+
+  async function saveMarketSnapshot(fund, apiResult) {
+    const latest = Array.isArray(apiResult?.data) ? apiResult.data[0] : null;
+    const nav = Number(latest?.nav);
+    const date = marketDateKey(latest?.date);
+    if (!date || !Number.isFinite(nav) || nav <= 0) throw new Error(`Invalid latest NAV for ${fund.name}`);
+
+    const previous = marketHistory
+      .filter(item => item.schemeCode === fund.schemeCode && item.date < date)
+      .sort((a, b) => b.date.localeCompare(a.date))[0];
+    const dailyChangePercent = previous && previous.nav > 0 ? ((nav - previous.nav) / previous.nav) * 100 : null;
+    const id = `${MARKET_DOC_PREFIX}${fund.schemeCode}:${date}`;
+    const existing = marketHistory.find(item => item._id === id);
+    const snapshot = {
+      ...(existing || {}),
+      _id: id,
+      docType: 'mf-market-nav',
+      schemeCode: fund.schemeCode,
+      schemeName: fund.name,
+      date,
+      nav,
+      dailyChangePercent,
+      fetchedAt: new Date().toISOString()
+    };
+
+    try {
+      await window.financeDB.put(snapshot);
+    } catch (error) {
+      if (error.status !== 409) throw error;
+      const current = await window.financeDB.get(id);
+      await window.financeDB.put({ ...snapshot, _rev: current._rev });
+    }
+  }
+
+  async function refreshMarketPerformance() {
+    if (marketRefreshInProgress || !marketTableBody) return;
+    marketRefreshInProgress = true;
+    if (marketStatus) marketStatus.textContent = 'Refreshing latest NAVs…';
+
+    try {
+      marketHistory = await loadMarketHistory();
+      renderMarketHistory();
+      const results = await Promise.allSettled(MARKET_FUNDS.map(async fund => {
+        const response = await fetch(`https://api.mfapi.in/mf/${fund.schemeCode}/latest`, { cache: 'no-store' });
+        if (!response.ok) throw new Error(`MFAPI returned ${response.status} for ${fund.schemeCode}`);
+        await saveMarketSnapshot(fund, await response.json());
+      }));
+      const successes = results.filter(result => result.status === 'fulfilled').length;
+      const failures = results.length - successes;
+      marketHistory = await loadMarketHistory();
+      renderMarketHistory();
+      const checkedAt = new Date().toLocaleString('en-IN');
+      if (marketStatus) {
+        marketStatus.textContent = `${successes}/${MARKET_FUNDS.length} schemes refreshed at ${checkedAt}. ${marketHistory.length} daily NAV records saved${failures ? `; ${failures} scheme${failures === 1 ? '' : 's'} unavailable` : ''}.`;
+      }
+    } catch (error) {
+      console.error('Failed to refresh mutual fund market performance', error);
+      if (marketStatus) marketStatus.textContent = 'Could not refresh market data. Saved NAV history remains available.';
+    } finally {
+      marketRefreshInProgress = false;
+    }
   }
 
   function updateCards() {
@@ -637,6 +782,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     portfolioFundSelect.addEventListener('change', refreshPortfolio);
   }
 
+  [marketYearFilter, marketMonthFilter, marketDateFilter].forEach(filter => {
+    if (filter) filter.addEventListener('change', renderMarketHistory);
+  });
+
   // Initial load
   loadEntries();
+  refreshMarketPerformance();
+  window.setInterval(() => {
+    if (!document.hidden) refreshMarketPerformance();
+  }, 6 * 60 * 60 * 1000);
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) refreshMarketPerformance();
+  });
 });

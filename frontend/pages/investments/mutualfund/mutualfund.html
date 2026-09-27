@@ -67,19 +67,38 @@
             <canvas id="mutualFundChart"></canvas>
           </div>
 
-          <!-- Adding investments/profit now happens on the History page, which
-               covers buy/sell/profit with more detail (custom fund names,
-               notes, yearly totals) and avoids having two separate entry
-               points that could drift out of sync. -->
-          <div class="card" style="display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap;">
-            <div>
-              <h3 style="margin-bottom:6px;">Add or update investments</h3>
-              <p style="margin:0; color:var(--muted); font-size:0.95rem; text-align:left;">
-                Buy, sell, and profit entries are recorded on the History page — everything you add there
-                flows straight into the totals and charts on this page.
-              </p>
+          <div class="card market-performance-card">
+            <h3>Current Market Performance</h3>
+            <p class="market-performance-note">Daily change compares each NAV with its previous saved NAV. History builds from the first refresh onward.</p>
+            <p id="marketPerformanceStatus" class="market-performance-status" aria-live="polite">Loading saved market history…</p>
+            <div class="market-performance-filters">
+              <div>
+                <label for="marketYearFilter">Year</label>
+                <select id="marketYearFilter"><option value="all">All years</option></select>
+              </div>
+              <div>
+                <label for="marketMonthFilter">Month</label>
+                <select id="marketMonthFilter">
+                  <option value="all">All months</option>
+                  <option value="01">January</option><option value="02">February</option>
+                  <option value="03">March</option><option value="04">April</option>
+                  <option value="05">May</option><option value="06">June</option>
+                  <option value="07">July</option><option value="08">August</option>
+                  <option value="09">September</option><option value="10">October</option>
+                  <option value="11">November</option><option value="12">December</option>
+                </select>
+              </div>
+              <div>
+                <label for="marketDateFilter">Date</label>
+                <select id="marketDateFilter"><option value="all">All dates</option></select>
+              </div>
             </div>
-            <a href="history.html" class="toggle-btn" style="text-decoration:none; white-space:nowrap; padding:10px 16px;">📜 Go to History →</a>
+            <div class="market-performance-scroll">
+              <table id="marketPerformanceTable" class="investment-table">
+                <thead><tr><th>Date</th><th>Mutual Fund Scheme</th><th>NAV (₹)</th><th>Daily Change</th></tr></thead>
+                <tbody><tr><td colspan="4">Loading market performance…</td></tr></tbody>
+              </table>
+            </div>
           </div>
 
           <!-- Monthly table -->
