@@ -7,20 +7,23 @@
   <link rel="stylesheet" href="../style.css">
   <style>
     :root {
-      --bg-gradient-start: #0f2027;
-      --bg-gradient-mid: #203a43;
-      --bg-gradient-end: #2c5364;
-      --card-bg: #121212;
-      --accent: #1abc9c;
-      --muted: #95a5a6;
-      --danger: #e74c3c;
+      --bg-gradient-start: #0b2824;
+      --bg-gradient-mid: #12483f;
+      --bg-gradient-end: #173b57;
+      --card-bg: rgba(14, 31, 29, .88);
+      --accent: #52d3a5;
+      --muted: #a9bbb5;
+      --danger: #ff8b80;
     }
 
     html,body {
       height:100%;
       margin:0;
       font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
-      background: linear-gradient(135deg, var(--bg-gradient-start), var(--bg-gradient-mid), var(--bg-gradient-end));
+      background:
+        radial-gradient(circle at 15% 15%, rgba(82,211,165,.2), transparent 28rem),
+        radial-gradient(circle at 90% 85%, rgba(83,158,222,.18), transparent 26rem),
+        linear-gradient(135deg, var(--bg-gradient-start), var(--bg-gradient-mid), var(--bg-gradient-end));
       -webkit-font-smoothing:antialiased;
       -moz-osx-font-smoothing:grayscale;
       color:#ecf0f1;
@@ -36,12 +39,13 @@
 
     .login-wrap {
       width:100%;
-      max-width:480px;
-      background: rgba(18,18,18,0.96);
-      border-radius:14px;
-      padding:28px;
-      box-shadow: 0 18px 50px rgba(0,0,0,0.6);
-      border: 1px solid rgba(255,255,255,0.03);
+      max-width:460px;
+      background: var(--card-bg);
+      backdrop-filter: blur(18px);
+      border-radius:20px;
+      padding:clamp(24px, 5vw, 36px);
+      box-shadow: 0 24px 64px rgba(0,0,0,.34);
+      border: 1px solid rgba(255,255,255,.12);
       overflow:hidden;
     }
 
@@ -52,10 +56,10 @@
       margin-bottom:18px;
     }
     .brand .logo {
-      width:44px; height:44px; border-radius:10px;
-      background: linear-gradient(135deg,#1abc9c,#3498db);
-      display:flex; align-items:center; justify-content:center; font-weight:800; color:#042;
-      box-shadow: 0 6px 18px rgba(0,0,0,0.5);
+      width:46px; height:46px; border-radius:14px;
+      background: linear-gradient(135deg,var(--accent),#67aee6);
+      display:flex; align-items:center; justify-content:center; font-weight:800; color:#09342b;
+      box-shadow: 0 8px 20px rgba(0,0,0,.26);
     }
     .brand h1 { margin:0; font-size:1.2rem; letter-spacing:0.2px; color:#ecf0f1; }
 
@@ -79,8 +83,8 @@
       width:100%;
       padding:12px 14px;
       border-radius:10px;
-      border:1px solid rgba(255,255,255,0.06);
-      background:#0f0f0f;
+      border:1px solid rgba(255,255,255,.12);
+      background:rgba(0,0,0,.18);
       color:#ecf0f1;
       font-size:0.95rem;
       transition: box-shadow .18s, border-color .18s;
@@ -89,8 +93,8 @@
 
     input:focus {
       outline:none;
-      border-color: rgba(26,188,156,0.9);
-      box-shadow: 0 6px 18px rgba(26,188,156,0.08);
+      border-color: var(--accent);
+      box-shadow: 0 0 0 4px rgba(82,211,165,.14);
     }
 
     .login-actions {
@@ -102,7 +106,7 @@
     .btn {
       flex:1;
       padding:11px 14px;
-      border-radius:10px;
+      border-radius:12px;
       border:0;
       cursor:pointer;
       font-weight:700;
@@ -112,17 +116,18 @@
     .btn:active { transform: translateY(1px); }
 
     .btn-primary {
-      background: linear-gradient(90deg,var(--accent),#16a085);
-      color:#042;
-      box-shadow: 0 8px 20px rgba(26,188,156,0.12);
+      background: linear-gradient(90deg,var(--accent),#35b889);
+      color:#09342b;
+      box-shadow: 0 8px 20px rgba(82,211,165,.18);
     }
     .btn-secondary {
-      background:#3498db;
+      background:rgba(255,255,255,.14);
+      border:1px solid rgba(255,255,255,.12);
       color:#fff;
     }
     .btn-muted {
-      background:#95a5a6;
-      color:#042;
+      background:rgba(255,255,255,.12);
+      color:#ecf0f1;
     }
 
     .small {
@@ -152,8 +157,11 @@
     }
 
     @media (max-width:520px) {
-      .login-wrap { padding:18px; border-radius:12px; }
+      .center-wrap { padding:16px; }
+      .login-wrap { padding:22px 18px; border-radius:16px; }
       .brand h1 { font-size:1rem; }
+      .login-actions { flex-direction:column; }
+      .btn { width:100%; min-height:44px; }
     }
   </style>
   <script src="https://unpkg.com/pouchdb@7.3.1/dist/pouchdb.min.js"></script>

@@ -647,3 +647,142 @@ input:focus, select:focus, textarea:focus {
 }
 
 .empty-state, .center { font-style:italic; }
+
+/* ======================================================================
+   Cross-page UI finish
+   Kept in the shared stylesheet so page scripts and their existing markup
+   stay completely unchanged while every view receives the same treatment.
+   ====================================================================== */
+:root {
+  --page-gutter: clamp(16px, 2.4vw, 44px);
+  --control-height: 42px;
+  --radius-sm: 10px;
+  --radius-md: 16px;
+}
+
+body {
+  background:
+    radial-gradient(circle at 100% 0, color-mix(in srgb, var(--accent) 7%, transparent), transparent 28rem),
+    var(--bg);
+}
+
+.main { padding:var(--page-gutter); }
+.content { gap:clamp(16px, 2vw, 28px); }
+
+/* A restrained visual hierarchy for cards regardless of the page module. */
+.card, .chart, .activity-card, .collapsible, .content-panel,
+.transactions, .section-card, .investment-form, .investment-table-wrap {
+  border-radius:var(--radius-md);
+}
+.card, .chart, .activity-card, .collapsible, .transactions, .section-card {
+  box-shadow:var(--shadow-sm);
+}
+.section-card { border:1px solid var(--border); }
+.card h3, .chart h3, .section-card h3 { letter-spacing:-.018em; }
+.card h3 { font-size:clamp(.88rem, 1vw, 1rem); }
+
+/* Form and action controls use one comfortable target size throughout. */
+.investment-form label, .loan-field label, .tracker-form label, .compact-form label,
+.form-group label, .form-row label {
+  color:var(--muted) !important;
+  font-size:.79rem;
+  font-weight:700;
+  letter-spacing:.015em;
+}
+.investment-form input, .investment-form select, .investment-form button,
+.loan-form input, .loan-form select, .loan-form button,
+.tracker-form input, .tracker-form select, .tracker-form button,
+.compact-form input, .compact-form select, .compact-form button {
+  min-height:var(--control-height);
+}
+.investment-form button[type="submit"], .loan-form button[type="submit"],
+.tracker-form button[type="submit"], .compact-form button[type="submit"] {
+  background:var(--accent) !important;
+  color:#fff !important;
+  border:1px solid var(--accent) !important;
+  box-shadow:0 8px 18px color-mix(in srgb, var(--accent) 22%, transparent);
+}
+.investment-form button[type="submit"]:hover, .loan-form button[type="submit"]:hover,
+.tracker-form button[type="submit"]:hover, .compact-form button[type="submit"]:hover {
+  filter:brightness(1.06);
+  transform:translateY(-1px);
+}
+.secondary-btn, .toggle-btn, .button-secondary {
+  border-radius:var(--radius-sm) !important;
+}
+
+/* Give dense data views a clearer header and keep wide tables usable. */
+.table-scroll, .table-wrap, .investment-table-wrap, .tx-scroll {
+  border:1px solid var(--border);
+  border-radius:var(--radius-sm);
+  background:var(--surface);
+  scrollbar-gutter:stable;
+}
+.investment-table th, .transactions th, .daily-items th, .loan-table th,
+.table-wrap th, .table-scroll th {
+  font-size:.72rem;
+  letter-spacing:.045em;
+  text-transform:uppercase;
+}
+.investment-table td, .transactions td, .daily-items td, .loan-table td,
+.table-wrap td, .table-scroll td { vertical-align:middle; }
+.edit-entry-btn, .delete-entry-btn, .table-action {
+  border-radius:8px !important;
+  min-height:32px;
+  transition:background-color 150ms var(--ease), color 150ms var(--ease), transform 150ms var(--ease);
+}
+
+/* Utility pages share the application palette rather than their old dark-only colours. */
+.logout-wrap {
+  max-width:520px;
+  margin:clamp(48px, 14vh, 120px) auto;
+  padding:clamp(24px, 4vw, 36px);
+  text-align:center;
+  color:var(--text);
+  background:var(--surface-raised);
+  border:1px solid var(--border);
+  border-radius:var(--radius-md);
+  box-shadow:var(--shadow-lg);
+}
+.logout-wrap h2, .logout-wrap p { color:var(--text) !important; }
+.logout-wrap p { color:var(--muted) !important; }
+.logout-wrap a {
+  border-radius:var(--radius-sm) !important;
+  background:var(--accent) !important;
+  box-shadow:0 8px 18px color-mix(in srgb, var(--accent) 20%, transparent);
+}
+
+@media (max-width:1024px) {
+  .sidebar nav.main-menu a, .sidebar-footer a { min-height:40px; }
+  .topbar { padding-top:0; }
+}
+
+@media (max-width:600px) {
+  :root { --page-gutter:14px; --control-height:44px; }
+  .sidebar { padding:14px; }
+  .sidebar .brand h1 { font-size:1.3rem; }
+  .sidebar nav.main-menu { gap:5px; }
+  .sidebar nav.main-menu a, .sidebar-footer a {
+    min-width:0;
+    justify-content:flex-start;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+  .sidebar nav a.active::before, .sidebar nav a.submenu-toggle.active::before { left:-8px; }
+  .topbar h2 { font-size:1.35rem; }
+  .card, .chart, .activity-card, .collapsible, .content-panel,
+  .transactions, .section-card, .investment-form, .investment-table-wrap { border-radius:12px; }
+  .card:hover, .chart:hover, .activity-card:hover { transform:none; }
+  .collapsible-header .title { min-width:0; }
+  .collapsible-header .controls { gap:6px; }
+  .collapsible-header .controls select, .collapsible-header .controls input {
+    flex:1 1 120px;
+  }
+  .table-scroll, .table-wrap, .investment-table-wrap, .tx-scroll { border-radius:8px; }
+  .logout-wrap { margin:48px 14px; }
+}
+
+@media (prefers-reduced-motion:reduce) {
+  *, *::before, *::after { scroll-behavior:auto !important; transition-duration:.01ms !important; animation-duration:.01ms !important; }
+}
