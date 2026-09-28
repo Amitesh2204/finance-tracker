@@ -132,7 +132,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     const previous = marketHistory
       .filter(item => item.schemeCode === fund.schemeCode && item.date < date)
       .sort((a, b) => b.date.localeCompare(a.date))[0];
-    const dailyChangePercent = previous && previous.nav > 0 ? ((nav - previous.nav) / previous.nav) * 100 : null;
+    const apiPrevious = Array.isArray(apiResult?.data) ? apiResult.data.slice(1).find(record => {
+      const previousDate = marketDateKey(record?.date);
+      const previousNav = Number(record?.nav);
+      return previousDate && previousDate < date && Number.isFinite(previousNav) && previousNav > 0;
+    }) : null;
+    const comparisonNav = previous?.nav ?? Number(apiPrevious?.nav);
+    const dailyChangePercent = Number.isFinite(comparisonNav) && comparisonNav > 0
+      ? ((nav - comparisonNav) / comparisonNav) * 100 : null;
     const id = `${MARKET_DOC_PREFIX}${fund.schemeCode}:${date}`;
     const existing = marketHistory.find(item => item._id === id);
     const snapshot = {
@@ -165,7 +172,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       marketHistory = await loadMarketHistory();
       renderMarketHistory();
       const results = await Promise.allSettled(MARKET_FUNDS.map(async fund => {
-        const response = await fetch(`https://api.mfapi.in/mf/${fund.schemeCode}/latest`, { cache: 'no-store' });
+        // The full response includes the preceding published NAV, so the daily
+        // change remains available even when this browser has no prior snapshot.
+        const response = await fetch(`https://api.mfapi.in/mf/${fund.schemeCode}`, { cache: 'no-store' });
         if (!response.ok) throw new Error(`MFAPI returned ${response.status} for ${fund.schemeCode}`);
         await saveMarketSnapshot(fund, await response.json());
       }));

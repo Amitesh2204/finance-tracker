@@ -1,7 +1,7 @@
 (function () {
   'use strict';
 
-  const API_URL = 'https://indian-stock-market-api.vercel.app/stock?symbol=';
+  const API_URL = 'https://query1.finance.yahoo.com/v8/finance/chart/';
   const REFRESH_INTERVAL = 15000;
   const fieldNames = {
     price: ['price', 'currentPrice', 'lastPrice', 'ltp', 'regularMarketPrice', 'lastTradedPrice'],
@@ -39,6 +39,16 @@
     const price = findField(data, fieldNames.price);
     if (price === null) throw new Error('Quote response did not include a current price');
 
+    const chart = data?.chart?.result?.[0];
+    if (chart?.meta?.regularMarketPrice != null) {
+      const price = numericValue(chart.meta.regularMarketPrice);
+      const previousClose = numericValue(chart.meta.chartPreviousClose ?? chart.meta.previousClose);
+      if (price !== null) {
+        const change = previousClose === null ? null : price - previousClose;
+        return { price, change, changePercent: previousClose ? change / previousClose * 100 : null,
+          timestamp: chart.meta.regularMarketTime ? chart.meta.regularMarketTime * 1000 : Date.now() };
+      }
+    }
     const previousClose = findField(data, fieldNames.previousClose);
     let change = findField(data, fieldNames.change);
     let changePercent = findField(data, fieldNames.changePercent);
@@ -49,7 +59,7 @@
     if (change === null && changePercent !== null && previousClose !== null) {
       change = price - previousClose;
     }
-    return { price, change, changePercent };
+    return { price, change, changePercent, timestamp: Date.now() };
   }
 
   function formatNumber(value, digits = 2) {
@@ -84,16 +94,43 @@
     const controller = new AbortController();
     const timeout = window.setTimeout(() => controller.abort(), 8000);
     try {
-      const response = await fetch(`${API_URL}${encodeURIComponent(symbol)}`, {
+      const response = await fetch(`${API_URL}${encodeURIComponent(symbol)}?range=1d&interval=1m`, {
         cache: 'no-store',
         headers: { Accept: 'application/json' },
         signal: controller.signal
       });
       if (!response.ok) throw new Error(`Quote service returned HTTP ${response.status}`);
-      renderQuote(item, parseQuote(await response.json()));
+      const quote = parseQuote(await response.json());
+      renderQuote(item, quote);
+      try {
+        await saveQuote(item, quote);
+      } catch (error) {
+        console.warn(`Could not save ${symbol} market quote`, error);
+      }
       return true;
     } finally {
       window.clearTimeout(timeout);
+    }
+  }
+
+  async function saveQuote(item, quote) {
+    const db = window.financeDB;
+    if (!db || typeof db.put !== 'function') return;
+    const symbol = item.dataset.marketSymbol;
+    const date = new Date(quote.timestamp).toISOString().slice(0, 10);
+    const id = `market-index:${symbol}:${date}`;
+    const doc = {
+      _id: id, docType: 'market-index-quote', symbol,
+      name: item.querySelector('.market-ticker-name').textContent.trim(),
+      price: quote.price, change: quote.change, changePercent: quote.changePercent,
+      date, fetchedAt: new Date().toISOString()
+    };
+    try {
+      await db.put(doc);
+    } catch (error) {
+      if (error.status !== 409) throw error;
+      const current = await db.get(id);
+      await db.put({ ...doc, _rev: current._rev });
     }
   }
 
