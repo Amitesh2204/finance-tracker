@@ -185,8 +185,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       marketHistory = await loadMarketHistory();
       renderMarketHistory();
       const checkedAt = new Date().toLocaleString('en-IN');
+      const latestNavDate = marketHistory.reduce((latest, item) => item.date > latest ? item.date : latest, '');
       if (marketStatus) {
-        marketStatus.textContent = `${successes}/${MARKET_FUNDS.length} schemes refreshed at ${checkedAt}. ${marketHistory.length} daily NAV records saved${failures ? `; ${failures} scheme${failures === 1 ? '' : 's'} unavailable` : ''}.`;
+        marketStatus.textContent = `${successes}/${MARKET_FUNDS.length} schemes checked at ${checkedAt}. Latest published NAV: ${latestNavDate ? formatMarketDate(latestNavDate) : 'not available'}. ${marketHistory.length} daily NAV records saved${failures ? `; ${failures} scheme${failures === 1 ? '' : 's'} unavailable` : ''}.`;
       }
     } catch (error) {
       console.error('Failed to refresh mutual fund market performance', error);

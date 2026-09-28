@@ -2,6 +2,7 @@
   'use strict';
 
   const API_URL = 'https://query1.finance.yahoo.com/v8/finance/chart/';
+  const API_BASE = window.__API_BASE__ || '';
   const REFRESH_INTERVAL = 15000;
   const fieldNames = {
     price: ['price', 'currentPrice', 'lastPrice', 'ltp', 'regularMarketPrice', 'lastTradedPrice'],
@@ -93,8 +94,10 @@
     const symbol = item.dataset.marketSymbol;
     let quote;
     let lastError;
+    const yahooUrl = `${API_URL}${encodeURIComponent(symbol)}?range=1d&interval=1m`;
     for (const url of [
-      `${API_URL}${encodeURIComponent(symbol)}?range=1d&interval=1m`,
+      `${API_BASE}/market/indices/${symbol === '^BSESN' ? 'sensex' : 'nifty50'}`,
+      `https://api.allorigins.win/raw?url=${encodeURIComponent(yahooUrl)}`,
       `https://indian-stock-market-api.vercel.app/stock?symbol=${encodeURIComponent(symbol)}`
     ]) {
       const controller = new AbortController();
