@@ -2,7 +2,8 @@
   'use strict';
 
   const API_URL = 'https://query1.finance.yahoo.com/v8/finance/chart/';
-  const API_BASE = window.__API_BASE__ || '';
+  const host = window.location.hostname || '';
+  const API_BASE = window.__API_BASE__ || (host.endsWith('github.io') ? '' : window.location.origin);
   const REFRESH_INTERVAL = 15000;
   const fieldNames = {
     price: ['price', 'currentPrice', 'lastPrice', 'ltp', 'regularMarketPrice', 'lastTradedPrice'],
@@ -95,11 +96,12 @@
     let quote;
     let lastError;
     const yahooUrl = `${API_URL}${encodeURIComponent(symbol)}?range=1d&interval=1m`;
-    for (const url of [
-      `${API_BASE}/market/indices/${symbol === '^BSESN' ? 'sensex' : 'nifty50'}`,
-      `https://api.allorigins.win/raw?url=${encodeURIComponent(yahooUrl)}`,
-      `https://indian-stock-market-api.vercel.app/stock?symbol=${encodeURIComponent(symbol)}`
-    ]) {
+    const urls = [];
+    if (API_BASE) urls.push(`${API_BASE}/market/indices/${symbol === '^BSESN' ? 'sensex' : 'nifty50'}`);
+    // GitHub Pages has no backend, and Yahoo blocks direct browser requests by CORS.
+    // Use its raw CORS proxy there; the same-origin FastAPI route remains preferred elsewhere.
+    urls.push(`https://api.allorigins.win/raw?url=${encodeURIComponent(yahooUrl)}`);
+    for (const url of urls) {
       const controller = new AbortController();
       const timeout = window.setTimeout(() => controller.abort(), 8000);
       try {
