@@ -1,10 +1,9 @@
 (function () {
   'use strict';
 
-  const API_URL = 'https://query1.finance.yahoo.com/v8/finance/chart/';
-  const host = window.location.hostname || '';
-  const API_BASE = window.__API_BASE__ || (host.endsWith('github.io') ? '' : window.location.origin);
-  const REFRESH_INTERVAL = 15000;
+  const PRIMARY_API_URL = 'https://indian-stock-market-api.vercel.app/stock?symbol=';
+  const FALLBACK_API_URL = 'https://query1.finance.yahoo.com/v8/finance/chart/';
+  const REFRESH_INTERVAL = 5000;
   const fieldNames = {
     price: ['price', 'currentPrice', 'lastPrice', 'ltp', 'regularMarketPrice', 'lastTradedPrice'],
     change: ['change', 'changeAmount', 'netChange', 'priceChange', 'regularMarketChange'],
@@ -96,15 +95,13 @@
     let quote;
     let lastError;
     const cacheBust = Date.now();
-    const yahooUrl = `${API_URL}${encodeURIComponent(symbol)}?range=1d&interval=1m&_=${cacheBust}`;
-    const urls = [];
-    if (API_BASE) urls.push(`${API_BASE}/market/indices/${symbol === '^BSESN' ? 'sensex' : 'nifty50'}?t=${cacheBust}`);
-    // GitHub Pages has no backend, and Yahoo blocks direct browser requests by CORS.
-    // Use its raw CORS proxy there; the same-origin FastAPI route remains preferred elsewhere.
-    urls.push(`https://api.allorigins.win/raw?url=${encodeURIComponent(yahooUrl)}&t=${cacheBust}`);
+    const primaryUrl = `${PRIMARY_API_URL}${encodeURIComponent(symbol)}&_=${cacheBust}`;
+    const fallbackUrl = `${FALLBACK_API_URL}${encodeURIComponent(symbol)}?range=1d&interval=1m&_=${cacheBust}`;
+    const urls = [primaryUrl, fallbackUrl].map(source =>
+      `https://api.allorigins.win/raw?url=${encodeURIComponent(source)}&t=${cacheBust}`);
     for (const url of urls) {
       const controller = new AbortController();
-      const timeout = window.setTimeout(() => controller.abort(), 8000);
+      const timeout = window.setTimeout(() => controller.abort(), 4500);
       try {
         const response = await fetch(url, { cache: 'no-store', headers: { Accept: 'application/json' }, signal: controller.signal });
         if (!response.ok) throw new Error(`Quote service returned HTTP ${response.status}`);
@@ -127,8 +124,10 @@
     const db = window.financeDB;
     if (!db || typeof db.put !== 'function') return;
     const symbol = item.dataset.marketSymbol;
-    const date = new Date(quote.timestamp).toISOString().slice(0, 10);
+    if (!isEndOfDaySnapshotReady(quote.timestamp)) return;
+    const date = indiaDateKey(quote.timestamp);
     const id = `market-index:${symbol}:${date}`;
+    if (savedEndOfDayIds.has(id)) return;
     const doc = {
       _id: id, docType: 'market-index-quote', symbol,
       name: item.querySelector('.market-ticker-name').textContent.trim(),
@@ -137,10 +136,12 @@
     };
     try {
       await db.put(doc);
+      savedEndOfDayIds.add(id);
     } catch (error) {
       if (error.status !== 409) throw error;
       const current = await db.get(id);
       await db.put({ ...doc, _rev: current._rev });
+      savedEndOfDayIds.add(id);
     }
   }
 
@@ -151,6 +152,10 @@
       const result = await db.allDocs({ startkey: 'market-index:', endkey: 'market-index:\uffff', include_docs: true });
       const latest = new Map();
       result.rows.map(row => row.doc).filter(doc => doc?.docType === 'market-index-quote').forEach(doc => {
+        const fetchedAt = new Date(doc.fetchedAt).getTime();
+        if (Number.isFinite(fetchedAt) && isEndOfDaySnapshotReady(fetchedAt) && indiaDateKey(fetchedAt) === doc.date) {
+          savedEndOfDayIds.add(doc._id);
+        }
         if (!latest.has(doc.symbol) || latest.get(doc.symbol).fetchedAt < doc.fetchedAt) latest.set(doc.symbol, doc);
       });
       items.forEach(item => {
@@ -158,6 +163,26 @@
         if (quote) renderQuote(item, quote);
       });
     } catch (error) { console.warn('Could not load saved market quotes', error); }
+  }
+
+  const savedEndOfDayIds = new Set();
+
+  function indiaDateKey(timestamp) {
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit'
+    }).formatToParts(new Date(timestamp));
+    const values = Object.fromEntries(parts.map(part => [part.type, part.value]));
+    return `${values.year}-${values.month}-${values.day}`;
+  }
+
+  function isEndOfDaySnapshotReady(timestamp) {
+    const now = new Date();
+    const parts = new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hourCycle: 'h23'
+    }).formatToParts(now);
+    const values = Object.fromEntries(parts.map(part => [part.type, part.value]));
+    const afterMarketClose = Number(values.hour) * 60 + Number(values.minute) >= 15 * 60 + 35;
+    return afterMarketClose && indiaDateKey(timestamp) === indiaDateKey(now.getTime());
   }
 
   async function initializeTicker() {
@@ -186,10 +211,10 @@
 
       if (updated) {
         updated.textContent = succeeded === items.length
-          ? `Updated ${new Date().toLocaleTimeString('en-IN')}`
+          ? `Updated ${new Date().toLocaleTimeString('en-IN')} · next check in 5s`
           : succeeded
-            ? `${succeeded} of ${items.length} indices updated`
-            : 'Live market data unavailable';
+            ? `${succeeded}/${items.length} updated · retrying in 5s`
+            : 'Market data unavailable · retrying in 5s';
       }
       refreshing = false;
     }
