@@ -95,12 +95,13 @@
     const symbol = item.dataset.marketSymbol;
     let quote;
     let lastError;
-    const yahooUrl = `${API_URL}${encodeURIComponent(symbol)}?range=1d&interval=1m`;
+    const cacheBust = Date.now();
+    const yahooUrl = `${API_URL}${encodeURIComponent(symbol)}?range=1d&interval=1m&_=${cacheBust}`;
     const urls = [];
-    if (API_BASE) urls.push(`${API_BASE}/market/indices/${symbol === '^BSESN' ? 'sensex' : 'nifty50'}`);
+    if (API_BASE) urls.push(`${API_BASE}/market/indices/${symbol === '^BSESN' ? 'sensex' : 'nifty50'}?t=${cacheBust}`);
     // GitHub Pages has no backend, and Yahoo blocks direct browser requests by CORS.
     // Use its raw CORS proxy there; the same-origin FastAPI route remains preferred elsewhere.
-    urls.push(`https://api.allorigins.win/raw?url=${encodeURIComponent(yahooUrl)}`);
+    urls.push(`https://api.allorigins.win/raw?url=${encodeURIComponent(yahooUrl)}&t=${cacheBust}`);
     for (const url of urls) {
       const controller = new AbortController();
       const timeout = window.setTimeout(() => controller.abort(), 8000);
@@ -159,13 +160,15 @@
     } catch (error) { console.warn('Could not load saved market quotes', error); }
   }
 
-  function initializeTicker() {
+  async function initializeTicker() {
     const ticker = document.getElementById('marketTicker');
     if (!ticker) return;
     const items = [...ticker.querySelectorAll('[data-market-symbol]')];
     const updated = document.getElementById('marketTickerUpdated');
     let refreshing = false;
-    showSavedQuotes(items);
+    // Finish restoring saved values before the first live request so a slower
+    // PouchDB read cannot overwrite a newer quote after it has rendered.
+    await showSavedQuotes(items);
 
     async function refresh() {
       if (refreshing || document.hidden) return;
