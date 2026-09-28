@@ -91,26 +91,30 @@
 
   async function fetchQuote(item) {
     const symbol = item.dataset.marketSymbol;
-    const controller = new AbortController();
-    const timeout = window.setTimeout(() => controller.abort(), 8000);
-    try {
-      const response = await fetch(`${API_URL}${encodeURIComponent(symbol)}?range=1d&interval=1m`, {
-        cache: 'no-store',
-        headers: { Accept: 'application/json' },
-        signal: controller.signal
-      });
-      if (!response.ok) throw new Error(`Quote service returned HTTP ${response.status}`);
-      const quote = parseQuote(await response.json());
-      renderQuote(item, quote);
+    let quote;
+    let lastError;
+    for (const url of [
+      `${API_URL}${encodeURIComponent(symbol)}?range=1d&interval=1m`,
+      `https://indian-stock-market-api.vercel.app/stock?symbol=${encodeURIComponent(symbol)}`
+    ]) {
+      const controller = new AbortController();
+      const timeout = window.setTimeout(() => controller.abort(), 8000);
       try {
-        await saveQuote(item, quote);
-      } catch (error) {
-        console.warn(`Could not save ${symbol} market quote`, error);
-      }
-      return true;
-    } finally {
-      window.clearTimeout(timeout);
+        const response = await fetch(url, { cache: 'no-store', headers: { Accept: 'application/json' }, signal: controller.signal });
+        if (!response.ok) throw new Error(`Quote service returned HTTP ${response.status}`);
+        quote = parseQuote(await response.json());
+        break;
+      } catch (error) { lastError = error; }
+      finally { window.clearTimeout(timeout); }
     }
+    if (!quote) throw lastError || new Error('No quote provider returned market data');
+    renderQuote(item, quote);
+    try {
+      await saveQuote(item, quote);
+    } catch (error) {
+      console.warn(`Could not save ${symbol} market quote`, error);
+    }
+    return true;
   }
 
   async function saveQuote(item, quote) {
@@ -134,12 +138,29 @@
     }
   }
 
+  async function showSavedQuotes(items) {
+    const db = window.financeDB;
+    if (!db || typeof db.allDocs !== 'function') return;
+    try {
+      const result = await db.allDocs({ startkey: 'market-index:', endkey: 'market-index:\uffff', include_docs: true });
+      const latest = new Map();
+      result.rows.map(row => row.doc).filter(doc => doc?.docType === 'market-index-quote').forEach(doc => {
+        if (!latest.has(doc.symbol) || latest.get(doc.symbol).fetchedAt < doc.fetchedAt) latest.set(doc.symbol, doc);
+      });
+      items.forEach(item => {
+        const quote = latest.get(item.dataset.marketSymbol);
+        if (quote) renderQuote(item, quote);
+      });
+    } catch (error) { console.warn('Could not load saved market quotes', error); }
+  }
+
   function initializeTicker() {
     const ticker = document.getElementById('marketTicker');
     if (!ticker) return;
     const items = [...ticker.querySelectorAll('[data-market-symbol]')];
     const updated = document.getElementById('marketTickerUpdated');
     let refreshing = false;
+    showSavedQuotes(items);
 
     async function refresh() {
       if (refreshing || document.hidden) return;

@@ -25,6 +25,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   let monthlyData = {}; // { "Jul-2026": { invested: X, profit: Y } }
   let marketHistory = [];
   let marketRefreshInProgress = false;
+  let marketChangesFeed = null;
 
   const MARKET_DOC_PREFIX = 'mf-market-nav:';
   const MARKET_FUNDS = [
@@ -89,7 +90,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   function renderMarketHistory() {
     if (!marketTableBody) return;
     const previousYear = marketYearFilter?.value || 'all';
-    const years = [...new Set(marketHistory.map(item => item.date.slice(0, 4)))].sort((a, b) => Number(b) - Number(a));
+    const validHistory = marketHistory.filter(item => /^\d{4}-\d{2}-\d{2}$/.test(item.date || '') && Number.isFinite(Number(item.nav)));
+    const years = [...new Set(validHistory.map(item => item.date.slice(0, 4)))].sort((a, b) => Number(b) - Number(a));
 
     if (marketYearFilter) {
       marketYearFilter.innerHTML = '<option value="all">All years</option>' + years.map(year => `<option value="${year}">${year}</option>`).join('');
@@ -98,7 +100,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const selectedYear = marketYearFilter?.value || 'all';
     const selectedMonth = marketMonthFilter?.value || 'all';
-    const dates = [...new Set(marketHistory
+    const dates = [...new Set(validHistory
       .filter(item => (selectedYear === 'all' || item.date.slice(0, 4) === selectedYear) &&
         (selectedMonth === 'all' || item.date.slice(5, 7) === selectedMonth))
       .map(item => item.date))].sort().reverse();
@@ -109,7 +111,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     const selectedDate = marketDateFilter?.value || 'all';
-    const filtered = marketHistory.filter(item =>
+    const filtered = validHistory.filter(item =>
       (selectedYear === 'all' || item.date.slice(0, 4) === selectedYear) &&
       (selectedMonth === 'all' || item.date.slice(5, 7) === selectedMonth) &&
       (selectedDate === 'all' || item.date === selectedDate)
@@ -124,7 +126,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   async function saveMarketSnapshot(fund, apiResult) {
-    const latest = Array.isArray(apiResult?.data) ? apiResult.data[0] : null;
+    const records = Array.isArray(apiResult?.data) ? apiResult.data : [];
+    const orderedRecords = records.map(record => ({ record, date: marketDateKey(record?.date), nav: Number(record?.nav) }))
+      .filter(item => item.date && Number.isFinite(item.nav) && item.nav > 0)
+      .sort((a, b) => b.date.localeCompare(a.date));
+    const latest = orderedRecords[0]?.record;
     const nav = Number(latest?.nav);
     const date = marketDateKey(latest?.date);
     if (!date || !Number.isFinite(nav) || nav <= 0) throw new Error(`Invalid latest NAV for ${fund.name}`);
@@ -132,11 +138,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const previous = marketHistory
       .filter(item => item.schemeCode === fund.schemeCode && item.date < date)
       .sort((a, b) => b.date.localeCompare(a.date))[0];
-    const apiPrevious = Array.isArray(apiResult?.data) ? apiResult.data.slice(1).find(record => {
-      const previousDate = marketDateKey(record?.date);
-      const previousNav = Number(record?.nav);
-      return previousDate && previousDate < date && Number.isFinite(previousNav) && previousNav > 0;
-    }) : null;
+    const apiPrevious = orderedRecords.find(item => item.date < date)?.record;
     const comparisonNav = previous?.nav ?? Number(apiPrevious?.nav);
     const dailyChangePercent = Number.isFinite(comparisonNav) && comparisonNav > 0
       ? ((nav - comparisonNav) / comparisonNav) * 100 : null;
@@ -172,8 +174,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       marketHistory = await loadMarketHistory();
       renderMarketHistory();
       const results = await Promise.allSettled(MARKET_FUNDS.map(async fund => {
-        // The full response includes the preceding published NAV, so the daily
-        // change remains available even when this browser has no prior snapshot.
+        // The history response lets first-time visitors calculate a daily change
+        // immediately; snapshots still use the same one-document-per-date format.
         const response = await fetch(`https://api.mfapi.in/mf/${fund.schemeCode}`, { cache: 'no-store' });
         if (!response.ok) throw new Error(`MFAPI returned ${response.status} for ${fund.schemeCode}`);
         await saveMarketSnapshot(fund, await response.json());
@@ -800,8 +802,18 @@ document.addEventListener('DOMContentLoaded', async () => {
   refreshMarketPerformance();
   window.setInterval(() => {
     if (!document.hidden) refreshMarketPerformance();
-  }, 6 * 60 * 60 * 1000);
+  }, 15 * 60 * 1000);
+  if (window.financeDB && typeof window.financeDB.changes === 'function') {
+    marketChangesFeed = window.financeDB.changes({ since: 'now', live: true, include_docs: true })
+      .on('change', change => {
+        if (change.doc?.docType === 'mf-market-nav') {
+          loadMarketHistory().then(history => { marketHistory = history; renderMarketHistory(); });
+        }
+      })
+      .on('error', error => console.warn('Mutual fund NAV live updates stopped', error));
+  }
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden) refreshMarketPerformance();
   });
+  window.addEventListener('pagehide', () => marketChangesFeed?.cancel());
 });
