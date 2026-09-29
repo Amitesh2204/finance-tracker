@@ -22,5 +22,4 @@
 **/__pycache__/
 .githooks/
 backend/**
-docs/**
 changelog/**
