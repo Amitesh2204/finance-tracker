@@ -9,6 +9,8 @@
 !sw.js
 !frontend/
 !frontend/**
+!docs/
+!docs/**
 
 # Ignore runtime and local artifacts
 .env
