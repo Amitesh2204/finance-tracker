@@ -824,3 +824,82 @@ body {
 @media (prefers-reduced-motion:reduce) {
   *, *::before, *::after { scroll-behavior:auto !important; transition-duration:.01ms !important; animation-duration:.01ms !important; }
 }
+
+/* CouchDB sync status and runtime credential dialog */
+.sync-status-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 0 14px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text, #ecf0f1);
+  font-size: 0.9rem;
+}
+
+.sync-config-btn {
+  border: 0;
+  border-radius: 6px;
+  padding: 6px 10px;
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text, #ecf0f1);
+}
+
+.sync-config-btn:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.sync-dialog {
+  width: min(420px, calc(100vw - 32px));
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  padding: 20px;
+  background: var(--card-bg, #1e1e1e);
+  color: var(--text, #ecf0f1);
+}
+
+.sync-dialog::backdrop {
+  background: rgba(0, 0, 0, 0.65);
+}
+
+.sync-dialog form {
+  display: grid;
+  gap: 14px;
+}
+
+.sync-dialog label {
+  display: grid;
+  gap: 6px;
+  font-weight: 600;
+}
+
+.sync-dialog input {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 9px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.05);
+  color: inherit;
+}
+
+.sync-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.sync-dialog-actions button {
+  padding: 8px 12px;
+  border: 0;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+@media (max-width: 600px) {
+  .sync-status-bar {
+    flex-wrap: wrap;
+  }
+}
