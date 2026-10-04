@@ -245,6 +245,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (tableBody) tableBody.innerHTML = rows || '<tr><td colspan="3">No data yet</td></tr>';
   }
 
+  function escapeHtml(value) {
+    return String(value ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
   function renderDailyItems(selectedMonthYear, selectedDay = null) {
     if (!dailyItemsTbody) return;
     const [monShort, yearStr] = selectedMonthYear.split('-');
@@ -273,7 +281,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       const dateStr = new Date(e.date).toLocaleDateString();
       const payment = e.paymentMethod || e.paymentType || 'Bhim';
       const categoryClass = `category-${cat.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
-      return `<tr class="${categoryClass}"><td>${name}</td><td>${cat}</td><td>${bank}</td><td>${dateStr}</td><td>${formatINR(amt)}</td><td>${payment}</td></tr>`;
+      return `<tr class="${categoryClass}"><td>${escapeHtml(name)}</td><td>${escapeHtml(cat)}</td><td>${escapeHtml(bank)}</td><td>${dateStr}</td><td>${formatINR(amt)}</td><td>${escapeHtml(payment)}</td></tr>`;
     }).join('');
 
     dailyItemsTbody.innerHTML = rows;

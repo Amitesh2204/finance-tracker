@@ -1,4 +1,4 @@
-﻿// app.js - main application logic (full file)
+// app.js - main application logic (full file)
 // Uses window.financeDB (from db.js) when available and falls back to remote API or localStorage.
 // Adds authentication (local users stored in PouchDB 'finance-users' DB) and robust replication helpers.
 // Preserves existing entries logic, charts, and UI wiring. Defensive checks added to avoid runtime errors.
@@ -101,7 +101,7 @@
 
   function parseAmountValue(value) {
     if (value === null || value === undefined || String(value).trim() === '') return null;
-    const token = String(value).replace(/[â‚¹,\s]/g, '');
+    const token = String(value).replace(/[₹,\s]/g, '');
     const match = token.match(/[-+]?\d+(?:\.\d+)?/);
     if (!match) return null;
     const parsed = Number(match[0]);
@@ -204,7 +204,7 @@
     try {
       return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(val);
     } catch {
-      return `â‚¹${val.toFixed(2)}`;
+      return `₹${val.toFixed(2)}`;
     }
   }
 
@@ -267,6 +267,25 @@
     }
   }
 
+  // --- Application URL helpers ---
+  function getAppBasePath() {
+    const configured = window.__APP_BASE_PATH__;
+    if (configured) {
+      return configured.endsWith('/') ? configured : `${configured}/`;
+    }
+
+    const path = window.location.pathname || '/';
+
+    if (path.includes('/frontend/')) {
+      return path.split('/frontend/')[0] + '/';
+    }
+
+    return '/';
+  }
+
+  function appPageUrl(page) {
+    return `${getAppBasePath()}frontend/pages/${page}`;
+  }
   // --- Users DB helper (PouchDB) ---
   // The users DB and CouchDB authentication are managed by frontend/db.js.
   // CouchDB credentials are supplied at runtime and are never embedded here.
@@ -798,17 +817,17 @@
         'Bank of Baroda': document.getElementById('homeBobBalance')
       };
 
-      if (balanceEl) balanceEl.textContent = 'Loadingâ€¦';
-      if (savingsEl) savingsEl.textContent = 'Loadingâ€¦';
-      if (expensesEl) expensesEl.textContent = 'Loadingâ€¦';
+      if (balanceEl) balanceEl.textContent = 'Loading…';
+      if (savingsEl) savingsEl.textContent = 'Loading…';
+      if (expensesEl) expensesEl.textContent = 'Loading…';
 
       if (!entries || entries.length === 0) {
-        if (balanceEl) balanceEl.textContent = 'â‚¹0.00';
-        if (savingsEl) savingsEl.textContent = 'â‚¹0.00';
-        if (expensesEl) expensesEl.textContent = 'â‚¹0.00';
-        if (investmentTotalEl) investmentTotalEl.textContent = 'â‚¹0.00';
-        if (savingBankTotalEl) savingBankTotalEl.textContent = 'â‚¹0.00';
-        Object.values(bankEls).forEach(el => { if (el) el.textContent = 'â‚¹0.00'; });
+        if (balanceEl) balanceEl.textContent = '₹0.00';
+        if (savingsEl) savingsEl.textContent = '₹0.00';
+        if (expensesEl) expensesEl.textContent = '₹0.00';
+        if (investmentTotalEl) investmentTotalEl.textContent = '₹0.00';
+        if (savingBankTotalEl) savingBankTotalEl.textContent = '₹0.00';
+        Object.values(bankEls).forEach(el => { if (el) el.textContent = '₹0.00'; });
         return;
       }
 
@@ -1022,9 +1041,9 @@
       // Same fields the Monthly Expense "Daily Purchases" table uses:
       // name, category, bank, date, amount, payment method.
       const name = entry.name || entry.category || 'Item';
-      const category = entry.category || (type === 'trip' ? 'Trip' : 'â€”');
-      const bank = entry.bank || 'â€”';
-      const paymentType = entry.paymentMethod || entry.payment || 'â€”';
+      const category = entry.category || (type === 'trip' ? 'Trip' : '—');
+      const bank = entry.bank || '—';
+      const paymentType = entry.paymentMethod || entry.payment || '—';
       return `<tr class="${rowClass}"><td>${escapeHtml(name)}</td><td>${escapeHtml(category)}</td><td>${escapeHtml(bank)}</td><td>${formatTransactionDate(entry.date)}</td><td>${sign}${formatCurrency(Math.abs(amount))}</td><td>${escapeHtml(paymentType)}</td></tr>`;
     }).join('');
 
@@ -1057,7 +1076,7 @@
 
   function formatTransactionDate(value) {
     const date = parseLocalDate(value);
-    return Number.isNaN(date.getTime()) ? 'â€”' : date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+    return Number.isNaN(date.getTime()) ? '—' : date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
   }
 
   function escapeHtml(value) {
@@ -1211,7 +1230,7 @@
       badge.style.display = 'flex';
       badge.style.alignItems = 'center';
       badge.style.gap = '8px';
-      badge.innerHTML = `<span class="name" style="font-weight:600;color:#ecf0f1">${currentUser.username}</span><a class="logout-link" href="frontend/pages/logout.html" style="color:#e74c3c;text-decoration:none">Logout</a>`;
+      badge.innerHTML = `<span class="name" style="font-weight:600;color:#ecf0f1">${escapeHtml(currentUser.username)}</span><a class="logout-link" href="${appPageUrl('logout.html')}" style="color:#e74c3c;text-decoration:none">Logout</a>`;
       topbarRight.appendChild(badge);
     }
   }
@@ -1223,11 +1242,7 @@
       const currentUser = getCurrentUser();
       if (requireLogin && !currentUser) {
         if (!/login\.html$/i.test(window.location.pathname)) {
-          const path = window.location.pathname || '/';
-          const appRoot = path.includes('/frontend/')
-            ? path.split('/frontend/')[0] + '/'
-            : '/';
-          window.location.href = '/frontend/pages/login.html';
+          window.location.href = appPageUrl('login.html');
           return;
         }
       }

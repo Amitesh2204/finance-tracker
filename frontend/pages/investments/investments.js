@@ -24,6 +24,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
+  function escapeHtml(value) {
+    return String(value ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
   // Which of the four investment types a category string belongs to.
   function matchesInvestmentType(category, type) {
     if (!type || type === 'all') return true;
@@ -72,10 +80,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       const dateStr = e.date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
       return `
         <tr>
-          <td>${label}</td>
+          <td>${escapeHtml(label)}</td>
           <td>${formatINR(e.amount)}</td>
           <td>${dateStr}</td>
-          <td><button type="button" class="delete-entry-btn" data-id="${e.id}">Delete</button></td>
+          <td><button type="button" class="delete-entry-btn" data-id="${escapeHtml(e.id)}">Delete</button></td>
         </tr>`;
     }).join('');
   }

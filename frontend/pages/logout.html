@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Logout</title>
-  <link rel="stylesheet" href="../../style.css">
+  <link rel="stylesheet" href="../style.css">
   <style>
     .logout-wrap { max-width:520px; margin:80px auto; text-align:center; }
     .logout-wrap p { color:#ecf0f1; }
@@ -25,14 +25,15 @@
         if (window.logoutUser && typeof window.logoutUser === 'function') {
           window.logoutUser();
         } else {
-          localStorage.removeItem('finance-tracker:current-user');
+          sessionStorage.removeItem('finance-tracker:current-user');
+          sessionStorage.removeItem('finance-tracker:couch-sync-credentials');
           window.__CURRENT_USER__ = null;
         }
       } catch(e) {
         console.warn('logout error', e);
       }
       // show message and redirect to login page after short delay
-      const loginPath = '../../frontend/pages/login.html';
+      const loginPath = 'login.html';
       const backHome = document.getElementById('backHome');
       setTimeout(() => {
         // If login page exists, go there; otherwise go to root index

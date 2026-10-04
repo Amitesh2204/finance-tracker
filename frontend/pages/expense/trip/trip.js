@@ -57,6 +57,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
+  function escapeHtml(value) {
+    return String(value ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
   function renderTable(entries) {
     if (!entries.length) {
       tripTableBody.innerHTML = '<tr><td colspan="3">No data yet</td></tr>';
@@ -65,7 +74,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     tripTableBody.innerHTML = entries.map(entry => `
       <tr>
-        <td>${entry.name || 'Trip'}</td>
+        <td>${escapeHtml(entry.name || 'Trip')}</td>
         <td>${new Date(entry.date).toLocaleDateString()}</td>
         <td>${formatINR(entry.amount || 0)}</td>
       </tr>
