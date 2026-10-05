@@ -1,35 +1,53 @@
-const CACHE_NAME = 'finance-v2';
+const CACHE_NAME = 'finance-v3';
+const BASE = new URL('./', self.registration.scope).pathname;
 const FILES = [
-  '/',
-  '/index.html',
-  '/frontend/app.js',
-  '/frontend/style.css',
-  '/frontend/manifest.json',
-  '/frontend/assets/logo.svg'
+  BASE,
+  BASE + 'index.html',
+  BASE + 'frontend/style.css',
+  BASE + 'frontend/manifest.json',
+  BASE + 'frontend/assets/logo.svg'
 ];
 
-self.addEventListener('install', evt => {
-  evt.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(FILES)));
+self.addEventListener('install', event => {
+  event.waitUntil(
+    caches.open(CACHE_NAME)
+      .then(cache => cache.addAll(FILES))
+      .catch(() => {})
+  );
   self.skipWaiting();
 });
 
-self.addEventListener('activate', evt => {
-  evt.waitUntil(
+self.addEventListener('activate', event => {
+  event.waitUntil(
     caches.keys()
-      .then(keys => Promise.all(keys.filter(key => key !== CACHE_NAME).map(key => caches.delete(key))))
+      .then(keys =>
+        Promise.all(
+          keys
+            .filter(key => key !== CACHE_NAME)
+            .map(key => caches.delete(key))
+        )
+      )
       .then(() => self.clients.claim())
   );
 });
 
-self.addEventListener('fetch', evt => {
-  if (evt.request.method !== 'GET' || new URL(evt.request.url).origin !== self.location.origin) return;
-  evt.respondWith(
-    fetch(evt.request)
+self.addEventListener('fetch', event => {
+  if (
+    event.request.method !== 'GET' ||
+    new URL(event.request.url).origin !== self.location.origin
+  ) return;
+
+  event.respondWith(
+    fetch(event.request)
       .then(response => {
         const copy = response.clone();
-        caches.open(CACHE_NAME).then(cache => cache.put(evt.request, copy));
+        caches.open(CACHE_NAME)
+          .then(cache => cache.put(event.request, copy));
         return response;
       })
-      .catch(() => caches.match(evt.request).then(resp => resp || caches.match('/')))
+      .catch(() =>
+        caches.match(event.request)
+          .then(response => response || caches.match(BASE))
+      )
   );
 });
