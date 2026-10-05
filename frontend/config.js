@@ -13,7 +13,7 @@
   // Production CouchDB configuration.
   // IMPORTANT: No CouchDB credentials belong in this file.
   window.__CONFIG__ = {
-    couchHost: 'yen-black-carolina-indianapolis.trycloudflare.com',
+    couchHost: 'bias-fed-seems-recognized.trycloudflare.com',
     couchDbName: 'finance',
     apiBase: window.__API_BASE__,
     requireLogin: true,
