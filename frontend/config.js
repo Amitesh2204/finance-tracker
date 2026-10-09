@@ -13,7 +13,7 @@
   // Production CouchDB configuration.
   // IMPORTANT: No CouchDB credentials belong in this file.
   window.__CONFIG__ = {
-    couchHost: 'bias-fed-seems-recognized.trycloudflare.com',
+    couchHost: 'orleans-earl-auburn-anniversary.trycloudflare.com',
     couchDbName: 'finance',
     apiBase: window.__API_BASE__,
     requireLogin: true,
