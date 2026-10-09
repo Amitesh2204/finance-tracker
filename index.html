@@ -8,98 +8,400 @@
   <link rel="stylesheet" href="frontend/style.css">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
   <script src="https://unpkg.com/pouchdb@7.3.1/dist/pouchdb.min.js"></script>
+
+  <style>
+    /* small local styles to make Last Transaction scrollable and layout for activity/savings charts */
+    .tx-scroll {
+      max-height: 260px;
+      overflow-y: auto;
+      border-top: 1px solid rgba(255,255,255,0.04);
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+    }
+    .tx-scroll table { width:100%; border-collapse:collapse; }
+    .tx-scroll td { padding:10px 12px; border-bottom:1px solid #2b2b2b; }
+    .tx-scroll th { padding:10px 12px; text-align:left; font-weight:700; color:var(--text, #ecf0f1); background:var(--accent-soft, rgba(255,255,255,0.05)); border-bottom:1px solid #2b2b2b; position:sticky; top:0; z-index:1; }
+    .activity-row { display:flex; gap:20px; align-items:flex-start; margin-top:18px; flex-wrap:wrap; }
+    .activity-card { flex:1 1 320px; min-height:260px; background:var(--card-bg); padding:16px; border-radius:12px; }
+    .activity-card h4 { margin:0 0 8px; color:#ecf0f1; font-weight:700; }
+    .selector-inline { display:flex; gap:8px; align-items:center; margin-bottom:8px; }
+    .selector-inline label { color:#ecf0f1; font-weight:600; }
+    /* small login badge in topbar when logged in */
+    .user-badge { display:flex; gap:8px; align-items:center; padding:6px 10px; background:rgba(255,255,255,0.03); border-radius:999px; color:#ecf0f1; }
+    .user-badge .name { font-weight:600; font-size:0.95rem; }
+    .logout-link { color:#ecf0f1; text-decoration:none; padding:6px 8px; border-radius:6px; background:rgba(255,255,255,0.03); }
+
+    /* Collapsible section styles */
+    .collapsible {
+      border-radius: 12px;
+      background: var(--card-bg);
+      margin-bottom: 16px;
+      overflow: hidden;
+      border: 1px solid rgba(255,255,255,0.03);
+    }
+    .collapsible-header {
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      padding:12px 16px;
+      cursor:pointer;
+      user-select:none;
+      background: linear-gradient(0deg, rgba(255,255,255,0.01), rgba(255,255,255,0.01));
+    }
+    .collapsible-header .title { font-weight:700; color:#ecf0f1; }
+    .collapsible-header .controls { display:flex; gap:8px; align-items:center; margin-left:auto; }
+    .collapsible-header .chev { font-size:0.95rem; color:var(--muted); }
+    .collapsible-content {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 320ms ease;
+      padding: 0 16px;
+    }
+    .collapsible.open .collapsible-content {
+      padding: 12px 16px 18px 16px;
+      max-height: 1200px; /* large enough to show charts/tables */
+    }
+
+    /* Make collapsible headers more compact on mobile */
+    @media (max-width: 600px) {
+      .collapsible-header { padding:10px 12px; }
+      .collapsible-content { padding: 0 12px; }
+      .collapsible.open .collapsible-content { padding: 10px 12px 14px 12px; }
+    }
+  </style>
 </head>
 <body>
   <div class="app">
+    <!-- Sidebar -->
     <aside class="sidebar">
       <div class="brand">
         <img src="frontend/assets/logo.svg" alt="logo" />
         <h1>Wealty</h1>
       </div>
-      <nav>
-        <a href="frontend/pages/budget.html">Budget</a>
-        <a href="frontend/pages/expense.html">Expense</a>
-        <a href="frontend/pages/investments.html">Investments</a>
-        <a href="frontend/pages/report.html">Report</a>
+      <nav class="main-menu">
+        <a href="frontend/pages/budget/budget.html"><span class="icon">📊</span> Budget</a>
+        <a href="frontend/pages/expense/expense.html"><span class="icon">💸</span> Expense</a>
+        <a href="frontend/pages/investments/investments.html"><span class="icon">💹</span> Investments</a>
+        <a href="frontend/pages/reports/report.html"><span class="icon">📑</span> Report</a>
       </nav>
       <div class="sidebar-footer">
-        <button class="contact">Contact us</button>
-        <a href="#" class="logout">Log out</a>
+        <a href="frontend/pages/settings.html"><span class="icon">⚙️</span> Settings</a>
+        <a id="sidebarLogout" href="frontend/pages/logout.html"><span class="icon">🚪</span> Logout</a>
       </div>
     </aside>
 
+    <!-- Main content -->
     <main class="main">
       <header class="topbar">
-        <h2>Overview</h2>
-        <div class="topbar-right">
-          <input class="search" placeholder="Search" />
+        <h2>Financial Statistics</h2>
+        <div class="topbar-right" id="topbarRight">
+          <label class="theme-control" for="themeSelect">Theme
+            <select id="themeSelect" aria-label="Choose theme">
+              <option value="light">Light</option>
+              <option value="dark">Dark</option>
+              <option value="custom">Custom</option>
+            </select>
+          </label>
           <button class="icon">🔔</button>
           <img class="avatar" src="frontend/assets/avatar.svg" alt="avatar" />
         </div>
       </header>
 
-      <section class="content layout-split">
-        <div class="left">
-          <div class="cards">
-            <div class="card">
-              <h3>Total Balance</h3>
-              <p id="totalBalance">$11,716.77 <span class="positive">+4%</span></p>
-            </div>
-            <div class="card">
-              <h3>Main Account</h3>
-              <p id="mainAccount">$3,252.13</p>
-            </div>
-            <div class="card">
-              <h3>Savings</h3>
-              <p id="savings">$4,000.00 <span class="positive">+10%</span></p>
-            </div>
-          </div>
+      <section class="sync-status-bar" id="syncStatusBar" aria-live="polite">
+        ● Local-only mode ·
+        <button type="button" id="syncConfigureBtn" class="sync-config-btn">
+          Configure CouchDB sync
+        </button>
+      </section>
 
-          <div class="chart card">
-            <canvas id="balanceChart"></canvas>
-          </div>
+      <section class="market-ticker" id="marketTicker" aria-label="Live share market data">
+        <div class="market-ticker-item" data-market-symbol="^BSESN">
+          <strong class="market-ticker-name">SENSEX</strong>
+          <span class="market-ticker-price">—</span>
+          <span class="market-ticker-change">Waiting for market data</span>
+        </div>
+        <div class="market-ticker-item" data-market-symbol="^NSEI">
+          <strong class="market-ticker-name">NIFTY 50</strong>
+          <span class="market-ticker-price">—</span>
+          <span class="market-ticker-change">Waiting for market data</span>
+        </div>
+        <span class="market-ticker-updated" id="marketTickerUpdated" role="status" aria-live="polite">Checking live data…</span>
+      </section>
 
-          <div class="transactions card">
-            <h3>Recent Transactions</h3>
-            <table id="recentTx">
-            </table>
+      <section class="content">
+        <!-- Summary cards -->
+        <div class="cards home-summary-cards">
+          <div class="card balance home-summary-card">
+            <div class="summary-card-heading"><h3>Balance</h3><span class="card-caption">Net by bank</span></div>
+            <p id="totalBalance">₹0.00</p>
+            <div class="bank-balance-list" aria-label="Bank balances">
+              <div><span>ICICI</span><strong id="homeIciciBalance">₹0.00</strong></div>
+              <div><span>SBI</span><strong id="homeSbiBalance">₹0.00</strong></div>
+              <div><span>Bank of Baroda</span><strong id="homeBobBalance">₹0.00</strong></div>
+            </div>
+            <div class="mini-chart-wrap"><canvas id="balanceTrendChart" aria-label="Monthly balance trends"></canvas></div>
+          </div>
+          <div class="card savings home-summary-card">
+            <div class="summary-card-heading"><h3>Savings</h3><span class="card-caption">Year <strong id="savingsCardYear"></strong></span></div>
+            <p id="savings">₹0.00</p>
+            <div class="savings-breakdown" aria-label="Savings breakdown">
+              <div><span>Investment Total</span><strong id="homeInvestmentTotal">₹0.00</strong></div>
+              <div><span>Total Saving Bank Amount</span><strong id="homeSavingBankTotal">₹0.00</strong></div>
+            </div>
+            <div class="mini-chart-wrap"><canvas id="savingsTrendChart" aria-label="Yearly savings trend"></canvas></div>
+          </div>
+          <div class="card expenses home-summary-card">
+            <div class="summary-card-heading"><h3>Expenses</h3><span class="card-caption">Year <strong id="expensesCardYear"></strong></span></div>
+            <p id="expenses">₹0.00</p>
+            <div class="mini-chart-wrap"><canvas id="expenseTrendChart" aria-label="Yearly expense trend"></canvas></div>
           </div>
         </div>
 
-        <aside class="right">
-          <div class="summary card">
-            <h4>Total Balance</h4>
-            <div class="amount">$11,716.77 <span class="positive">+4%</span></div>
+        <!-- Collapsible: Financial Statistics -->
+        <div class="collapsible" id="financeSection" data-default-open="true">
+          <div class="collapsible-header" role="button" aria-expanded="true" tabindex="0">
+            <div class="title">Financial Statistics</div>
+            <div class="controls">
+              <label for="chartPeriod">Period</label>
+              <input id="chartPeriod" type="month" aria-label="Select financial statistics month" />
+              <div class="chev">▲</div>
+            </div>
           </div>
-          <div class="summary card">
-            <h4>Investments</h4>
-            <div class="amount">$4,436.64 <span class="positive">+27.24%</span></div>
+          <div class="collapsible-content">
+            <div class="financial-stat-content">
+              <div class="financial-stat-chart">
+                <canvas id="financeChart"></canvas>
+              </div>
+              <div id="financeSummary" class="financial-stat-summary" aria-live="polite"></div>
+            </div>
           </div>
-          <div class="summary card">
-            <h4>Savings</h4>
-            <div class="amount">$4,000.00 <span class="positive">+10%</span></div>
+        </div>
+
+        <!-- Collapsible: Last Transaction -->
+        <div class="collapsible" id="lastTxSection" data-default-open="false">
+          <div class="collapsible-header" role="button" aria-expanded="false" tabindex="0">
+            <div class="title">Last Transaction</div>
+            <div class="controls">
+              <label for="lastTxDate" style="font-weight:600; color:#ecf0f1; font-size:0.95rem; margin-right:8px;">Date</label>
+              <input id="lastTxDate" type="date" style="padding:6px 8px; border-radius:6px; background:#1e1e1e; color:#ecf0f1; border:1px solid #333;" />
+              <div class="chev">▼</div>
+            </div>
           </div>
-        </aside>
+          <div class="collapsible-content">
+            <div class="transactions card large same-size" style="background:transparent; box-shadow:none; padding:0;">
+              <div class="tx-scroll" style="margin-top:8px;">
+                <table id="lastTx"></table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Recent Activities and Savings charts side by side -->
+        <div class="activity-row">
+          <div class="activity-card">
+            <div class="selector-inline">
+              <h4 style="margin:0">Recent Activities (Monthly Expense)</h4>
+              <div style="margin-left:auto; display:flex; gap:8px; align-items:center;">
+                <label for="activityYear">Year</label>
+                <select id="activityYear" style="padding:6px 8px; border-radius:6px; background:#1e1e1e; color:#ecf0f1; border:1px solid #333;"></select>
+              </div>
+            </div>
+            <div id="monthlyExpenseTotal" style="color:#ecf0f1; font-weight:700; margin-bottom:8px;">Total: ₹0.00</div>
+            <div style="height:220px;">
+              <canvas id="recentActivityChart"></canvas>
+            </div>
+          </div>
+
+          <div class="activity-card">
+            <div class="selector-inline">
+              <h4 style="margin:0">Monthly Savings</h4>
+              <div style="margin-left:auto; display:flex; gap:8px; align-items:center;">
+                <label for="savingsYear">Year</label>
+                <select id="savingsYear" style="padding:6px 8px; border-radius:6px; background:#1e1e1e; color:#ecf0f1; border:1px solid #333;"></select>
+                <label for="savingsBank">Bank</label>
+                <select id="savingsBank" aria-label="Select savings bank">
+                  <option value="All">All banks</option>
+                  <option value="ICICI">ICICI</option>
+                  <option value="SBI">SBI</option>
+                  <option value="Bank of Baroda">Bank of Baroda</option>
+                </select>
+              </div>
+            </div>
+            <div style="height:220px;">
+              <canvas id="savingsChart"></canvas>
+            </div>
+          </div>
+        </div>
       </section>
     </main>
   </div>
 
   <script>
-    // Override these values when the frontend and backend are hosted separately.
+    // default: require login. You can override in frontend/config.js by setting window.__REQUIRE_LOGIN__ = false;
     window.__API_BASE__ = window.__API_BASE__ || '/';
     window.__REMOTE_COUCH__ = window.__REMOTE_COUCH__ || null;
-    // For GitHub Pages or remote backend, uncomment and set your tunnel URL(es):
-    // window.__API_BASE__ = 'https://hosts-pmid-violin-walter.trycloudflare.com/';
-    // window.__REMOTE_COUCH__ = 'https://hosts-pmid-violin-walter.trycloudflare.com/finance';
+    window.__REQUIRE_LOGIN__ = (typeof window.__REQUIRE_LOGIN__ === 'boolean') ? window.__REQUIRE_LOGIN__ : true;
 
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/sw.js')
+        navigator.serviceWorker.register('./sw.js', { scope: './' })
           .then(reg => console.log('Service worker registered', reg.scope))
           .catch(err => console.warn('Service worker registration failed', err));
       });
     }
+
+    // Collapsible behavior: toggle on click/keyboard, set sensible defaults for mobile/desktop
+    (function () {
+      function setInitialOpenState(section) {
+        // data-default-open attribute controls default; on small screens collapse by default unless explicitly true
+        const defaultOpen = section.getAttribute('data-default-open') === 'true';
+        const isMobile = window.matchMedia('(max-width: 800px)').matches;
+        if (isMobile) {
+          // mobile: collapse unless explicitly requested open
+          if (defaultOpen) section.classList.add('open');
+          else section.classList.remove('open');
+        } else {
+          // desktop: open if defaultOpen true, otherwise open as well for better UX
+          section.classList.add('open');
+        }
+        updateHeaderState(section);
+      }
+
+      function updateHeaderState(section) {
+        const header = section.querySelector('.collapsible-header');
+        const chev = header.querySelector('.chev');
+        const expanded = section.classList.contains('open');
+        header.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+        if (chev) chev.textContent = expanded ? '▲' : '▼';
+      }
+
+      function toggleSection(section) {
+        section.classList.toggle('open');
+        updateHeaderState(section);
+      }
+
+      document.addEventListener('DOMContentLoaded', () => {
+        const sections = document.querySelectorAll('.collapsible');
+        sections.forEach(section => {
+          setInitialOpenState(section);
+          const header = section.querySelector('.collapsible-header');
+          if (!header) return;
+          header.addEventListener('click', () => toggleSection(section));
+          header.addEventListener('keydown', (ev) => {
+            if (ev.key === 'Enter' || ev.key === ' ') {
+              ev.preventDefault();
+              toggleSection(section);
+            }
+          });
+        });
+
+        // Keep collapsible behavior responsive on resize
+        let resizeTimer = null;
+        window.addEventListener('resize', () => {
+          clearTimeout(resizeTimer);
+          resizeTimer = setTimeout(() => {
+            document.querySelectorAll('.collapsible').forEach(setInitialOpenState);
+          }, 200);
+        });
+      });
+    })();
   </script>
-  <script src="frontend/app.js"></script>
+
+  <!-- Core libraries -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <!-- Shared DB + app logic -->
+  <script src="frontend/config.js" defer></script>
+  <script src="frontend/db.js" defer></script>
+  <script src="frontend/charts.js" defer></script>
+  <script type="module" src="frontend/app.js" defer></script>
+  <script src="frontend/market-ticker.js?v=20260928-5s" defer></script>
+
+  <dialog id="syncCredentialsDialog" class="sync-dialog">
+    <form method="dialog" id="syncCredentialsForm">
+      <h3>Configure CouchDB sync</h3>
+      <p>Credentials are kept only in this browser session and are never written to <code>config.js</code>.</p>
+      <label>
+        Username
+        <input id="syncUsername" autocomplete="username" required>
+      </label>
+      <label>
+        Password
+        <input id="syncPassword" type="password" autocomplete="current-password" required>
+      </label>
+      <div class="sync-dialog-actions">
+        <button value="cancel" type="button" id="syncCancelBtn">Cancel</button>
+        <button value="default" type="submit">Connect &amp; sync</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script>
+    (function () {
+      const bar = document.getElementById('syncStatusBar');
+      const btn = document.getElementById('syncConfigureBtn');
+      const dlg = document.getElementById('syncCredentialsDialog');
+      const form = document.getElementById('syncCredentialsForm');
+
+      function render(state) {
+        if (!bar) return;
+
+        const s = state || {};
+        const labels = {
+          synced: '● Synced',
+          syncing: '◌ Syncing…',
+          'auth-required': '● Credentials required',
+          error: '● Sync error',
+          'not-configured': '● CouchDB host not configured',
+          'local-only': '● Local-only mode',
+          'signed-out': '● Sync signed out'
+        };
+
+        const text = labels[s.state] || ('● ' + (s.state || 'Ready'));
+        bar.firstChild.textContent = text + ' ';
+
+        if (btn) {
+          btn.textContent =
+            s.state === 'synced'
+              ? 'Sync settings'
+              : 'Configure CouchDB sync';
+        }
+      }
+
+      window.addEventListener('finance-sync-status', event => {
+        render(event.detail);
+      });
+
+      render(window.__FINANCE_SYNC_STATUS__);
+
+      btn?.addEventListener('click', () => {
+        dlg?.showModal();
+      });
+
+      document.getElementById('syncCancelBtn')?.addEventListener('click', () => {
+        dlg?.close();
+      });
+
+      form?.addEventListener('submit', event => {
+        event.preventDefault();
+
+        try {
+          if (!window.financeSync || typeof window.financeSync.configure !== 'function') {
+            throw new Error('CouchDB sync is not available.');
+          }
+
+          const username = document.getElementById('syncUsername').value.trim();
+          const password = document.getElementById('syncPassword').value;
+
+          window.financeSync.configure(username, password);
+
+          document.getElementById('syncPassword').value = '';
+          dlg?.close();
+        } catch (err) {
+          alert(err.message || 'Unable to configure CouchDB sync');
+        }
+      });
+    })();
+  </script>
 </body>
 </html>

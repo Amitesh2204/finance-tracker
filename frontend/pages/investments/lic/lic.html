@@ -1,0 +1,150 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>LIC</title>
+  <link rel="stylesheet" href="../../../style.css">
+  <link rel="stylesheet" href="lic.css">
+  <link rel="stylesheet" href="../../../ui-refinement.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- Core libraries -->
+  <script src="https://unpkg.com/pouchdb@7.3.1/dist/pouchdb.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <!-- App + DB layer -->
+  <script src="../../../config.js" defer></script>
+  <script src="../../../db.js" defer></script>
+  <script src="../../../app.js" defer></script>
+  <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js" defer></script>
+
+  <!-- Page-specific logic -->
+  <script src="lic.js" defer></script>
+</head>
+
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand"><h1>Wealty</h1></div>
+      <nav class="main-menu">
+        <a href="../../../../index.html">🏠 Home</a>
+        <a href="../../budget/budget.html">📊 Budget</a>
+        <a href="../../expense/expense.html">💸 Expense</a>
+        <div class="submenu">
+          <a href="../investments.html" class="submenu-toggle">📈 Investments ▾</a>
+          <ul class="submenu-list">
+            <li><a href="../mutualfund/mutualfund.html">Mutual Fund</a></li>
+            <li><a href="lic.html" class="active">LIC</a></li>
+            <li><a href="../ppf/ppf.html">PPF</a></li>
+            <li><a href="../sukanya/sukanya.html">Sukanya Yojana</a></li>
+          </ul>
+        </div>
+        <a href="../../reports/report.html">📑 Report</a>
+      </nav>
+      <div class="sidebar-footer">
+        <a href="../../settings.html">⚙️ Settings</a>
+        <a href="../../logout.html">🚪 Logout</a>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar"><h2>LIC Fund Details</h2></header>
+      <section class="content">
+        <!-- Left side: LIC details -->
+        <div class="lic-section">
+          <!-- Summary cards -->
+          <div class="cards">
+            <div class="card"><h3>Total Investment</h3><p id="licTotalInvested">₹0.00</p></div>
+            <div class="card"><h3>Total Growth</h3><p id="licTotalGrowth">₹0.00</p></div>
+          </div>
+
+          <!-- LIC Growth chart with year selector -->
+          <div class="card">
+            <h3>LIC Growth</h3>
+            <div class="chart same-size">
+              <canvas id="licGrowthChart"></canvas>
+            </div>
+          </div>
+
+          <div class="card">
+            <h3>Add Monthly Investment</h3>
+            <form id="licInvestmentForm" class="investment-form">
+              <label>Investment Type</label>
+              <input type="text" value="LIC" readonly />
+              <label for="licCategory">Category</label>
+              <select id="licCategory">
+                <option value="investment">Investment</option>
+                <option value="profit">Profit</option>
+              </select>
+              <label for="policyName">Policy Name</label>
+              <select id="policyName">
+                <option value="Jeevan Lakshya">LIC Jeevan Lakshya</option>
+                <option value="New Jeevan Labh">LIC New Jeevan Labh Plan</option>
+              </select>
+              <div class="date-row">
+                <div><label for="licEntryYear">Year</label><select id="licEntryYear"></select></div>
+                <div id="licEntryMonthWrapper"><label for="licEntryMonth">Month</label><select id="licEntryMonth"></select></div>
+              </div>
+              <p id="licProfitHint" class="form-hint" style="display:none;">Profit is recorded once for the whole year. Select the year and enter the yearly profit.</p>
+              <label for="licAmount">Amount</label>
+              <input id="licAmount" type="number" min="0" step="0.01" required />
+              <button type="submit">Add Entry</button>
+            </form>
+          </div>
+
+
+
+          <!-- Monthly LIC Summary table -->
+          <div class="card">
+            <h3>Monthly LIC Summary</h3>
+            <div class="date-row summary-filters">
+              <div><label for="licSummaryYear">Year</label><select id="licSummaryYear"></select></div>
+              <div><label for="licSummaryMonth">Month</label><select id="licSummaryMonth"></select></div>
+            </div>
+            <div style="display:flex; gap:10px; flex-wrap:wrap; margin:12px 0;">
+              <button type="button" id="licExportBtn" class="secondary-btn">Export Excel</button>
+              <label class="secondary-btn" for="licImportInput" style="display:inline-block; cursor:pointer;">Import Excel</label>
+              <input id="licImportInput" type="file" accept=".xlsx,.xls,.csv" style="display:none;" />
+            </div>
+            <table id="licTable" class="investment-table">
+              <thead>
+                <tr>
+                  <th>Month-Year</th>
+                  <th>Policy Name</th>
+                  <th>Monthly Invested</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+
+              <tbody><tr><td colspan="4">No data yet</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Right side: Policy Details -->
+        <div class="card policy-card">
+          <h3>Policy Details</h3>
+          <div class="policy-section">
+            <div class="date-row summary-filters">
+              <div><label for="policyYearSelect">Year</label><select id="policyYearSelect"></select></div>
+              <div><label for="policyMonthSelect">Month</label><select id="policyMonthSelect"></select></div>
+            </div>
+
+            <button class="toggle-btn" data-target="licPolicies">Policies ▾</button>
+            <ul id="licPolicies" class="policy-list">
+              <li>LIC Jeevan Lakshya <span class="policy-value" data-policy="Jeevan Lakshya"></span></li>
+              <li>LIC New Jeevan Labh Plan <span class="policy-value" data-policy="New Jeevan Labh"></span></li>
+            </ul>
+          </div>
+
+          <!-- Policy Chart -->
+          <div class="chart card same-size">
+            <h3>Policy Growth</h3>
+            <canvas id="policyChart"></canvas>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+</body>
+</html>

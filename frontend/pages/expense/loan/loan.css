@@ -1,0 +1,337 @@
+/* loan.css - dedicated styling for the Loan Tracker sub-page */
+
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding-bottom: 24px;
+}
+
+.loan-subtitle {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+/* ---- Dashboard summary row: full page width, never confined to a column ---- */
+.summary-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 18px;
+}
+
+.card {
+  background: var(--card-bg);
+  padding: 20px;
+  border-radius: 16px;
+  box-shadow: var(--shadow);
+}
+
+.summary-card {
+  position: relative;
+  overflow: hidden;
+  min-height: 108px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+}
+.summary-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--accent), color-mix(in srgb, var(--accent) 40%, transparent));
+}
+.summary-card--active-amount::before { background: linear-gradient(90deg, var(--info), color-mix(in srgb, var(--info) 40%, transparent)); }
+.summary-card--paid::before { background: linear-gradient(90deg, var(--accent), color-mix(in srgb, var(--accent) 40%, transparent)); }
+.summary-card--remaining::before { background: linear-gradient(90deg, var(--warning), color-mix(in srgb, var(--warning) 40%, transparent)); }
+.summary-card--closed::before { background: linear-gradient(90deg, var(--danger), color-mix(in srgb, var(--danger) 40%, transparent)); }
+
+.summary-card-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  background: var(--accent-soft);
+  font-size: 0.95rem;
+  margin-bottom: 4px;
+}
+
+.summary-card h3 {
+  color: var(--muted);
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.summary-card p {
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: var(--accent);
+  margin: 0;
+}
+.summary-card--active-amount p { color: var(--info); }
+.summary-card--remaining p { color: var(--warning); }
+.summary-card--closed p { color: var(--danger); }
+
+/* ---- Two-column layout below the summary row ---- */
+.loan-layout {
+  display: grid;
+  grid-template-columns: minmax(300px, 380px) minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+
+.content-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.section-card {
+  padding: 14px 16px;
+}
+
+.loan-hint {
+  color: var(--muted);
+  font-size: 0.85rem;
+  line-height: 1.5;
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--accent-soft);
+}
+
+/* ---- Forms: responsive multi-column grid instead of one long stacked list ---- */
+.loan-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px 14px;
+}
+.loan-field--wide {
+  grid-column: 1 / -1;
+}
+.loan-field label {
+  display: block;
+  color: var(--text);
+  font-weight: 600;
+  font-size: 0.88rem;
+  margin-bottom: 6px;
+}
+.loan-field input,
+.loan-field select {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--input-bg);
+  color: var(--text);
+  font-size: 0.94rem;
+}
+
+.loan-form-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 16px;
+}
+.loan-form-actions button[type="submit"] {
+  background: var(--accent);
+  color: #fff;
+  font-weight: 700;
+  cursor: pointer;
+  border: none;
+  padding: 11px 18px;
+  border-radius: 8px;
+  font-size: 0.95rem;
+}
+.loan-form-actions button[type="submit"]:hover {
+  filter: brightness(0.92);
+  box-shadow: var(--shadow-sm);
+}
+.secondary-btn {
+  padding: 11px 16px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--accent-soft);
+  color: var(--text);
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+.secondary-btn:hover { filter: brightness(0.96); }
+
+/* ---- Tables ---- */
+.table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.loan-table {
+  width: 100%;
+  min-width: 920px;
+  border-collapse: collapse;
+  margin-top: 4px;
+}
+
+.loan-table th,
+.loan-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+  text-align: left;
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+
+.loan-table th {
+  background: var(--accent-soft);
+  font-weight: 700;
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.01em;
+}
+
+.loan-table tbody tr:nth-child(even) {
+  background: var(--bg);
+}
+.loan-table tbody tr {
+  transition: background-color 140ms var(--ease, ease);
+}
+
+.loan-empty {
+  white-space: normal !important;
+  color: var(--muted);
+  text-align: center !important;
+  padding: 22px 12px !important;
+  font-style: italic;
+}
+
+/* Status badges */
+.loan-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px 4px 8px;
+  border-radius: 999px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.loan-status::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  flex: 0 0 auto;
+}
+.loan-status--active { background: var(--accent-soft); color: var(--accent); }
+.loan-status--closed { background: var(--bg); color: var(--muted); }
+.loan-status--paid { background: color-mix(in srgb, var(--info) 18%, transparent); color: var(--info); }
+
+/* Action buttons */
+.loan-actions-cell { display: flex; gap: 6px; flex-wrap: nowrap; }
+.edit-entry-btn,
+.delete-entry-btn {
+  padding: 5px 10px;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  transition: background 150ms var(--ease, ease), color 150ms var(--ease, ease);
+}
+.edit-entry-btn { color: var(--info); border-color: var(--info); }
+.edit-entry-btn:hover { background: var(--info); color: #fff; }
+.delete-entry-btn { color: var(--danger); border-color: var(--danger); }
+.delete-entry-btn:hover { background: var(--danger); color: #fff; }
+.delete-entry-btn:disabled { opacity: 0.6; cursor: default; }
+
+/* Collapsible styles (same pattern used on the other Expense sub-pages) */
+.collapsible {
+  border-radius: 12px;
+  background: var(--card-bg);
+  margin-bottom: 16px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+.collapsible-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  cursor: pointer;
+  user-select: none;
+  background: linear-gradient(0deg, rgba(255,255,255,0.01), rgba(255,255,255,0.01));
+}
+.collapsible-header .title { font-weight: 700; color: var(--text); }
+.collapsible-header .controls { display: flex; gap: 8px; align-items: center; margin-left: auto; }
+.collapsible-header .chev { font-size: 0.95rem; color: var(--muted); }
+.collapsible-content { max-height: 0; overflow: hidden; transition: max-height 320ms ease; padding: 0 14px; }
+.collapsible.open .collapsible-content { padding: 12px 14px 18px 14px; max-height: 2000px; }
+
+/* ---- Toast notifications ---- */
+.loan-toast-container {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 999;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 320px;
+}
+.loan-toast {
+  padding: 12px 16px;
+  border-radius: 10px;
+  color: #fff;
+  font-size: 0.9rem;
+  font-weight: 600;
+  box-shadow: var(--shadow-lg, 0 12px 28px rgba(0,0,0,.25));
+  animation: loan-toast-in 200ms ease;
+}
+.loan-toast--success { background: var(--accent); }
+.loan-toast--error { background: var(--danger); }
+@keyframes loan-toast-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ---- Responsive ---- */
+@media (max-width: 1024px) {
+  .loan-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 600px) {
+  .summary-cards {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+  .card {
+    padding: 14px;
+  }
+  .summary-card p { font-size: 1.15rem; }
+  .collapsible-header { padding: 10px 12px; }
+  .collapsible-content { padding: 8px 12px; }
+  .loan-table { min-width: 760px; }
+  .loan-table th, .loan-table td { padding: 8px 8px; font-size: 0.8rem; }
+  .loan-toast-container { right: 10px; bottom: 10px; left: 10px; max-width: none; }
+}
+
+@media (max-width: 420px) {
+  .summary-cards {
+    grid-template-columns: 1fr;
+  }
+}

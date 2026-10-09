@@ -1,0 +1,187 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Mutual Fund</title>
+  <link rel="stylesheet" href="../../../style.css">
+  <link rel="stylesheet" href="mutualfund.css">
+  <link rel="stylesheet" href="../../../ui-refinement.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- Core libraries -->
+  <script src="https://unpkg.com/pouchdb@7.3.1/dist/pouchdb.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <!-- App + DB layer -->
+  <script src="../../../config.js" defer></script>
+  <script src="../../../db.js" defer></script>
+  <script src="../../../app.js" defer></script>
+
+  <!-- Page-specific logic -->
+  <script src="mutualfund.js" defer></script>
+</head>
+
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand"><h1>Wealty</h1></div>
+      <nav class="main-menu">
+        <a href="../../../../index.html">🏠 Home</a>
+        <a href="../../budget/budget.html">📊 Budget</a>
+        <a href="../../expense/expense.html">💸 Expense</a>
+        <div class="submenu">
+          <a href="../investments.html" class="submenu-toggle">📈 Investments ▾</a>
+          <ul class="submenu-list">
+            <li><a href="mutualfund.html" class="active">Mutual Fund</a></li>
+            <li><a href="history.html">↳ Old Data / History</a></li>
+            <li><a href="../lic/lic.html">LIC</a></li>
+            <li><a href="../ppf/ppf.html">PPF</a></li>
+            <li><a href="../sukanya/sukanya.html">Sukanya Yojana</a></li>
+          </ul>
+        </div>
+        <a href="../../reports/report.html">📑 Report</a>
+      </nav>
+      <div class="sidebar-footer">
+        <a href="../../settings.html">⚙️ Settings</a>
+        <a href="../../logout.html">🚪 Logout</a>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <h2>Mutual Fund Details</h2>
+        <a href="history.html" class="toggle-btn" style="text-decoration:none; display:inline-block; padding:10px 16px;">📜 Old Data / History</a>
+      </header>
+      <section class="content">
+        <!-- Left side: Mutual Fund details -->
+        <div class="mf-section">
+          <!-- Summary cards -->
+          <div class="cards">
+            <div class="card"><h3>Total Invested</h3><p id="totalInvested">₹0.00</p></div>
+            <div class="card"><h3>Total Growth</h3><p id="totalGrowth">₹0.00</p></div>
+          </div>
+
+          <!-- Chart -->
+          <div class="chart card same-size">
+            <h3>Mutual Fund Growth (since July 2017)</h3>
+            <canvas id="mutualFundChart"></canvas>
+          </div>
+
+          <div class="card market-performance-card">
+            <h3>Current Market Performance</h3>
+            <p class="market-performance-note">NAV dates follow the latest publication from the data provider. Daily change compares each NAV with its previous saved NAV.</p>
+            <p id="marketPerformanceStatus" class="market-performance-status" aria-live="polite">Loading saved market history…</p>
+            <div class="market-performance-filters">
+              <div>
+                <label for="marketYearFilter">Year</label>
+                <select id="marketYearFilter"><option value="all">All years</option></select>
+              </div>
+              <div>
+                <label for="marketMonthFilter">Month</label>
+                <select id="marketMonthFilter">
+                  <option value="all">All months</option>
+                  <option value="01">January</option><option value="02">February</option>
+                  <option value="03">March</option><option value="04">April</option>
+                  <option value="05">May</option><option value="06">June</option>
+                  <option value="07">July</option><option value="08">August</option>
+                  <option value="09">September</option><option value="10">October</option>
+                  <option value="11">November</option><option value="12">December</option>
+                </select>
+              </div>
+              <div>
+                <label for="marketDateFilter">Date</label>
+                <select id="marketDateFilter"><option value="all">All dates</option></select>
+              </div>
+            </div>
+            <div class="market-performance-scroll">
+              <table id="marketPerformanceTable" class="investment-table">
+                <thead><tr><th>Date</th><th>Mutual Fund Scheme</th><th>NAV (₹)</th><th>Daily Change</th></tr></thead>
+                <tbody><tr><td colspan="4">Loading market performance…</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Monthly table -->
+          <div class="card">
+            <h3>Monthly Mutual Fund Summary</h3>
+            <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin-bottom:12px;">
+              <div>
+                <label for="summaryYearSelect">Year</label>
+                <select id="summaryYearSelect"></select>
+              </div>
+              <div>
+                <label for="summaryMonthSelect">Month</label>
+                <select id="summaryMonthSelect">
+                  <option value="all">All months</option>
+                  <option value="0">January</option>
+                  <option value="1">February</option>
+                  <option value="2">March</option>
+                  <option value="3">April</option>
+                  <option value="4">May</option>
+                  <option value="5">June</option>
+                  <option value="6">July</option>
+                  <option value="7">August</option>
+                  <option value="8">September</option>
+                  <option value="9">October</option>
+                  <option value="10">November</option>
+                  <option value="11">December</option>
+                </select>
+              </div>
+            </div>
+            <table id="mutualFundTable" class="investment-table">
+              <thead>
+                <tr>
+                  <th>Month-Year</th>
+                  <th>Investment Name</th>
+                  <th>Monthly Invested</th>
+                  <th>Total Amount</th>
+                </tr>
+              </thead>
+              <tbody><tr><td colspan="4">No data yet</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Right side: Portfolio Details -->
+        <div class="card portfolio-card">
+          <h3>Portfolio Details</h3>
+          <div class="portfolio-section">
+            <div class="portfolio-period">
+              <div>
+                <label for="portfolioYearSelect">Year</label>
+                <select id="portfolioYearSelect"></select>
+              </div>
+              <div>
+                <label for="portfolioMonthSelect">Month</label>
+                <select id="portfolioMonthSelect">
+                  <option value="0">January</option><option value="1">February</option>
+                  <option value="2">March</option><option value="3">April</option>
+                  <option value="4">May</option><option value="5">June</option>
+                  <option value="6">July</option><option value="7">August</option>
+                  <option value="8">September</option><option value="9">October</option>
+                  <option value="10">November</option><option value="11">December</option>
+                </select>
+              </div>
+            </div>
+            <div class="portfolio-fund-row">
+              <label for="portfolioFundSelect">Fund</label>
+              <select id="portfolioFundSelect">
+                <option value="all">All Funds</option>
+              </select>
+            </div>
+            <p id="portfolioPeriodStatus" class="portfolio-period-status" aria-live="polite"></p>
+
+            <ul id="historyFundDetails" class="fund-list history-fund-details"></ul>
+          </div>
+
+          <!-- Portfolio Chart -->
+          <div class="chart card same-size">
+            <h3 id="portfolioChartTitle">Portfolio Growth</h3>
+            <canvas id="portfolioChart"></canvas>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+</body>
+</html>

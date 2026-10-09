@@ -1,230 +1,1276 @@
-// PouchDB offline-first logic
-const db = new PouchDB('finance');
+// app.js - main application logic (full file)
+// Uses window.financeDB (from db.js) when available and falls back to remote API or localStorage.
+// Adds authentication (local users stored in PouchDB 'finance-users' DB) and robust replication helpers.
+// Preserves existing entries logic, charts, and UI wiring. Defensive checks added to avoid runtime errors.
 
-const currentOrigin = typeof window !== 'undefined' ? window.location.origin : '';
-const urlParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
-const queryApi = urlParams?.get('api') || urlParams?.get('api_base') || urlParams?.get('API_BASE');
+(function () {
+  'use strict';
 
-const storedApi = typeof window !== 'undefined' ? window.localStorage.getItem('finance_api_base') : null;
+  const db = window.financeDB || null;
+  const STORAGE_KEY = 'finance-tracker:last-entries';
+  const USER_KEY = 'finance-tracker:current-user';
+  const USERS_DB_NAME = 'finance-users';
+  const THEME_KEY = 'finance-tracker:theme';
 
-function saveRemoteConfig(apiBase) {
-  if (typeof window !== 'undefined') {
-    if (apiBase) window.localStorage.setItem('finance_api_base', apiBase);
-  }
-}
-
-if (queryApi && typeof window !== 'undefined') {
-  saveRemoteConfig(queryApi);
-}
-
-const isGitHubPages = currentOrigin.includes('github.io');
-const defaultApiBase = isGitHubPages ? null : `${currentOrigin.replace(/\/$/, '')}/`;
-
-// Backend API base (FastAPI) — always ensure trailing slash
-const API_BASE = (window.__API_BASE__ || queryApi || storedApi || defaultApiBase || '').replace(/\/?$/, '/');
-const hasRemoteApi = Boolean(API_BASE);
-let refreshInvestmentsCallback = () => {};
-
-console.log('API_BASE=', API_BASE, 'hasRemoteApi=', hasRemoteApi);
-
-function isOnline() {
-  return typeof navigator !== 'undefined' ? navigator.onLine : true;
-}
-
-function mergeEntries(remoteEntries, localEntries) {
-  const merged = {};
-  localEntries.forEach(entry => {
-    if (entry._id) merged[entry._id] = entry;
-  });
-  remoteEntries.forEach(entry => {
-    if (entry._id) merged[entry._id] = entry;
-  });
-  return Object.values(merged).sort((a,b) => new Date(b.date) - new Date(a.date));
-}
-
-async function fetchEntries() {
-  const localEntries = await db.allDocs({include_docs:true}).then(r => r.rows.map(r=>r.doc));
-  if (!isOnline()) {
-    return localEntries;
+  function updateChartTheme() {
+    if (typeof Chart === 'undefined' || !Chart.defaults) return;
+    const styles = getComputedStyle(document.documentElement);
+    const textColor = styles.getPropertyValue('--text').trim();
+    const borderColor = styles.getPropertyValue('--border').trim();
+    if (textColor) Chart.defaults.color = textColor;
+    if (borderColor) Chart.defaults.borderColor = borderColor;
+    document.querySelectorAll('canvas').forEach(canvas => {
+      const chart = Chart.getChart?.(canvas);
+      if (chart) chart.update('none');
+    });
   }
 
-  try {
-    await syncPendingEntries();
-    const res = await fetch(`${API_BASE}entries`);
-    if (!res.ok) throw new Error('API unavailable');
-    const remoteEntries = await res.json();
-    return mergeEntries(remoteEntries, localEntries);
-  } catch (err) {
-    console.warn('REST API failed, falling back to local DB', err);
-    return localEntries;
+  function applyTheme(theme) {
+    const allowedThemes = ['light', 'dark', 'custom'];
+    const selectedTheme = allowedThemes.includes(theme) ? theme : 'light';
+    document.documentElement.dataset.theme = selectedTheme;
+    try { localStorage.setItem(THEME_KEY, selectedTheme); } catch (e) { /* storage is optional */ }
+    updateChartTheme();
+    const selector = document.getElementById('themeSelect');
+    if (selector) selector.value = selectedTheme;
   }
-}
 
-async function saveLocalEntry(doc) {
-  try {
-    await db.put(doc);
-  } catch (err) {
-    if (err.name === 'conflict') {
-      const existing = await db.get(doc._id);
-      doc._rev = existing._rev;
-      await db.put(doc);
-    } else {
+  function initTheme() {
+    let savedTheme = 'light';
+    try { savedTheme = localStorage.getItem(THEME_KEY) || 'light'; } catch (e) { /* storage is optional */ }
+    applyTheme(savedTheme);
+    const selector = document.getElementById('themeSelect');
+    if (selector && !selector.dataset.themeBound) {
+      selector.addEventListener('change', event => applyTheme(event.target.value));
+      selector.dataset.themeBound = 'true';
+    }
+  }
+
+  initTheme();
+
+  // --- Utility functions ---
+  function normalizeEntryType(entry) {
+    return String(entry?.type || '').trim().toLowerCase();
+  }
+
+  function isInvestmentCategoryText(value) {
+    return /(mutual|lic|ppf|sukanya|investment)/i.test(String(value || ''));
+  }
+
+  function isInvestmentEntry(entry) {
+    if (!entry) return false;
+    const type = normalizeEntryType(entry);
+    if (type === 'investment') return true;
+    if (type === 'saving') {
+      return isInvestmentCategoryText(entry.category) || isInvestmentCategoryText(entry.notes);
+    }
+    return isInvestmentCategoryText(entry.category) || isInvestmentCategoryText(entry.notes);
+  }
+
+  function toIsoDate(dateValue) {
+    const date = dateValue instanceof Date ? dateValue : new Date(dateValue);
+    if (Number.isNaN(date.getTime())) return null;
+    const utcDate = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+    return utcDate.toISOString();
+  }
+
+  function parseExcelDateValue(dateValue) {
+    if (dateValue === null || dateValue === undefined || String(dateValue).trim() === '') return null;
+    if (dateValue instanceof Date && !Number.isNaN(dateValue.getTime())) return dateValue;
+
+    if (typeof dateValue === 'number' && Number.isFinite(dateValue)) {
+      if (dateValue > 1000 && dateValue < 50000) {
+        return new Date(Date.UTC(1899, 11, 30) + (dateValue * 86400000));
+      }
+      return new Date(dateValue);
+    }
+
+    const raw = String(dateValue).trim();
+    if (!raw) return null;
+
+    if (/^\d+(?:\.\d+)?$/.test(raw)) {
+      const serial = Number(raw);
+      if (serial > 1000 && serial < 50000) {
+        return new Date(Date.UTC(1899, 11, 30) + (serial * 86400000));
+      }
+    }
+
+    const parsed = new Date(raw);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+
+  function parseAmountValue(value) {
+    if (value === null || value === undefined || String(value).trim() === '') return null;
+    const token = String(value).replace(/[₹,\s]/g, '');
+    const match = token.match(/[-+]?\d+(?:\.\d+)?/);
+    if (!match) return null;
+    const parsed = Number(match[0]);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  function normalizeColumnName(value) {
+    return String(value || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+  }
+
+  function getRowValueByAliases(row, aliases) {
+    if (!row || !aliases || aliases.length === 0) return undefined;
+    const normalizedMap = Object.keys(row || {}).reduce((acc, key) => {
+      acc[normalizeColumnName(key)] = row[key];
+      return acc;
+    }, {});
+
+    for (const alias of aliases) {
+      const normalizedAlias = normalizeColumnName(alias);
+      if (normalizedAlias in normalizedMap) {
+        const value = normalizedMap[normalizedAlias];
+        if (value !== undefined && value !== null && String(value).trim() !== '') return value;
+      }
+    }
+
+    return undefined;
+  }
+
+  function validateExcelImportRows(rows, options = {}) {
+    const dateAliases = Array.isArray(options.dateAliases) ? options.dateAliases : [];
+    const amountAliases = Array.isArray(options.amountAliases) ? options.amountAliases : [];
+    const bankAliases = Array.isArray(options.bankAliases) ? options.bankAliases : [];
+    const validRows = [];
+    const issues = [];
+
+    const usableRows = rows.filter(row => Object.values(row || {}).some(value => String(value ?? '').trim() !== ''));
+    if (usableRows.length === 0) {
+      return { validRows, issues: ['The Excel file is empty or contains only blank rows.'] };
+    }
+
+    usableRows.forEach((row, index) => {
+      const dateValue = getRowValueByAliases(row, dateAliases);
+      const amountValue = getRowValueByAliases(row, amountAliases);
+
+      if (dateValue === undefined || dateValue === null || String(dateValue).trim() === '') {
+        issues.push(`Row ${index + 2}: missing date value.`);
+        return;
+      }
+
+      if (amountValue === undefined || amountValue === null || String(amountValue).trim() === '') {
+        issues.push(`Row ${index + 2}: missing amount value.`);
+        return;
+      }
+
+      const parsedDate = parseExcelDateValue(dateValue);
+      const parsedAmount = parseAmountValue(amountValue);
+
+      if (!parsedDate) {
+        issues.push(`Row ${index + 2}: invalid date '${dateValue}'.`);
+        return;
+      }
+
+      if (parsedAmount === null || !Number.isFinite(parsedAmount)) {
+        issues.push(`Row ${index + 2}: invalid amount '${amountValue}'.`);
+        return;
+      }
+
+      const normalizedAmount = Math.abs(parsedAmount);
+      if (normalizedAmount <= 0) {
+        issues.push(`Row ${index + 2}: amount must be greater than zero.`);
+        return;
+      }
+
+      const bankValue = bankAliases
+        .map(alias => getRowValueByAliases(row, [alias]))
+        .find(value => value !== undefined && value !== null && String(value).trim() !== '');
+
+      validRows.push({
+        date: toIsoDate(parsedDate),
+        amount: normalizedAmount,
+        bank: bankValue !== undefined && bankValue !== null ? String(bankValue) : 'N/A',
+        raw: row,
+        rowNumber: index + 2
+      });
+    });
+
+    if (issues.length > 0) {
+      return { validRows: [], issues };
+    }
+
+    return { validRows, issues: [] };
+  }
+
+  window.parseExcelDateValue = parseExcelDateValue;
+  window.parseAmountValue = parseAmountValue;
+  window.validateExcelImportRows = validateExcelImportRows;
+
+  function formatCurrency(amount) {
+    const val = Number(amount) || 0;
+    try {
+      return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(val);
+    } catch {
+      return `₹${val.toFixed(2)}`;
+    }
+  }
+
+  function parseLocalDate(dateValue) {
+    if (!dateValue) return new Date();
+    if (dateValue instanceof Date && !Number.isNaN(dateValue.getTime())) return dateValue;
+    if (typeof dateValue === 'string') {
+      const trimmed = dateValue.trim();
+      if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+        const [year, month, day] = trimmed.split('-').map(Number);
+        return new Date(year, month - 1, day);
+      }
+      if (/^\d{4}-\d{2}$/.test(trimmed)) {
+        const [year, month] = trimmed.split('-').map(Number);
+        return new Date(year, month - 1, 1);
+      }
+    }
+    const parsed = new Date(dateValue);
+    return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
+  }
+
+  function getMonthKeyFromDate(dateValue) {
+    const date = parseLocalDate(dateValue);
+    if (Number.isNaN(date.getTime())) return null;
+    const month = date.toLocaleString('en-US', { month: 'short' });
+    return `${month}-${date.getFullYear()}`;
+  }
+
+  function isCurrentMonthEntry(dateValue) {
+    const date = parseLocalDate(dateValue);
+    const now = new Date();
+    return date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth();
+  }
+
+  function getElementByAnyId(...ids) {
+    for (const id of ids) {
+      const el = document.getElementById(id);
+      if (el) return el;
+    }
+    return null;
+  }
+
+  function persistEntries(entries) {
+    try {
+      if (Array.isArray(entries)) localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
+    } catch (e) {
+      console.warn('persistEntries failed', e);
+    }
+  }
+
+  function readStoredEntries() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (e) {
+      console.warn('readStoredEntries failed', e);
+      return [];
+    }
+  }
+
+  // --- Application URL helpers ---
+  function getAppBasePath() {
+    const configured = window.__APP_BASE_PATH__;
+    if (configured) {
+      return configured.endsWith('/') ? configured : `${configured}/`;
+    }
+
+    const path = window.location.pathname || '/';
+
+    if (path.includes('/frontend/')) {
+      return path.split('/frontend/')[0] + '/';
+    }
+
+    return '/';
+  }
+
+  function appPageUrl(page) {
+    return `${getAppBasePath()}frontend/pages/${page}`;
+  }
+  // --- Users DB helper (PouchDB) ---
+  // The users DB and CouchDB authentication are managed by frontend/db.js.
+  // CouchDB credentials are supplied at runtime and are never embedded here.
+  function getUsersDB() {
+    try {
+      if (window.financeUsersDB) return window.financeUsersDB;
+
+      const usersDb = new PouchDB(USERS_DB_NAME);
+      window.financeUsersDB = usersDb;
+      return usersDb;
+    } catch (err) {
+      console.warn('getUsersDB failed', err);
+      return null;
+    }
+  }
+
+  // Legacy hash retained only for existing accounts created before
+  // PBKDF2-SHA-256 was introduced. Successful legacy logins are upgraded.
+  function simpleHash(str) {
+    let h = 2166136261 >>> 0;
+    for (let i = 0; i < String(str).length; i++) {
+      h ^= String(str).charCodeAt(i);
+      h = Math.imul(h, 16777619);
+    }
+    return (h >>> 0).toString(16);
+  }
+
+  function bytesToBase64(bytes) {
+    let binary = '';
+    bytes.forEach(b => binary += String.fromCharCode(b));
+    return btoa(binary);
+  }
+
+  function base64ToBytes(value) {
+    const binary = atob(value);
+    return Uint8Array.from(binary, c => c.charCodeAt(0));
+  }
+
+  async function securePasswordHash(password, saltBytes) {
+    if (!window.crypto?.subtle) {
+      throw new Error('Secure password hashing is unavailable in this browser.');
+    }
+
+    const salt = saltBytes || crypto.getRandomValues(new Uint8Array(16));
+    const material = await crypto.subtle.importKey(
+      'raw',
+      new TextEncoder().encode(password),
+      'PBKDF2',
+      false,
+      ['deriveBits']
+    );
+
+    const bits = await crypto.subtle.deriveBits(
+      {
+        name: 'PBKDF2',
+        salt,
+        iterations: 150000,
+        hash: 'SHA-256'
+      },
+      material,
+      256
+    );
+
+    return {
+      algorithm: 'PBKDF2-SHA-256',
+      iterations: 150000,
+      salt: bytesToBase64(salt),
+      hash: bytesToBase64(new Uint8Array(bits))
+    };
+  }
+
+  function constantTimeEqual(a, b) {
+    if (a.length !== b.length) return false;
+
+    let diff = 0;
+    for (let i = 0; i < a.length; i++) {
+      diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+    }
+
+    return diff === 0;
+  }
+
+  async function verifyPassword(doc, password) {
+    if (doc.passwordHashV2?.hash && doc.passwordHashV2?.salt) {
+      const result = await securePasswordHash(
+        password,
+        base64ToBytes(doc.passwordHashV2.salt)
+      );
+
+      return constantTimeEqual(result.hash, doc.passwordHashV2.hash);
+    }
+
+    return doc.passwordHash === simpleHash(password);
+  }
+
+  async function registerUser({ username, email, password }) {
+    if (!username || !password) {
+      throw new Error('Username and password are required.');
+    }
+
+    if (password.length < 8) {
+      throw new Error('Password must be at least 8 characters.');
+    }
+
+    const usersDb = getUsersDB();
+    if (!usersDb) throw new Error('Users DB not available');
+
+    const id = `user:${username.toLowerCase()}`;
+    const existing = await usersDb.get(id).catch(() => null);
+
+    if (existing) {
+      throw new Error('User already exists');
+    }
+
+    const passwordHashV2 = await securePasswordHash(password);
+
+    await usersDb.put({
+      _id: id,
+      username,
+      email: email || '',
+      passwordHashV2,
+      createdAt: new Date().toISOString()
+    });
+
+    return { ok: true, id };
+  }
+
+  async function loginUser({ usernameOrEmail, password }) {
+    const usersDb = getUsersDB();
+    if (!usersDb) throw new Error('Users DB not available');
+
+    const lookup = String(usernameOrEmail || '').trim();
+    let doc = null;
+
+    if (lookup.includes('@') && typeof usersDb.find === 'function') {
+      const res = await usersDb.find({
+        selector: { email: lookup }
+      }).catch(() => null);
+
+      if (res?.docs?.length) {
+        doc = res.docs[0];
+      }
+    }
+
+    if (!doc && lookup.includes('@')) {
+      const all = await usersDb.allDocs({ include_docs: true });
+      doc = all.rows
+        .map(r => r.doc)
+        .find(d => d.email === lookup) || null;
+    }
+
+    if (!doc) {
+      doc = await usersDb
+        .get(`user:${lookup.toLowerCase()}`)
+        .catch(() => null);
+    }
+
+    if (!doc) {
+      throw new Error('User not found');
+    }
+
+    const validPassword = await verifyPassword(doc, password || '');
+
+    if (!validPassword) {
+      throw new Error('Invalid credentials');
+    }
+
+    // Upgrade an existing legacy simpleHash account after successful login.
+    if (!doc.passwordHashV2) {
+      doc.passwordHashV2 = await securePasswordHash(password || '');
+      delete doc.passwordHash;
+      await usersDb.put(doc);
+    }
+
+    const user = {
+      username: doc.username,
+      email: doc.email,
+      id: doc._id
+    };
+
+    sessionStorage.setItem(USER_KEY, JSON.stringify(user));
+    window.__CURRENT_USER__ = user;
+
+    return user;
+  }
+
+  function logoutUser() {
+    sessionStorage.removeItem(USER_KEY);
+    window.__CURRENT_USER__ = null;
+
+    if (window.financeSync && typeof window.financeSync.clear === 'function') {
+      window.financeSync.clear();
+    }
+
+    return true;
+  }
+
+  function getCurrentUser() {
+    if (window.__CURRENT_USER__) return window.__CURRENT_USER__;
+
+    try {
+      const raw = sessionStorage.getItem(USER_KEY);
+      if (!raw) return null;
+
+      const parsed = JSON.parse(raw);
+      window.__CURRENT_USER__ = parsed;
+      return parsed;
+    } catch {
+      return null;
+    }
+  }
+
+  // Expose auth helpers globally.
+  window.registerUser = registerUser;
+  window.loginUser = loginUser;
+  window.logoutUser = logoutUser;
+  window.getCurrentUser = getCurrentUser;
+  window.simpleHash = simpleHash;
+
+  // --- Helper to build API URL robustly (avoids absolute root 404 on GitHub Pages) ---
+  function buildApiUrl(endpoint = 'entries') {
+    const apiBase = typeof window.__API_BASE__ === 'string' ? window.__API_BASE__ : '';
+    if (!apiBase) {
+      return `${endpoint}`;
+    }
+    const base = apiBase.replace(/\/$/, '');
+    if (/^https?:\/\//i.test(base) || base.startsWith('/')) {
+      return `${base}/${endpoint}`.replace(/([^:]\/)\/{2,}/g, '$1/');
+    }
+    return `${base}/${endpoint}`.replace(/([^:]\/)\/{2,}/g, '$1/');
+  }
+
+  // --- Remote fetch helper (FastAPI) ---
+  async function fetchRemoteEntries() {
+    const apiUrl = buildApiUrl('entries');
+    try {
+      const response = await fetch(apiUrl, { headers: { Accept: 'application/json' } });
+      if (!response.ok) throw new Error(`API request failed: ${response.status}`);
+      const data = await response.json();
+      return Array.isArray(data) ? data : [];
+    } catch (err) {
+      console.warn('fetchRemoteEntries failed', err);
       throw err;
     }
   }
-  return doc;
-}
 
-async function sendEntryToApi(doc) {
-  const payload = Object.assign({}, doc);
-  // Strip _rev for new docs
-  if (!payload._rev) {
-    delete payload._rev;
-  }
-
-  const res = await fetch(`${API_BASE}entries`, {
-    method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload)
-  });
-
-  if (res.ok) {
-    const remoteDoc = await res.json();
-    return Object.assign({}, remoteDoc, {synced: true});
-  }
-
-  if (res.status === 409 && payload._id) {
-    // Conflict: fetch latest from backend
-    const existing = await fetch(`${API_BASE}entries/${encodeURIComponent(payload._id)}`);
-    if (existing.ok) {
-      const remoteDoc = await existing.json();
-      return Object.assign({}, remoteDoc, {synced: true});
-    }
-  }
-
-  throw new Error(`API returned ${res.status}`);
-}
-
-async function syncPendingEntries() {
-  if (!isOnline()) return 0;
-
-  const localEntries = await db.allDocs({include_docs:true}).then(r => r.rows.map(r => r.doc));
-  const pending = localEntries.filter(entry => entry.type === 'investment' && entry.synced !== true);
-  let syncedCount = 0;
-
-  for (const entry of pending) {
+  // --- Local (PouchDB) fetch helper ---
+  async function fetchLocalEntries() {
+    if (!db || typeof db.allDocs !== 'function') return [];
     try {
-      const remoteDoc = await sendEntryToApi(entry);
-      await saveLocalEntry(Object.assign({}, entry, remoteDoc));
-      syncedCount += 1;
-      console.log('Synced local entry to backend', remoteDoc._id);
+      const result = await db.allDocs({ include_docs: true });
+      return result.rows.map(r => r.doc).filter(Boolean);
     } catch (err) {
-      console.warn('Failed to sync local entry', entry._id, err);
+      console.warn('fetchLocalEntries failed', err);
+      return [];
     }
   }
 
-  return syncedCount;
-}
+  // --- Unified fetchEntries: prefer existing db.js implementation, then remote, then local, then cache ---
+  async function fetchEntries() {
+    if (typeof window.fetchEntries === 'function' && window.fetchEntries !== fetchEntries) {
+      try {
+        const entries = await window.fetchEntries();
+        if (Array.isArray(entries)) {
+          window.__LAST_ENTRIES__ = entries;
+          persistEntries(entries);
+        }
+        return Array.isArray(entries) ? entries : [];
+      } catch (err) {
+        console.warn('Existing window.fetchEntries failed, falling back to internal logic', err);
+      }
+    }
 
-async function addEntry(entry) {
-  const id = entry._id || `entry:${entry.type||'txn'}:${entry.date||Date.now()}:${Math.random().toString(36).slice(2,9)}`;
-  const doc = Object.assign({}, entry, {_id: id, synced: false});
+    const apiBaseConfigured = typeof window.__API_BASE__ === 'string' && window.__API_BASE__.trim() !== '';
+    if (apiBaseConfigured) {
+      try {
+        const remote = await fetchRemoteEntries();
+        if (remote && remote.length) {
+          window.__LAST_ENTRIES__ = remote;
+          persistEntries(remote);
+          if (db && typeof db.bulkDocs === 'function') {
+            try {
+              const docs = remote.map(e => Object.assign({}, e, { _id: e._id || `entry:${e.type || 'txn'}:${e.date || Date.now()}:${Math.random().toString(36).slice(2,9)}` }));
+              db.bulkDocs(docs).catch(() => null);
+            } catch (syncErr) {
+              console.warn('PouchDB bulkDocs sync failed', syncErr);
+            }
+          }
+          return remote;
+        }
+      } catch (err) {
+        console.warn('Remote fetch failed, will try local sources', err);
+      }
+    }
 
-  // Save locally first so the entry appears immediately.
-  await saveLocalEntry(doc);
+    if (db && typeof db.allDocs === 'function') {
+      const local = await fetchLocalEntries();
+      if (local && local.length) {
+        window.__LAST_ENTRIES__ = local;
+        persistEntries(local);
+        return local;
+      }
+    }
 
-  if (!isOnline()) {
-    return doc;
+    const cached = readStoredEntries();
+    if (cached && cached.length) {
+      window.__LAST_ENTRIES__ = cached;
+      return cached;
+    }
+
+    return [];
   }
 
-  try {
-    const remoteDoc = await sendEntryToApi(doc);
-    const merged = Object.assign({}, doc, remoteDoc, {synced: true});
-    await saveLocalEntry(merged);
-    return merged;
-  } catch (err) {
-    console.warn('REST API failed, keeping local copy', err);
-    return doc;
-  }
-}
+  // --- Save to local PouchDB (used when remote save fails) ---
+  async function saveLocalEntry(doc) {
+    if (!db || typeof db.put !== 'function') {
+      throw new Error('PouchDB is not ready yet');
+    }
 
-// Service worker disabled for now to avoid 404 errors
-// if ('serviceWorker' in navigator) {
-//   window.addEventListener('load', () => {
-//     navigator.serviceWorker.register('/sw.js')
-//       .then(reg => console.log('Service worker registered', reg.scope))
-//       .catch(err => console.warn('Service worker registration failed', err));
-//   });
-// }
-
-// Simple UI bindings and population
-document.addEventListener('DOMContentLoaded', async () => {
-  // Expose for debugging
-  window.financeDB = db;
-  window.fetchEntries = fetchEntries;
-  window.addEntry = addEntry;
-  window.syncPendingEntries = syncPendingEntries;
-
-  const txTable = document.getElementById('recentTx');
-  if (txTable) {
-    const entries = await fetchEntries().catch(()=>[]);
-    if (entries && entries.length) {
-      txTable.innerHTML = entries.slice(0,6).map(e=>`<tr><td>${e.notes||e.type||'Entry'}</td><td>${e.date}</td><td>${e.amount<0?'-':''}$${Math.abs(e.amount).toFixed(2)}</td></tr>`).join('');
-    } else {
-      txTable.innerHTML = '<tr><td colspan="3">No transactions</td></tr>';
+    try {
+      const existing = await db.get(doc._id).catch(() => null);
+      if (existing) doc._rev = existing._rev;
+      await db.put(doc);
+      return doc;
+    } catch (err) {
+      if (err && err.name === 'conflict') {
+        const existing = await db.get(doc._id);
+        doc._rev = existing._rev;
+        await db.put(doc);
+        return doc;
+      }
+      console.error('saveLocalEntry error', err);
+      throw err;
     }
   }
 
-  const investmentForm = document.getElementById('investmentForm');
-  const investmentTableBody = document.querySelector('#investmentsTable tbody');
+  // --- Unified addEntry: prefer PouchDB (db.js) if available, otherwise remote API, then local fallback ---
+  async function addEntry(entry) {
+    if (typeof window.addEntry === 'function' && window.addEntry !== addEntry) {
+      try {
+        const saved = await window.addEntry(entry);
+        const existing = Array.isArray(window.__LAST_ENTRIES__) ? [...window.__LAST_ENTRIES__] : [];
+        window.__LAST_ENTRIES__ = [saved, ...existing];
+        persistEntries(window.__LAST_ENTRIES__);
+        return saved;
+      } catch (err) {
+        console.warn('Existing window.addEntry failed, falling back to internal addEntry', err);
+      }
+    }
 
-  function renderInvestments(entries) {
-    if (!investmentTableBody) return;
-    if (!entries || entries.length === 0) {
-      investmentTableBody.innerHTML = '<tr><td colspan="3">No investments yet</td></tr>';
+    const apiBaseConfigured = typeof window.__API_BASE__ === 'string' && window.__API_BASE__.trim() !== '';
+    const id = entry._id || `entry:${entry.type || 'txn'}:${entry.date || Date.now()}:${Math.random().toString(36).slice(2,9)}`;
+    const doc = Object.assign({}, entry, { _id: id });
+
+    if (db && typeof db.put === 'function') {
+      try {
+        const savedLocal = await saveLocalEntry(doc);
+        const existing = Array.isArray(window.__LAST_ENTRIES__) ? [...window.__LAST_ENTRIES__] : [];
+        window.__LAST_ENTRIES__ = [savedLocal, ...existing];
+        persistEntries(window.__LAST_ENTRIES__);
+        return savedLocal;
+      } catch (err) {
+        console.warn('PouchDB save failed, will try remote API', err);
+      }
+    }
+
+    if (apiBaseConfigured) {
+      const apiUrl = buildApiUrl('entries');
+      try {
+        const response = await fetch(apiUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify(doc)
+        });
+        if (!response.ok) throw new Error(`API save failed: ${response.status}`);
+        const saved = await response.json();
+        const existing = Array.isArray(window.__LAST_ENTRIES__) ? [...window.__LAST_ENTRIES__] : [];
+        window.__LAST_ENTRIES__ = [saved, ...existing];
+        persistEntries(window.__LAST_ENTRIES__);
+        if (db && typeof db.put === 'function') {
+          saveLocalEntry(saved).catch(() => null);
+        }
+        return saved;
+      } catch (err) {
+        console.warn('Remote save failed, falling back to localStorage', err);
+      }
+    }
+
+    try {
+      const savedLocal = await saveLocalEntry(doc);
+      const existing = Array.isArray(window.__LAST_ENTRIES__) ? [...window.__LAST_ENTRIES__] : [];
+      window.__LAST_ENTRIES__ = [savedLocal, ...existing];
+      persistEntries(window.__LAST_ENTRIES__);
+      return savedLocal;
+    } catch (err) {
+      const existing = Array.isArray(window.__LAST_ENTRIES__) ? [...window.__LAST_ENTRIES__] : [];
+      window.__LAST_ENTRIES__ = [doc, ...existing];
+      persistEntries(window.__LAST_ENTRIES__);
+      return doc;
+    }
+  }
+
+  // --- Expose helpers only if not already provided by db.js ---
+  if (!window.fetchEntries) {
+    window.fetchEntries = fetchEntries;
+  }
+  if (!window.addEntry) {
+    window.addEntry = addEntry;
+  }
+  window.isInvestmentEntry = isInvestmentEntry;
+  window.formatCurrency = formatCurrency;
+
+  function isMutualFundEntry(entry) {
+    if (!entry) return false;
+    const type = String(entry.type || '').toLowerCase();
+    if (type !== 'investment' && type !== 'saving') return false;
+    const category = String(entry.category || '').toLowerCase();
+    const notes = String(entry.notes || '').toLowerCase();
+    return category === 'mutual fund' || category.includes('mutual') || notes.includes('mutual fund') || notes.includes('mutual');
+  }
+
+  function classifyMutualFundEntry(entry) {
+    const subtype = String(entry?.subtype || '').trim().toLowerCase();
+    if (subtype === 'profit') return 'profit';
+    if (subtype === 'sell') return 'sell';
+    if (subtype === 'yearly-total') return 'yearly-total';
+    if (subtype) return 'buy';
+
+    const notes = String(entry?.notes || '').toLowerCase();
+    if (notes.includes('profit')) return 'profit';
+    if (notes.includes(' sell') || notes.includes('sold')) return 'sell';
+    if (notes.includes('yearly total') || notes.includes('year total')) return 'yearly-total';
+    return 'buy';
+  }
+
+  function getMutualFundSummary(entries = []) {
+    const summary = { bought: 0, invested: 0, growth: 0, sold: 0, combined: 0, byYear: {} };
+    const mutualFundEntries = (entries || []).filter(isMutualFundEntry);
+    const yearsWithDetailedTransactions = new Set(mutualFundEntries
+      .filter(entry => classifyMutualFundEntry(entry) !== 'yearly-total')
+      .map(entry => new Date(entry.date).getFullYear())
+      .filter(Number.isFinite));
+
+    mutualFundEntries.forEach(entry => {
+      const amount = Number(entry.amount) || 0;
+      const kind = classifyMutualFundEntry(entry);
+      const entryYear = new Date(entry.date).getFullYear();
+      if (kind === 'yearly-total' && yearsWithDetailedTransactions.has(entryYear)) return;
+      if (kind === 'profit') {
+        summary.growth += amount;
+      } else if (kind === 'sell') {
+        summary.invested -= amount;
+        summary.sold += amount;
+      } else {
+        summary.bought += amount;
+        summary.invested += amount;
+      }
+    });
+    summary.combined = summary.bought + summary.growth;
+    return summary;
+  }
+
+  window.classifyMutualFundEntry = classifyMutualFundEntry;
+  window.isMutualFundEntry = isMutualFundEntry;
+  window.getMutualFundSummary = getMutualFundSummary;
+
+  // --- Summary cards (balance/savings/expenses) ---
+  function getExpenseTotals(entries = []) {
+    // Keep this formula identical to Expense's computeBankTotal: all balance
+    // entries less all expense/trip entries, with missing banks as ICICI.
+    const bankOf = (e) => e.bank || 'ICICI';
+    const netForBank = (bankName) => {
+      const bankEntries = entries.filter(e => bankOf(e) === bankName);
+      const bal = bankEntries.filter(e => String(e.type || '').toLowerCase() === 'balance').reduce((s, e) => s + (Number(e.amount) || 0), 0);
+      const exp = bankEntries.filter(e => ['expense', 'trip'].includes(String(e.type || '').toLowerCase())).reduce((s, e) => s + (Number(e.amount) || 0), 0);
+      return bal - exp;
+    };
+
+    const iciciNet = netForBank('ICICI');
+    const sbiNet = netForBank('SBI');
+    const bobNet = Math.max(0, netForBank('Bank of Baroda'));
+
+    const totalExpense = entries
+      .filter(e => ['expense', 'trip'].includes(String(e.type || '').toLowerCase()) && isCurrentMonthEntry(e.date))
+      .reduce((s, e) => s + (Number(e.amount) || 0), 0);
+
+    return {
+      // Home "Balance" card: all three banks, net of each bank's expenses.
+      totalBalance: iciciNet + sbiNet + bobNet,
+      totalExpense,
+      // Keep the shared bank saving total aligned with Expense's three cards.
+      totalSaving: [iciciNet, sbiNet, bobNet].reduce((sum, balance) => sum + balance, 0),
+      iciciNet,
+      sbiNet,
+      bobNet,
+    };
+  }
+
+  function getInvestmentTotals(entries = []) {
+    const investmentEntries = entries.filter(isInvestmentEntry);
+    const totals = { mutualFund: 0, lic: 0, ppf: 0, sukanya: 0 };
+    investmentEntries.forEach(e => {
+      const cat = String(e.category || '').toLowerCase();
+      const amt = Number(e.amount) || 0;
+      if (cat.includes('mutual')) return;
+      else if (cat.includes('lic')) totals.lic += amt;
+      else if (cat.includes('ppf')) totals.ppf += amt;
+      else if (cat.includes('sukanya')) totals.sukanya += amt;
+    });
+    const mutualFundSummary = getMutualFundSummary(investmentEntries);
+    totals.mutualFund = mutualFundSummary.bought + mutualFundSummary.growth;
+    return { total: Object.values(totals).reduce((a,b)=>a+b,0), byCategory: totals };
+  }
+
+  async function loadFinancialStats(optionalEntries) {
+    try {
+      const entries = Array.isArray(optionalEntries)
+        ? optionalEntries
+        : (Array.isArray(window.__LAST_ENTRIES__) ? window.__LAST_ENTRIES__ : await fetchEntries());
+
+      const balanceEl = getElementByAnyId('totalBalance');
+      const savingsEl = getElementByAnyId('savings');
+      const expensesEl = getElementByAnyId('expenses');
+      const investmentTotalEl = document.getElementById('homeInvestmentTotal');
+      const savingBankTotalEl = document.getElementById('homeSavingBankTotal');
+      const bankEls = {
+        ICICI: document.getElementById('homeIciciBalance'),
+        SBI: document.getElementById('homeSbiBalance'),
+        'Bank of Baroda': document.getElementById('homeBobBalance')
+      };
+
+      if (balanceEl) balanceEl.textContent = 'Loading…';
+      if (savingsEl) savingsEl.textContent = 'Loading…';
+      if (expensesEl) expensesEl.textContent = 'Loading…';
+
+      if (!entries || entries.length === 0) {
+        if (balanceEl) balanceEl.textContent = '₹0.00';
+        if (savingsEl) savingsEl.textContent = '₹0.00';
+        if (expensesEl) expensesEl.textContent = '₹0.00';
+        if (investmentTotalEl) investmentTotalEl.textContent = '₹0.00';
+        if (savingBankTotalEl) savingBankTotalEl.textContent = '₹0.00';
+        Object.values(bankEls).forEach(el => { if (el) el.textContent = '₹0.00'; });
+        return;
+      }
+
+      const expenseTotals = getExpenseTotals(entries);
+      const investmentTotals = getInvestmentTotals(entries);
+      // Savings combines the investment total with the remaining bank saving.
+      const savingsValue = investmentTotals.total + expenseTotals.totalSaving;
+
+      if (balanceEl) balanceEl.textContent = formatCurrency(expenseTotals.totalBalance);
+      if (expensesEl) expensesEl.textContent = formatCurrency(expenseTotals.totalExpense);
+      if (savingsEl) savingsEl.textContent = formatCurrency(savingsValue);
+      if (investmentTotalEl) investmentTotalEl.textContent = formatCurrency(investmentTotals.total);
+      if (savingBankTotalEl) savingBankTotalEl.textContent = formatCurrency(expenseTotals.totalSaving);
+      if (bankEls.ICICI) bankEls.ICICI.textContent = formatCurrency(expenseTotals.iciciNet);
+      if (bankEls.SBI) bankEls.SBI.textContent = formatCurrency(expenseTotals.sbiNet);
+      if (bankEls['Bank of Baroda']) bankEls['Bank of Baroda'].textContent = formatCurrency(expenseTotals.bobNet);
+
+      console.debug('Financial stats updated:', {
+        totalBalance: expenseTotals.totalBalance,
+        totalExpense: expenseTotals.totalExpense,
+        totalSaving: expenseTotals.totalSaving,
+        investmentTotal: investmentTotals.total,
+      });
+    } catch (err) {
+      console.error('Error loading financial stats:', err);
+      const balanceEl = getElementByAnyId('totalBalance');
+      const savingsEl = getElementByAnyId('savings');
+      const expensesEl = getElementByAnyId('expenses');
+      if (balanceEl) balanceEl.textContent = 'Error';
+      if (savingsEl) savingsEl.textContent = 'Error';
+      if (expensesEl) expensesEl.textContent = 'Error';
+    }
+  }
+
+  window.loadFinancialStats = loadFinancialStats;
+
+  // --- Charts and UI helpers (financeChart, recentActivityChart, savingsChart, last transactions) ---
+  function buildYearOptions(entries = [], selectEl) {
+    if (!selectEl) return;
+    const years = new Set();
+    (entries || []).forEach(e => {
+      const d = new Date(e.date);
+      if (!Number.isNaN(d.getFullYear())) years.add(d.getFullYear());
+    });
+    const arr = Array.from(years).sort((a, b) => b - a);
+    if (!arr.length) {
+      const now = new Date().getFullYear();
+      arr.push(now);
+    }
+    selectEl.innerHTML = arr.map(y => `<option value="${y}">${y}</option>`).join('');
+  }
+
+  const HOME_BANKS = ['ICICI', 'SBI', 'Bank of Baroda'];
+  const monthLabels = Array.from({ length: 12 }, (_, i) => new Date(0, i).toLocaleString('en-IN', { month: 'short' }));
+
+  function getExpensePageMonthlyTotals(entries = [], year, month = null) {
+    const totals = Object.fromEntries(HOME_BANKS.map(bank => [bank, { balance: 0, expense: 0 }]));
+    (entries || []).forEach(entry => {
+      const date = parseLocalDate(entry.date);
+      if (Number.isNaN(date.getTime()) || date.getFullYear() !== Number(year)) return;
+      if (month !== null && date.getMonth() !== Number(month)) return;
+      const bank = HOME_BANKS.includes(entry.bank) ? entry.bank : 'ICICI';
+      const type = String(entry.type || '').toLowerCase();
+      const amount = Number(entry.amount) || 0;
+      if (type === 'balance' || type === 'income') totals[bank].balance += amount;
+      if (type === 'expense' || type === 'trip') totals[bank].expense += amount;
+    });
+    return totals;
+  }
+
+  function getMonthlyBankTotals(entries = [], year, month = null) {
+    return getExpensePageMonthlyTotals(entries, year, month);
+  }
+
+  function getMonthlySeries(entries = [], year, bank = null) {
+    const currentDate = new Date();
+    const currentTotals = Number(year) === currentDate.getFullYear() ? getExpenseTotals(entries) : null;
+    const currentValues = currentTotals ? {
+      ICICI: currentTotals.iciciNet,
+      SBI: currentTotals.sbiNet,
+      'Bank of Baroda': currentTotals.bobNet
+    } : null;
+    return Array.from({ length: 12 }, (_, month) => {
+      const totals = getMonthlyBankTotals(entries, year, month);
+      const banks = Array.isArray(bank) ? bank : (bank ? [bank] : HOME_BANKS);
+      return banks.reduce((sum, name) => {
+        if (currentValues && month === currentDate.getMonth()) return sum + currentValues[name];
+        const net = totals[name].balance - totals[name].expense;
+        return sum + (name === 'Bank of Baroda' ? Math.max(0, net) : net);
+      }, 0);
+    });
+  }
+
+  function destroyChart(name) {
+    if (window[name]) {
+      try { window[name].destroy(); } catch (e) { /* ignore */ }
+    }
+  }
+
+  function renderMiniTrend(canvasId, instanceName, entries, year, values, color, label, showLegend = false) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas || !window.Chart) return;
+    destroyChart(instanceName);
+    window[instanceName] = new Chart(canvas.getContext('2d'), {
+      type: 'line',
+      data: { labels: monthLabels, datasets: [{ label, data: values, borderColor: color, backgroundColor: `${color}22`, fill: true, tension: 0.35, pointRadius: 0, borderWidth: 2 }] },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: showLegend, position: 'bottom', labels: { usePointStyle: true, boxWidth: 8, padding: 10 } }, tooltip: { enabled: true } },
+        scales: { x: { display: false }, y: { display: false, beginAtZero: true } }
+      }
+    });
+  }
+
+  function updateHomeSummaryCharts(entries = [], year) {
+    const totalsByBank = HOME_BANKS.map(bank => getMonthlySeries(entries, year, bank));
+    renderMiniTrend('balanceTrendChart', 'balanceTrendChartInstance', entries, year, totalsByBank[0], '#087f5b', 'ICICI', true);
+    const balanceCanvas = document.getElementById('balanceTrendChart');
+    if (balanceCanvas && window.balanceTrendChartInstance) {
+      window.balanceTrendChartInstance.data.datasets = HOME_BANKS.map((bank, index) => ({
+        label: bank, data: totalsByBank[index], borderColor: ['#087f5b', '#2f7fb8', '#c97a2e'][index], backgroundColor: 'transparent', fill: false, tension: 0.35, pointRadius: 0, borderWidth: 2
+      }));
+      window.balanceTrendChartInstance.update();
+    }
+    renderMiniTrend('savingsTrendChart', 'savingsTrendChartInstance', entries, year, getMonthlySeries(entries, year), '#2f7fb8', 'Savings');
+    renderMiniTrend('expenseTrendChart', 'expenseTrendChartInstance', entries, year, Array.from({ length: 12 }, (_, month) => HOME_BANKS.reduce((sum, bank) => sum + getMonthlyBankTotals(entries, year, month)[bank].expense, 0)), '#d1503f', 'Expenses');
+  }
+
+  function updateFinanceChartYear(entries = [], year = (new Date()).getFullYear(), month = (new Date()).getMonth()) {
+    try {
+      const canvas = document.getElementById('financeChart');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+
+      const totals = getMonthlyBankTotals(entries, year, month);
+      const now = new Date();
+      const isCurrentMonth = Number(year) === now.getFullYear() && Number(month) === now.getMonth();
+      // Balance slice: for the CURRENT month, mirror the Expense page's
+      // Yearly Summary (which shows the live top-card totals for "now");
+      // for any other month, use that month's own balance entries - same as
+      // the Expense page's per-month rows.
+      const expenseTotals = isCurrentMonth ? getExpenseTotals(entries) : null;
+      const balanceValues = isCurrentMonth
+        ? [expenseTotals.iciciNet, expenseTotals.sbiNet, expenseTotals.bobNet]
+        : HOME_BANKS.map(bank => totals[bank].balance - totals[bank].expense);
+      const expenseValues = HOME_BANKS.map(bank => totals[bank].expense);
+      const values = [...balanceValues, ...expenseValues];
+      const labels = HOME_BANKS.map(bank => `${bank} balance`).concat(HOME_BANKS.map(bank => `${bank} expense`));
+      const colors = ['#087f5b', '#2f7fb8', '#c97a2e', '#66b89a', '#74aeda', '#e48b49'];
+      destroyChart('financeChartInstance');
+
+      window.financeChartInstance = new Chart(ctx, {
+        type: 'pie',
+        data: { labels, datasets: [{ data: values, backgroundColor: colors, borderColor: 'var(--surface-raised)', borderWidth: 3 }] },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { position: 'bottom' }, tooltip: { callbacks: { label: context => `${context.label}: ${formatCurrency(context.raw)}` } } }
+        }
+      });
+      const totalBalance = balanceValues.reduce((sum, value) => sum + value, 0);
+      const totalExpense = expenseValues.reduce((sum, value) => sum + value, 0);
+      const summary = document.getElementById('financeSummary');
+      if (summary) {
+        summary.innerHTML = `<div class="stat-total"><span>Total balance</span><strong>${formatCurrency(totalBalance)}</strong></div><div class="stat-total"><span>Total expense</span><strong>${formatCurrency(totalExpense)}</strong></div>${HOME_BANKS.map((bank, index) => `<div class="stat-bank"><span><i style="background:${colors[index]}"></i>${bank}</span><span>${formatCurrency(balanceValues[index])} <small>${totalBalance ? Math.round(balanceValues[index] / totalBalance * 100) : 0}% balance</small><br>${formatCurrency(expenseValues[index])} <small>${totalExpense ? Math.round(expenseValues[index] / totalExpense * 100) : 0}% expense</small></span></div>`).join('')}`;
+      }
+    } catch (err) {
+      console.warn('updateFinanceChartYear failed', err);
+    }
+  }
+
+  function renderLastTransactionsForDate(entries = [], dateISO = null) {
+    const txTable = getElementByAnyId('lastTx');
+    if (!txTable) return;
+
+    const targetDate = dateISO ? parseLocalDate(dateISO) : new Date();
+    if (Number.isNaN(targetDate.getTime())) {
+      txTable.innerHTML = '<thead><tr><th>Name</th><th>Category</th><th>Bank</th><th>Date</th><th>Amount</th><th>Payment Type</th></tr></thead><tbody><tr><td colspan="6">Invalid date</td></tr></tbody>';
+      return;
+    }
+    const y = targetDate.getFullYear();
+    const m = targetDate.getMonth();
+    const d = targetDate.getDate();
+
+    // Last Transaction reflects only the Expense sub-pages (Monthly Expense
+    // and Trip Expense). Investment sub-page entries (Mutual Fund, LIC, PPF,
+    // Sukanya Yojana) and "Add Total Balance" deposits are intentionally
+    // excluded here.
+    const filtered = (entries || []).filter(e => {
+      const type = String(e.type || '').toLowerCase();
+      if (type !== 'expense' && type !== 'trip') return false;
+      const ed = parseLocalDate(e.date);
+      if (Number.isNaN(ed.getTime())) return false;
+      return ed.getFullYear() === y && ed.getMonth() === m && ed.getDate() === d;
+    }).sort((a,b) => new Date(b.date) - new Date(a.date));
+
+    const THEAD = '<thead><tr><th>Name</th><th>Category</th><th>Bank</th><th>Date</th><th>Amount</th><th>Payment Type</th></tr></thead>';
+
+    if (!filtered.length) {
+      txTable.innerHTML = `${THEAD}<tbody><tr><td colspan="6">No transactions</td></tr></tbody>`;
       return;
     }
 
-    investmentTableBody.innerHTML = entries.map(entry => {
-      const amount = typeof entry.amount === 'number' ? entry.amount.toFixed(2) : entry.amount;
-      return `
-        <tr>
-          <td>${entry.category || entry.type || 'Investment'}</td>
-          <td>${amount}</td>
-          <td>${new Date(entry.date).toLocaleString()}</td>
-        </tr>
-      `;
+    const rows = filtered.map(entry => {
+      const amount = Number(entry.amount) || 0;
+      const sign = amount < 0 ? '-' : '';
+      const type = String(entry.type || '').toLowerCase();
+      const rowClass = type === 'trip' ? 'transaction-expense' : 'transaction-neutral';
+      // Same fields the Monthly Expense "Daily Purchases" table uses:
+      // name, category, bank, date, amount, payment method.
+      const name = entry.name || entry.category || 'Item';
+      const category = entry.category || (type === 'trip' ? 'Trip' : '—');
+      const bank = entry.bank || '—';
+      const paymentType = entry.paymentMethod || entry.payment || '—';
+      return `<tr class="${rowClass}"><td>${escapeHtml(name)}</td><td>${escapeHtml(category)}</td><td>${escapeHtml(bank)}</td><td>${formatTransactionDate(entry.date)}</td><td>${sign}${formatCurrency(Math.abs(amount))}</td><td>${escapeHtml(paymentType)}</td></tr>`;
     }).join('');
+
+    txTable.innerHTML = `${THEAD}<tbody>${rows}</tbody>`;
   }
 
-  async function loadInvestments() {
-    const entries = await fetchEntries().catch(() => []);
-    const investments = entries.filter(entry => entry.type === 'investment');
-    console.log(`Loaded ${investments.length} investments`, investments);
-    renderInvestments(investments);
+  function getTransactionSource(entry) {
+    if (isInvestmentEntry(entry)) {
+      const category = `${entry.category || ''} ${entry.notes || ''}`.trim();
+      if (/mutual/i.test(category)) return 'Mutual Fund';
+      if (/lic/i.test(category)) return 'LIC';
+      if (/ppf/i.test(category)) return 'PPF';
+      if (/sukanya/i.test(category)) return 'Sukanya';
+      return 'Investment';
+    }
+    const type = String(entry.type || '').toLowerCase();
+    if (type === 'trip') return 'Trip Expense';
+    if (type === 'expense') return 'Expense';
+    if (type === 'income' || type === 'balance') return 'Income';
+    return entry.category || 'Other';
   }
 
-  if (investmentForm) {
-    refreshInvestmentsCallback = loadInvestments;
-    await syncPendingEntries();
-    loadInvestments();
-
-    investmentForm.addEventListener('submit', async event => {
-      event.preventDefault();
-      const type = document.getElementById('investmentType').value;
-      const amount = parseFloat(document.getElementById('investmentAmount').value);
-      if (Number.isNaN(amount) || amount <= 0) return;
-
-      const entry = {
-        type: 'investment',
-        category: type,
-        amount,
-        date: new Date().toISOString(),
-        notes: `Investment: ${type}`
-      };
-
-      const saved = await addEntry(entry);
-      loadInvestments();
-      investmentForm.reset();
-      console.log('Investment saved', saved);
-    });
+  function getTransactionDescription(entry) {
+    const notes = String(entry.notes || '').trim();
+    if (notes) return notes;
+    const category = String(entry.category || '').trim();
+    if (category) return category;
+    return String(entry.type || 'Transaction');
   }
-});
+
+  function formatTransactionDate(value) {
+    const date = parseLocalDate(value);
+    return Number.isNaN(date.getTime()) ? '—' : date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+  }
+
+  function escapeHtml(value) {
+    return String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+  }
+
+  function updateRecentActivityChart(entries = [], year = (new Date()).getFullYear()) {
+    try {
+      const canvas = document.getElementById('recentActivityChart');
+      const totalEl = document.getElementById('monthlyExpenseTotal');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+
+      const expenseByMonth = new Array(12).fill(0);
+      (entries || []).forEach(e => {
+        const d = new Date(e.date);
+        if (Number.isNaN(d.getTime())) return;
+        if (d.getFullYear() !== Number(year)) return;
+        const t = normalizeEntryType(e);
+        if (t === 'expense' || t === 'trip') expenseByMonth[d.getMonth()] += Math.abs(Number(e.amount) || 0);
+      });
+
+      const monthLabels = Array.from({length:12}, (_,i) => new Date(0,i).toLocaleString('en-IN',{month:'short'}));
+      const totalExpense = expenseByMonth.reduce((a,b)=>a+b,0);
+      if (totalEl) totalEl.textContent = `Total monthly expense (year ${year}): ${formatCurrency(totalExpense)}`;
+
+      if (window.recentActivityChartInstance) {
+        try { window.recentActivityChartInstance.destroy(); } catch(e){/*ignore*/} 
+      }
+
+      window.recentActivityChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: monthLabels,
+          datasets: [{
+            label: `Monthly Expense ${year}`,
+            data: expenseByMonth,
+            borderColor: '#e74c3c',
+            backgroundColor: 'rgba(231,76,60,0.15)',
+            fill: true,
+            tension: 0.3
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: { y: { beginAtZero: true } }
+        }
+      });
+    } catch (err) {
+      console.warn('updateRecentActivityChart failed', err);
+    }
+  }
+
+  function updateSavingsChart(entries = [], year = (new Date()).getFullYear(), bank = 'All') {
+    try {
+      const canvas = document.getElementById('savingsChart');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+
+      const savingsByMonth = getMonthlySeries(entries, year, bank === 'All' ? HOME_BANKS : bank);
+      destroyChart('savingsChartInstance');
+
+      window.savingsChartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: monthLabels,
+          datasets: [{
+            label: `${bank === 'All' ? 'All banks' : bank} savings ${year}`,
+            data: savingsByMonth,
+            backgroundColor: '#3498db'
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: { y: { beginAtZero: true } }
+        }
+      });
+    } catch (err) {
+      console.warn('updateSavingsChart failed', err);
+    }
+  }
+
+  // --- Initialize selectors and wire UI ---
+  function initSelectorsAndUI(entries = []) {
+    const lastTxDateInput = document.getElementById('lastTxDate');
+    const activityYearSelector = document.getElementById('activityYear');
+    const savingsYearSelector = document.getElementById('savingsYear');
+    const savingsBankSelector = document.getElementById('savingsBank');
+    const chartPeriodSelector = document.getElementById('chartPeriod');
+
+    const now = new Date();
+    const todayISO = now.toISOString().slice(0,10);
+    if (lastTxDateInput) {
+      lastTxDateInput.value = todayISO;
+      lastTxDateInput.max = todayISO;
+    }
+    if (chartPeriodSelector) chartPeriodSelector.value = todayISO.slice(0, 7);
+
+    const yearsSet = new Set((entries || []).map(e => {
+      const d = new Date(e.date);
+      return Number.isNaN(d.getFullYear()) ? null : d.getFullYear();
+    }).filter(Boolean));
+    const years = Array.from(yearsSet).sort((a,b)=>b-a);
+    if (!years.length) years.push(now.getFullYear());
+
+    const yearOptionsHtml = years.map(y => `<option value="${y}">${y}</option>`).join('');
+    if (activityYearSelector) activityYearSelector.innerHTML = yearOptionsHtml;
+    if (savingsYearSelector) savingsYearSelector.innerHTML = yearOptionsHtml;
+
+    if (activityYearSelector && !activityYearSelector.value) activityYearSelector.value = now.getFullYear();
+    if (savingsYearSelector && !savingsYearSelector.value) savingsYearSelector.value = now.getFullYear();
+
+    function refreshAll() {
+      const dateVal = lastTxDateInput ? lastTxDateInput.value : todayISO;
+      renderLastTransactionsForDate(entries, dateVal);
+
+      const actYear = activityYearSelector ? Number(activityYearSelector.value) : now.getFullYear();
+      updateRecentActivityChart(entries, actYear);
+
+      const savYear = savingsYearSelector ? Number(savingsYearSelector.value) : now.getFullYear();
+      const savingsBank = savingsBankSelector ? savingsBankSelector.value : 'All';
+      updateSavingsChart(entries, savYear, savingsBank);
+
+      const period = chartPeriodSelector && chartPeriodSelector.value ? chartPeriodSelector.value : `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+      const [chartYear, chartMonth] = period.split('-').map(Number);
+      updateFinanceChartYear(entries, chartYear, chartMonth - 1);
+      updateHomeSummaryCharts(entries, chartYear);
+      const savingsCardYear = document.getElementById('savingsCardYear');
+      const expensesCardYear = document.getElementById('expensesCardYear');
+      if (savingsCardYear) savingsCardYear.textContent = chartYear;
+      if (expensesCardYear) expensesCardYear.textContent = chartYear;
+    }
+
+    if (lastTxDateInput) lastTxDateInput.addEventListener('change', refreshAll);
+    if (activityYearSelector) activityYearSelector.addEventListener('change', refreshAll);
+    if (savingsYearSelector) savingsYearSelector.addEventListener('change', refreshAll);
+    if (savingsBankSelector) savingsBankSelector.addEventListener('change', refreshAll);
+    if (chartPeriodSelector) chartPeriodSelector.addEventListener('change', refreshAll);
+
+    refreshAll();
+
+    const topbarRight = document.getElementById('topbarRight') || getElementByAnyId('topbarRight', 'topbar-right');
+    const currentUser = getCurrentUser();
+    if (topbarRight && currentUser) {
+      const badge = document.createElement('div');
+      badge.className = 'user-badge';
+      badge.style.display = 'flex';
+      badge.style.alignItems = 'center';
+      badge.style.gap = '8px';
+      badge.innerHTML = `<span class="name" style="font-weight:600;color:#ecf0f1">${escapeHtml(currentUser.username)}</span><a class="logout-link" href="${appPageUrl('logout.html')}" style="color:#e74c3c;text-decoration:none">Logout</a>`;
+      topbarRight.appendChild(badge);
+    }
+  }
+
+  // --- Run once after window load ---
+  window.addEventListener('load', async () => {
+    try {
+      const requireLogin = (typeof window.__REQUIRE_LOGIN__ === 'boolean') ? window.__REQUIRE_LOGIN__ : true;
+      const currentUser = getCurrentUser();
+      if (requireLogin && !currentUser) {
+        if (!/login\.html$/i.test(window.location.pathname)) {
+          window.location.href = appPageUrl('login.html');
+          return;
+        }
+      }
+
+      const entries = await fetchEntries();
+      if (Array.isArray(entries) && entries.length) {
+        window.__LAST_ENTRIES__ = entries;
+        persistEntries(entries);
+      } else {
+        window.__LAST_ENTRIES__ = readStoredEntries();
+      }
+      await loadFinancialStats(window.__LAST_ENTRIES__ || []);
+      initSelectorsAndUI(window.__LAST_ENTRIES__ || []);
+    } catch (err) {
+      console.warn('Initial load failed', err);
+      const cached = readStoredEntries();
+      window.__LAST_ENTRIES__ = cached;
+      await loadFinancialStats(cached);
+      initSelectorsAndUI(cached);
+    }
+  });
+
+  // Expose for debugging
+  window._app_helpers = {
+    getUsersDB,
+    saveLocalEntry,
+    fetchEntries,
+    addEntry
+  };
+
+})();

@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Logout</title>
+  <link rel="stylesheet" href="../style.css">
+  <style>
+    .logout-wrap { max-width:520px; margin:80px auto; text-align:center; }
+    .logout-wrap p { color:#ecf0f1; }
+    .logout-wrap a { display:inline-block; margin-top:12px; padding:10px 14px; border-radius:8px; background:#1abc9c; color:#fff; text-decoration:none; }
+  </style>
+</head>
+<body>
+  <div class="logout-wrap">
+    <h2 style="color:#ecf0f1">Logging out…</h2>
+    <p id="logoutMsg">Please wait while we sign you out.</p>
+    <a id="backHome" href="../../index.html" style="display:none">Return to Home</a>
+  </div>
+
+  <script>
+    // Clear local session and redirect to login page
+    (function(){
+      try {
+        if (window.logoutUser && typeof window.logoutUser === 'function') {
+          window.logoutUser();
+        } else {
+          sessionStorage.removeItem('finance-tracker:current-user');
+          sessionStorage.removeItem('finance-tracker:couch-sync-credentials');
+          window.__CURRENT_USER__ = null;
+        }
+      } catch(e) {
+        console.warn('logout error', e);
+      }
+      // show message and redirect to login page after short delay
+      const loginPath = 'login.html';
+      const backHome = document.getElementById('backHome');
+      setTimeout(() => {
+        // If login page exists, go there; otherwise go to root index
+        try {
+          window.location.href = loginPath;
+        } catch {
+          window.location.href = '../../index.html';
+        }
+      }, 800);
+    })();
+  </script>
+</body>
+</html>

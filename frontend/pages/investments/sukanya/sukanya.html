@@ -1,0 +1,134 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Sukanya Yojana</title>
+  <link rel="stylesheet" href="../../../style.css">
+  <link rel="stylesheet" href="sukanya.css">
+  <link rel="stylesheet" href="../../../ui-refinement.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- Core libraries -->
+  <script src="https://unpkg.com/pouchdb@7.3.1/dist/pouchdb.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <!-- App + DB layer -->
+  <script src="../../../config.js" defer></script>
+  <script src="../../../db.js" defer></script>
+  <script src="../../../app.js" defer></script>
+  <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js" defer></script>
+
+  <!-- Page-specific logic -->
+  <script src="sukanya.js" defer></script>
+</head>
+
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand"><h1>Wealty</h1></div>
+      <nav class="main-menu">
+        <a href="../../../../index.html">🏠 Home</a>
+        <a href="../../budget/budget.html">📊 Budget</a>
+        <a href="../../expense/expense.html">💸 Expense</a>
+        <div class="submenu">
+          <a href="../investments.html" class="submenu-toggle">📈 Investments ▾</a>
+          <ul class="submenu-list">
+            <li><a href="../mutualfund/mutualfund.html">Mutual Fund</a></li>
+            <li><a href="../lic/lic.html">LIC</a></li>
+            <li><a href="../ppf/ppf.html">PPF</a></li>
+            <li><a href="sukanya.html" class="active">Sukanya Yojana</a></li>
+          </ul>
+        </div>
+        <a href="../../report.html">📑 Report</a>
+      </nav>
+      <div class="sidebar-footer">
+        <a href="../../settings.html">⚙️ Settings</a>
+        <a href="../../logout.html">🚪 Logout</a>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar"><h2>Sukanya Yojana Fund Details</h2></header>
+      <section class="content">
+        <!-- Summary cards -->
+        <div class="cards">
+          <div class="card"><h3>Total Investment</h3><p id="sukanyaTotalInvested">₹0.00</p></div>
+          <div class="card"><h3>Total Growth</h3><p id="sukanyaTotalGrowth">₹0.00</p></div>
+        </div>
+
+        <!-- Growth chart: yearly line graph -->
+        <div class="card">
+          <h3>Sukanya Growth (Year on Year)</h3>
+          <div class="chart same-size">
+            <canvas id="sukanyaGrowthChart" aria-label="Yearly Sukanya growth"></canvas>
+          </div>
+        </div>
+
+        <!-- Add Monthly Investment (single form: investment or profit) -->
+        <div class="card">
+          <h3>Add Monthly Investment</h3>
+          <form id="sukanyaInvestmentForm" class="investment-form">
+            <div class="form-grid">
+              <div id="sukanyaMonthWrapper">
+                <label for="sukanyaMonth">Month &amp; Year</label>
+                <input id="sukanyaMonth" type="month" required />
+              </div>
+              <div id="sukanyaYearWrapper" style="display:none;">
+                <label for="sukanyaProfitYear">Year</label>
+                <select id="sukanyaProfitYear"></select>
+              </div>
+              <div>
+                <label for="sukanyaBank">Bank</label>
+                <select id="sukanyaBank">
+                  <option value="ICICI" selected>ICICI</option>
+                  <option value="SBI">SBI</option>
+                </select>
+              </div>
+              <div>
+                <label for="sukanyaEntryType">Investment Type</label>
+                <select id="sukanyaEntryType">
+                  <option value="investment" selected>Investment</option>
+                  <option value="profit">Profit</option>
+                </select>
+              </div>
+              <div>
+                <label for="sukanyaAmount">Amount</label>
+                <input id="sukanyaAmount" type="number" min="0" step="0.01" required />
+              </div>
+            </div>
+            <p class="form-hint" id="sukanyaProfitHint" style="display:none;">Profit is recorded once for the whole year — pick the year and enter the total yearly profit.</p>
+            <button type="submit">Add Entry</button>
+          </form>
+        </div>
+
+        <!-- Monthly Summary -->
+        <div class="card">
+          <h3>Monthly Sukanya Summary</h3>
+          <div class="table-controls">
+            <label for="sukanyaMonthYearFilter">Filter Month &amp; Year</label>
+            <input id="sukanyaMonthYearFilter" type="month" />
+            <button type="button" id="sukanyaClearFilterBtn" class="secondary-btn">Show All</button>
+            <button type="button" id="sukanyaExportBtn" class="secondary-btn">Export Excel</button>
+            <label class="secondary-btn" for="sukanyaImportInput" style="display:inline-block; cursor:pointer;">Import Excel</label>
+            <input id="sukanyaImportInput" type="file" accept=".xlsx,.xls,.csv" style="display:none;" />
+          </div>
+          <div class="table-scroll">
+            <table id="sukanyaTable" class="investment-table">
+              <thead>
+                <tr>
+                  <th>Month-Year</th>
+                  <th>Investment Name</th>
+                  <th>Bank</th>
+                  <th>Monthly Invested</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody><tr><td colspan="5">No data yet</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+</body>
+</html>

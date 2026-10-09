@@ -1,0 +1,145 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>PPF</title>
+  <link rel="stylesheet" href="../../../style.css">
+  <link rel="stylesheet" href="ppf.css">
+  <link rel="stylesheet" href="../../../ui-refinement.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- Core libraries -->
+  <script src="https://unpkg.com/pouchdb@7.3.1/dist/pouchdb.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <!-- App + DB layer -->
+  <script src="../../../config.js" defer></script>
+  <script src="../../../db.js" defer></script>
+  <script src="../../../app.js" defer></script>
+  <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js" defer></script>
+
+  <!-- Page-specific logic -->
+  <script src="ppf.js" defer></script>
+</head>
+
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand"><h1>Wealty</h1></div>
+      <nav class="main-menu">
+        <a href="../../../../index.html">🏠 Home</a>
+        <a href="../../budget/budget.html">📊 Budget</a>
+        <a href="../../expense/expense.html">💸 Expense</a>
+        <div class="submenu">
+          <a href="../investments.html" class="submenu-toggle">📈 Investments ▾</a>
+          <ul class="submenu-list">
+            <li><a href="../mutualfund/mutualfund.html">Mutual Fund</a></li>
+            <li><a href="../lic/lic.html">LIC</a></li>
+            <li><a href="ppf.html" class="active">PPF</a></li>
+            <li><a href="../sukanya/sukanya.html">Sukanya Yojana</a></li>
+          </ul>
+        </div>
+        <a href="../../report.html">📑 Report</a>
+      </nav>
+      <div class="sidebar-footer">
+        <a href="../../settings.html">⚙️ Settings</a>
+        <a href="../../logout.html">🚪 Logout</a>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar"><h2>PPF Fund Details</h2></header>
+      <section class="content">
+        <!-- Summary cards -->
+        <div class="cards">
+          <div class="card"><h3>Total Investment</h3><p id="ppfTotalInvested">₹0.00</p></div>
+          <div class="card"><h3>Total Growth</h3><p id="ppfTotalGrowth">₹0.00</p></div>
+        </div>
+
+        <!-- PPF Growth chart: yearly line graph -->
+        <div class="card">
+          <h3>PPF Growth (Year on Year)</h3>
+          <div class="chart same-size">
+            <canvas id="ppfGrowthChart" aria-label="Yearly PPF growth"></canvas>
+          </div>
+        </div>
+
+        <!-- Add Monthly Investment -->
+        <div class="card">
+          <h3>Add Monthly Investment</h3>
+          <form id="ppfInvestmentForm" class="investment-form">
+            <div class="form-grid">
+              <div>
+                <label for="ppfInvestmentMonth">Month &amp; Year</label>
+                <div id="ppfInvestmentMonthWrapper"><input id="ppfInvestmentMonth" type="month" required /></div>
+              </div>
+              <div id="ppfProfitYearWrapper" style="display:none;">
+                <label for="ppfProfitYear">Profit Year</label>
+                <select id="ppfProfitYear"></select>
+              </div>
+              <div>
+                <label for="ppfCategory">Category</label>
+                <select id="ppfCategory">
+                  <option value="investment" selected>Investment</option>
+                  <option value="profit">Profit</option>
+                </select>
+              </div>
+              <div>
+                <label for="ppfBank">Bank</label>
+                <select id="ppfBank">
+                  <option value="ICICI" selected>ICICI</option>
+                  <option value="SBI">SBI</option>
+                </select>
+              </div>
+              <div>
+                <label for="ppfAmount">Amount</label>
+                <input id="ppfAmount" type="number" min="0" step="0.01" required />
+              </div>
+            </div>
+            <p id="ppfProfitHint" class="form-hint" style="display:none;">Profit is recorded once for the whole year. Select the year and enter the yearly profit.</p>
+            <button type="submit">Add Investment</button>
+          </form>
+        </div>
+
+        <!-- Monthly PPF Summary table -->
+        <div class="card">
+          <h3>Monthly PPF Summary</h3>
+          <div class="table-controls">
+            <label for="ppfSummaryYear">Year</label>
+            <select id="ppfSummaryYear"></select>
+            <label for="ppfSummaryMonth">Month</label>
+            <select id="ppfSummaryMonth">
+              <option value="all">All Months</option>
+              <option value="0">January</option><option value="1">February</option><option value="2">March</option>
+              <option value="3">April</option><option value="4">May</option><option value="5">June</option>
+              <option value="6">July</option><option value="7">August</option><option value="8">September</option>
+              <option value="9">October</option><option value="10">November</option><option value="11">December</option>
+            </select>
+            <button type="button" id="ppfClearFilterBtn" class="secondary-btn">Show All</button>
+            <button type="button" id="ppfExportBtn" class="secondary-btn">Export Excel</button>
+            <label class="secondary-btn" for="ppfImportInput" style="display:inline-block; cursor:pointer;">Import Excel</label>
+            <input id="ppfImportInput" type="file" accept=".xlsx,.xls,.csv" style="display:none;" />
+          </div>
+          <div class="table-scroll">
+            <table id="ppfTable" class="investment-table">
+              <thead>
+                <tr>
+                  <th>Month-Year</th>
+                  <th>Investment Name</th>
+                  <th>Bank</th>
+                  <th>Monthly Invested</th>
+                  <th>Total Profit</th>
+                  <th>Growth %</th>
+                  <th>Total Amount</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody><tr><td colspan="8">No data yet</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+</body>
+</html>

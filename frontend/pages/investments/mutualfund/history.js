@@ -1,0 +1,596 @@
+// history.js - Mutual Fund old-data / history sub-page (final fixes)
+// - Ensures the Yearly Growth chart shows each year on the x-axis
+// - Displays cumulative bought, sold, and growth line series
+// - Clarifies yearly-total behavior: yearly total = invested amount only (profit recorded separately)
+
+document.addEventListener('DOMContentLoaded', async () => {
+  const boughtEl = document.getElementById('historyTotalBought');
+  const soldEl = document.getElementById('historyTotalSold');
+  const netEl = document.getElementById('historyNetInvested');
+  const growthEl = document.getElementById('historyTotalGrowth');
+  const tableBody = document.querySelector('#historyTable tbody');
+  const yearFilter = document.getElementById('historyYearFilter');
+  const monthFilter = document.getElementById('historyMonthFilter');
+  const form = document.getElementById('historyForm');
+  const exportBtn = document.getElementById('historyExportBtn');
+  const importInput = document.getElementById('historyImportInput');
+  const cancelEditBtn = document.getElementById('historyCancelEdit');
+  const editingIdInput = document.getElementById('historyEditingId');
+  const submitBtn = document.getElementById('historySubmitBtn');
+  const typeEl = document.getElementById('historyType');
+  const amountEl = document.getElementById('historyAmount');
+  const dateEl = document.getElementById('historyDate');
+  const dateWrapper = document.getElementById('historyDateWrapper');
+  const profitYearWrapper = document.getElementById('historyProfitYearWrapper');
+  const profitYearSelect = document.getElementById('historyProfitYear');
+  const notesEl = document.getElementById('historyNotes');
+
+  // Elements for custom fund support and yearly controls
+  const fundSelect = document.getElementById('historyFund');
+  const fundUserSelect = document.getElementById('historyFundUser');
+  const customFundInput = document.getElementById('customFundInput');
+  const yearlyToggle = document.getElementById('historyYearlyToggle');
+  const yearInput = document.getElementById('historyYearInput');
+  const yearAmountInput = document.getElementById('historyYearAmount');
+  const bulkTextarea = document.getElementById('historyYearlyBulk');
+
+  function getFundUser(entry) {
+    return entry.fundUser ? String(entry.fundUser) : 'Amitesh';
+  }
+
+  function formatINR(amount) {
+    return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(Number(amount) || 0);
+  }
+
+  function isMutualFundEntry(e) {
+    if (typeof window.isMutualFundEntry === 'function') return window.isMutualFundEntry(e);
+    if (!e) return false;
+    const type = String(e.type || '').toLowerCase();
+    if (type !== 'investment' && type !== 'saving') return false;
+    const category = String(e.category || '').toLowerCase();
+    const notes = String(e.notes || '').toLowerCase();
+    return category === 'mutual fund' || category.includes('mutual') || notes.includes('mutual fund') || notes.includes('mutual');
+  }
+
+  // Classify a mutual fund entry as 'buy' | 'sell' | 'profit' | 'yearly-total'.
+  //
+  // Bug fix: previously this OR'd the explicit `subtype` field together with
+  // a notes-text keyword scan (e.g. `subtype === 'sell' || notes.includes('sold')`).
+  // That meant a deliberately-tagged buy (subtype: 'investment') could still get
+  // reclassified as a sell/profit purely because its free-text Notes happened to
+  // mention a word like "sold" (e.g. "switched after old scheme sold") — quietly
+  // pulling real buy amounts out of Total Bought. An explicit subtype is now
+  // trusted completely; the notes scan only runs as a fallback for older
+  // entries that predate the subtype field.
+  function classify(e) {
+    const subtype = e.subtype;
+    if (subtype) {
+      if (subtype === 'profit') return 'profit';
+      if (subtype === 'sell') return 'sell';
+      if (subtype === 'yearly-total') return 'yearly-total';
+      return 'buy';
+    }
+    const notes = String(e.notes || '').toLowerCase();
+    if (notes.includes('profit')) return 'profit';
+    if (notes.includes(' sell') || notes.includes('sold')) return 'sell';
+    if (notes.includes('yearly total') || notes.includes('year total')) return 'yearly-total';
+    return 'buy';
+  }
+
+  let allEntries = [];
+
+  function populateProfitYears() {
+    if (!profitYearSelect) return;
+    const years = new Set([new Date().getFullYear()]);
+    allEntries.forEach(entry => {
+      const year = new Date(entry.date).getFullYear();
+      if (Number.isFinite(year)) years.add(year);
+    });
+    profitYearSelect.innerHTML = [...years].sort((a, b) => b - a)
+      .map(year => `<option value="${year}">${year}</option>`).join('');
+  }
+
+  function updateTransactionTypeUI() {
+    const isProfit = typeEl?.value === 'profit';
+    if (dateWrapper) dateWrapper.style.display = isProfit ? 'none' : '';
+    if (profitYearWrapper) profitYearWrapper.style.display = isProfit ? '' : 'none';
+    if (dateEl) dateEl.required = !isProfit;
+    if (profitYearSelect) profitYearSelect.required = isProfit;
+  }
+
+  if (typeEl) {
+    typeEl.addEventListener('change', updateTransactionTypeUI);
+    updateTransactionTypeUI();
+  }
+
+  function renderSummary(entries) {
+    const summary = typeof window.getMutualFundSummary === 'function'
+      ? window.getMutualFundSummary(entries)
+      : { bought: 0, invested: 0, sold: 0, growth: 0 };
+    const { bought, invested, sold, growth } = summary;
+    if (boughtEl) boughtEl.textContent = formatINR(bought);
+    if (soldEl) soldEl.textContent = formatINR(sold);
+    if (netEl) netEl.textContent = formatINR(invested);
+    if (growthEl) growthEl.textContent = formatINR(growth);
+  }
+
+  function populateYearFilter(entries) {
+    const years = [...new Set(entries.map(e => {
+      const d = new Date(e.date);
+      return Number.isNaN(d.getFullYear()) ? null : d.getFullYear();
+    }).filter(Boolean))].sort((a, b) => b - a);
+
+    const currentYear = new Date().getFullYear();
+    const opts = ['<option value="all">All years</option>']
+      .concat(years.map(y => `<option value="${y}">${y}</option>`))
+      .join('');
+    if (yearFilter) yearFilter.innerHTML = opts;
+    if (yearFilter) yearFilter.value = years.includes(currentYear) ? String(currentYear) : 'all';
+  }
+
+  function renderTable(entries, selectedYear, selectedMonth = 'all') {
+    let filtered = entries.slice().sort((a, b) => new Date(b.date) - new Date(a.date));
+    if (selectedYear && selectedYear !== 'all') {
+      filtered = filtered.filter(e => new Date(e.date).getFullYear() === Number(selectedYear));
+    }
+    if (selectedMonth && selectedMonth !== 'all') {
+      filtered = filtered.filter(e => new Date(e.date).getMonth() === Number(selectedMonth));
+    }
+
+    if (!tableBody) return;
+
+    if (filtered.length === 0) {
+      tableBody.innerHTML = '<tr><td colspan="7">No transactions yet</td></tr>';
+      return;
+    }
+
+    tableBody.innerHTML = filtered.map(e => {
+      const kind = classify(e);
+      const label = kind === 'profit' ? 'Profit' : kind === 'sell' ? 'Sell' : kind === 'yearly-total' ? 'Yearly Total' : 'Buy';
+      const fund = e.fund || (e.notes && e.notes.split(' —')[0].replace(/\s(buy|sell|profit)$/i, '')) || e.category || 'Mutual Fund';
+      const fundUser = getFundUser(e);
+      const dateStr = new Date(e.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+      return `
+        <tr data-id="${e._id || e.id || ''}">
+          <td data-label="Date">${dateStr}</td>
+          <td data-label="Fund">${escapeHtml(String(fund || '—'))}</td>
+          <td data-label="Fund User">${escapeHtml(fundUser)}</td>
+          <td data-label="Type"><span class="tx-type tx-type--${kind === 'yearly-total' ? 'buy' : kind}">${label}</span></td>
+          <td data-label="Amount">${formatINR(e.amount)}</td>
+          <td data-label="Notes">${escapeHtml(e.notes || '—')}</td>
+          <td data-label="Actions">
+            <button type="button" class="edit-entry-btn" data-id="${e._id || e.id || ''}">Edit</button>
+            <button type="button" class="delete-entry-btn" data-id="${e._id || e.id || ''}">Delete</button>
+          </td>
+        </tr>`;
+    }).join('');
+
+    tableBody.querySelectorAll('.delete-entry-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const id = btn.dataset.id;
+        if (!id || !confirm('Delete this transaction?')) return;
+        try {
+          await window.deleteEntry(id);
+          await loadAndRender();
+        } catch (err) {
+          console.error('Failed to delete MF history entry', err);
+        }
+      });
+    });
+
+    tableBody.querySelectorAll('.edit-entry-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const id = btn.dataset.id;
+        const entry = allEntries.find(item => (item._id || item.id) === id);
+        if (!entry) return;
+        if (fundSelect) fundSelect.value = entry.fund || 'Other';
+        if (fundUserSelect) fundUserSelect.value = getFundUser(entry);
+        if (customFundInput && fundSelect && fundSelect.value === 'Other') customFundInput.value = entry.fund || '';
+        if (yearlyToggle) yearlyToggle.checked = classify(entry) === 'yearly-total';
+        if (typeEl) typeEl.value = classify(entry) === 'profit' ? 'profit' : classify(entry) === 'sell' ? 'sell' : 'buy';
+        updateTransactionTypeUI();
+        if (amountEl) amountEl.value = entry.amount || '';
+        if (dateEl) dateEl.value = new Date(entry.date).toISOString().slice(0, 10);
+        if (profitYearSelect) profitYearSelect.value = String(new Date(entry.date).getFullYear());
+        if (notesEl) notesEl.value = entry.notes || '';
+        if (editingIdInput) editingIdInput.value = id;
+        if (cancelEditBtn) cancelEditBtn.style.display = 'inline-block';
+        if (submitBtn) submitBtn.textContent = 'Update Entry';
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      });
+    });
+  }
+
+  function renderYearlyChart(entries) {
+    const canvas = document.getElementById('yearlyGrowthChart');
+    if (!canvas || typeof Chart === 'undefined') return;
+
+    const start = new Date(2017, 6, 1);
+    const now = new Date();
+    const end = new Date(now.getFullYear(), now.getMonth(), 1);
+    const months = [];
+    for (let cursor = new Date(start); cursor <= end; cursor.setMonth(cursor.getMonth() + 1)) {
+      months.push(new Date(cursor));
+    }
+
+    const labels = months.map(date => date.toLocaleDateString('en-IN', { month: 'short', year: 'numeric' }));
+    let boughtTotal = 0;
+    let soldTotal = 0;
+    let growthTotal = 0;
+    const totals = months.map(month => {
+      entries.forEach(entry => {
+        const date = new Date(entry.date);
+        if (date.getFullYear() !== month.getFullYear() || date.getMonth() !== month.getMonth()) return;
+        const amount = Number(entry.amount) || 0;
+        const kind = classify(entry);
+        if (kind === 'profit') growthTotal += amount;
+        else if (kind === 'sell') soldTotal += amount;
+        else boughtTotal += amount;
+      });
+      return { bought: boughtTotal, sold: soldTotal, growth: growthTotal };
+    });
+
+    const ctx = canvas.getContext('2d');
+    if (window.historyYearlyChart && typeof window.historyYearlyChart.destroy === 'function') {
+      window.historyYearlyChart.destroy();
+    }
+
+    window.historyYearlyChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [
+          {
+            label: 'Total Bought',
+            data: totals.map(item => item.bought),
+            borderColor: '#1abc9c',
+            backgroundColor: 'rgba(26,188,156,0.12)',
+            tension: 0.25,
+            pointRadius: 0,
+            pointHitRadius: 12,
+            fill: false
+          },
+          {
+            label: 'Total Sold',
+            data: totals.map(item => item.sold),
+            borderColor: '#e74c3c',
+            backgroundColor: 'rgba(231,76,60,0.12)',
+            tension: 0.25,
+            pointRadius: 0,
+            pointHitRadius: 12,
+            fill: false
+          },
+          {
+            label: 'Total Growth',
+            data: totals.map(item => item.growth),
+            borderColor: '#3498db',
+            backgroundColor: 'rgba(52,152,219,0.12)',
+            tension: 0.25,
+            pointRadius: 0,
+            pointHitRadius: 12,
+            fill: false
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'top' },
+          tooltip: {
+            callbacks: {
+              label: (ctx) => formatINR(ctx.parsed.y)
+            }
+          }
+        },
+        scales: {
+          x: {
+            stacked: false,
+            ticks: {
+              autoSkip: true,
+              maxTicksLimit: 12,
+              maxRotation: 0,
+              minRotation: 0
+            }
+          },
+          y: {
+            beginAtZero: true,
+            ticks: {
+              callback: v => formatINR(v)
+            }
+          }
+        }
+      }
+    });
+  }
+
+  // Utility: escape HTML for table output
+  function escapeHtml(str) {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
+  // Load entries from DB and render UI
+  async function loadAndRender() {
+    if (typeof window.fetchEntries !== 'function') {
+      console.error('fetchEntries is not defined');
+      return;
+    }
+    const entries = await window.fetchEntries().catch(() => []);
+    // Keep only mutual fund related entries
+    allEntries = entries.filter(isMutualFundEntry);
+
+    renderSummary(allEntries);
+    populateYearFilter(allEntries);
+    populateProfitYears();
+
+    const selectedYear = yearFilter ? yearFilter.value : 'all';
+    const selectedMonth = monthFilter ? monthFilter.value : 'all';
+    renderTable(allEntries, selectedYear, selectedMonth);
+    renderYearlyChart(allEntries);
+  }
+
+  // Year / month filter change handlers
+  if (yearFilter) {
+    yearFilter.addEventListener('change', () => {
+      renderTable(allEntries, yearFilter.value, monthFilter ? monthFilter.value : 'all');
+    });
+  }
+  if (monthFilter) {
+    monthFilter.addEventListener('change', () => {
+      renderTable(allEntries, yearFilter ? yearFilter.value : 'all', monthFilter.value);
+    });
+  }
+
+  function exportTransactionsToExcel(entries) {
+    if (!window.XLSX) {
+      alert('Excel export library is not loaded.');
+      return;
+    }
+    const rows = entries.map(e => ({
+      'TXN DATE': new Date(e.date).toISOString().slice(0, 10),
+      'SCHEME NAME': e.fund || e.notes || 'Mutual Fund',
+      'FUND USER': getFundUser(e),
+      'AMOUNT': Number(e.amount) || 0,
+      'BANK': e.bank || e.notes || 'N/A'
+    }));
+    const ws = window.XLSX.utils.json_to_sheet(rows);
+    const wb = window.XLSX.utils.book_new();
+    window.XLSX.utils.book_append_sheet(wb, ws, 'Mutual Fund History');
+    window.XLSX.writeFile(wb, 'mutual-fund-history.xlsx');
+  }
+
+  function importTransactionsFromExcel(file) {
+    if (!file || !window.XLSX) return;
+    const reader = new FileReader();
+    reader.onload = async (evt) => {
+      try {
+        const data = new Uint8Array(evt.target.result);
+        const workbook = window.XLSX.read(data, { type: 'array' });
+        const ws = workbook.Sheets[workbook.SheetNames[0]];
+        const rows = window.XLSX.utils.sheet_to_json(ws, { raw: false, defval: '' });
+        const validation = window.validateExcelImportRows(rows, {
+          dateAliases: ['TXN DATE', 'Txn Date', 'Date', 'DATE'],
+          amountAliases: ['AMOUNT', 'Amount', 'Policy Amount', 'POLICY AMOUNT'],
+          bankAliases: ['BANK', 'Bank']
+        });
+
+        if (validation.issues.length > 0) {
+          alert(`Mutual Fund Excel import failed. ${validation.issues[0]}`);
+          return;
+        }
+
+        for (const row of validation.validRows) {
+          const scheme = row.raw['SCHEME NAME'] || row.raw['Scheme Name'] || row.raw['SCHEME'] || row.raw['Fund Name'] || 'Mutual Fund';
+          const fundUser = row.raw['FUND USER'] || row.raw['Fund User'] || 'Amitesh';
+          const entry = {
+            type: 'saving',
+            category: 'Mutual Fund',
+            subtype: 'investment',
+            amount: row.amount,
+            currency: 'INR',
+            date: row.date,
+            fund: String(scheme),
+            fundUser: String(fundUser),
+            bank: String(row.bank || 'N/A'),
+            notes: `Imported from Excel - ${String(scheme)}`
+          };
+          await window.addEntry(entry);
+        }
+        await loadAndRender();
+      } catch (err) {
+        console.error('Excel import failed', err);
+        alert('Mutual Fund Excel import failed. Please verify the file columns match TXN DATE, SCHEME NAME, AMOUNT, and BANK.');
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  }
+
+  if (exportBtn) exportBtn.addEventListener('click', () => exportTransactionsToExcel(allEntries));
+  if (importInput) importInput.addEventListener('change', (e) => { const file = e.target.files && e.target.files[0]; if (file) importTransactionsFromExcel(file); e.target.value = ''; });
+
+  // Form submit handler: supports custom fund name, single-year yearly totals, and bulk yearly totals
+  if (form) {
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+
+      // Determine fund name (respect custom fund input if present)
+      const fundRaw = fundSelect ? fundSelect.value : '';
+      let fundName = fundRaw;
+      if (fundRaw === 'Other' && customFundInput) {
+        const customVal = (customFundInput.value || '').trim();
+        if (!customVal) {
+          customFundInput.focus();
+          return;
+        }
+        fundName = customVal;
+      }
+
+      // Standard fields
+      const typeEl = document.getElementById('historyType');
+      const amountEl = document.getElementById('historyAmount');
+      const dateEl = document.getElementById('historyDate');
+      const notesEl = document.getElementById('historyNotes');
+
+      const type = typeEl ? typeEl.value : 'buy';
+      const amount = amountEl ? parseFloat(amountEl.value) : NaN;
+      const dateVal = dateEl ? dateEl.value : '';
+      const notesInput = notesEl ? notesEl.value.trim() : '';
+
+      // Helper to create and add an entry object via window.addEntry
+      async function addEntryObject(entryObj) {
+        if (typeof window.addEntry === 'function') {
+          await window.addEntry(entryObj);
+        } else {
+          console.error('addEntry is not defined');
+        }
+      }
+
+      const editingId = editingIdInput ? editingIdInput.value : '';
+      if (editingId) {
+        const payload = {
+          type: 'saving',
+          category: 'Mutual Fund',
+          subtype: type === 'sell' ? 'sell' : type === 'profit' ? 'profit' : 'investment',
+          amount: Number(amount) || 0,
+          currency: 'INR',
+          date: type === 'profit'
+            ? new Date(Number(profitYearSelect.value), 0, 1).toISOString()
+            : new Date(dateVal).toISOString(),
+          fund: fundName,
+          notes: notesInput || `Mutual Fund ${type}`,
+          bank: 'N/A',
+          fundUser: fundUserSelect ? fundUserSelect.value : 'Amitesh'
+        };
+        await window.updateEntry(editingId, payload);
+        form.reset();
+        if (cancelEditBtn) cancelEditBtn.style.display = 'none';
+        if (submitBtn) submitBtn.textContent = 'Add Entry';
+        if (editingIdInput) editingIdInput.value = '';
+        await loadAndRender();
+        return;
+      }
+
+      // Bulk yearly textarea handling
+      if (bulkTextarea && bulkTextarea.value && bulkTextarea.value.trim()) {
+        const lines = bulkTextarea.value.split('\n').map(l => l.trim()).filter(Boolean);
+        const parsed = [];
+        for (const line of lines) {
+          const m = line.match(/^(\d{4})\s*[:\-]?\s*([\d,.\s]+)$/);
+          if (!m) continue;
+          const yr = Number(m[1]);
+          const amtStr = m[2].replace(/,/g, '').trim();
+          const amt = parseFloat(amtStr);
+          if (Number.isNaN(yr) || Number.isNaN(amt)) continue;
+          parsed.push({ year: yr, amount: amt });
+        }
+
+        if (!parsed.length) {
+          bulkTextarea.focus();
+          return;
+        }
+
+        for (const p of parsed) {
+          const entry = {
+            type: 'saving',
+            category: 'Mutual Fund',
+            subtype: 'yearly-total',
+            amount: p.amount,
+            currency: 'INR',
+            date: new Date(p.year, 0, 1).toISOString(),
+            fund: `Yearly Total (${p.year})`,
+            fundUser: fundUserSelect ? fundUserSelect.value : 'Amitesh',
+            notes: `Yearly total for ${p.year}`
+          };
+          await addEntryObject(entry);
+        }
+
+        form.reset();
+        if (customFundInput) customFundInput.value = '';
+        if (bulkTextarea) bulkTextarea.value = '';
+        await loadAndRender();
+        return;
+      }
+
+      // Single-year yearly total handling
+      if (yearlyToggle && yearlyToggle.checked) {
+        const yr = yearInput ? Number(yearInput.value) : NaN;
+        const yrAmt = yearAmountInput ? parseFloat(yearAmountInput.value) : NaN;
+        if (Number.isNaN(yr) || Number.isNaN(yrAmt) || yr <= 0) {
+          if (yearInput) yearInput.focus();
+          return;
+        }
+        const entry = {
+          type: 'saving',
+          category: 'Mutual Fund',
+          subtype: 'yearly-total',
+          amount: yrAmt,
+          currency: 'INR',
+          date: new Date(yr, 0, 1).toISOString(),
+          fund: `Yearly Total (${yr})`,
+          fundUser: fundUserSelect ? fundUserSelect.value : 'Amitesh',
+          notes: `Yearly total for ${yr}`
+        };
+        await addEntryObject(entry);
+        form.reset();
+        if (customFundInput) customFundInput.value = '';
+        await loadAndRender();
+        return;
+      }
+
+      // Otherwise, normal dated transaction
+      const profitYear = profitYearSelect ? Number(profitYearSelect.value) : NaN;
+      if (Number.isNaN(amount) || amount <= 0 || (type === 'profit' ? !Number.isFinite(profitYear) : !dateVal)) {
+        if (amountEl) amountEl.focus();
+        return;
+      }
+
+      const subtype = type === 'sell' ? 'sell' : type === 'profit' ? 'profit' : 'investment';
+      const actionLabel = type === 'sell' ? 'sell' : type === 'profit' ? 'profit' : 'buy';
+      const notes = `${fundName} ${actionLabel}${notesInput ? ' — ' + notesInput : ''}`;
+
+      const entry = {
+        type: 'saving',
+        category: 'Mutual Fund',
+        subtype,
+        amount,
+        currency: 'INR',
+        date: type === 'profit' ? new Date(profitYear, 0, 1).toISOString() : new Date(dateVal).toISOString(),
+        fund: fundName,
+        fundUser: fundUserSelect ? fundUserSelect.value : 'Amitesh',
+        notes
+      };
+
+      await addEntryObject(entry);
+      form.reset();
+      if (customFundInput) customFundInput.value = '';
+      updateTransactionTypeUI();
+      await loadAndRender();
+    });
+  }
+
+  // Show/hide custom fund input when user selects "Other"
+  if (fundSelect && customFundInput) {
+    const customWrapper = document.getElementById('customFundWrapper');
+    fundSelect.addEventListener('change', () => {
+      if (fundSelect.value === 'Other') {
+        if (customWrapper) customWrapper.style.display = 'block';
+        customFundInput.focus();
+      } else {
+        if (customWrapper) customWrapper.style.display = 'none';
+        customFundInput.value = '';
+      }
+    });
+    if (fundSelect.value === 'Other' && customFundInput) {
+      const customWrapperEl = document.getElementById('customFundWrapper');
+      if (customWrapperEl) customWrapperEl.style.display = 'block';
+    }
+  }
+
+  // Initial load
+  await loadAndRender();
+});
