@@ -14,7 +14,7 @@
   // IMPORTANT: No CouchDB credentials belong in this file.
   window.__CONFIG__ = {
     couchHost: 'bias-fed-seems-recognized.trycloudflare.com',
-    couchDbName: 'finance',
+    couchDbName: 'finance-test',
     apiBase: window.__API_BASE__,
     requireLogin: true,
     allowRemoteUserSync: false
