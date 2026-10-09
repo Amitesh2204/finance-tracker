@@ -165,6 +165,7 @@
     }
   </style>
   <script src="https://unpkg.com/pouchdb@7.3.1/dist/pouchdb.min.js"></script>
+  <script src="../config.js"></script>
 </head>
 <body>
   <div class="center-wrap">
@@ -226,7 +227,6 @@
       </div>
     </div>
   </div>
-
   <script>
     (function () {
       // Utility: show/hide error
@@ -268,7 +268,7 @@
         document.getElementById('username').focus();
       });
 
-      // Helper: fallback simple hash (same as app.js)
+      // Legacy hash retained only for existing users during migration.
       function fallbackHash(s) {
         let h = 2166136261 >>> 0;
         for (let i = 0; i < s.length; i++) {
@@ -276,6 +276,79 @@
           h = Math.imul(h, 16777619);
         }
         return (h >>> 0).toString(16);
+      }
+
+      function bytesToBase64(bytes) {
+        let binary = '';
+        for (const byte of bytes) binary += String.fromCharCode(byte);
+        return btoa(binary);
+      }
+
+      function base64ToBytes(value) {
+        const binary = atob(value);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) {
+          bytes[i] = binary.charCodeAt(i);
+        }
+        return bytes;
+      }
+
+      async function securePasswordHash(password, saltBytes) {
+        if (!window.crypto?.subtle) {
+          throw new Error('Secure password hashing is unavailable in this browser.');
+        }
+
+        const salt = saltBytes || crypto.getRandomValues(new Uint8Array(16));
+        const material = await window.crypto.subtle.importKey(
+          'raw',
+          new TextEncoder().encode(password),
+          'PBKDF2',
+          false,
+          ['deriveBits']
+        );
+
+        const bits = await window.crypto.subtle.deriveBits(
+          {
+            name: 'PBKDF2',
+            salt,
+            iterations: 150000,
+            hash: 'SHA-256'
+          },
+          material,
+          256
+        );
+
+        return {
+          algorithm: 'PBKDF2-SHA-256',
+          iterations: 150000,
+          salt: bytesToBase64(salt),
+          hash: bytesToBase64(new Uint8Array(bits))
+        };
+      }
+
+      function constantTimeEqual(a, b) {
+        if (typeof a !== 'string' || typeof b !== 'string') return false;
+
+        let diff = a.length ^ b.length;
+        const length = Math.max(a.length, b.length);
+
+        for (let i = 0; i < length; i++) {
+          diff |= (a.charCodeAt(i) || 0) ^ (b.charCodeAt(i) || 0);
+        }
+
+        return diff === 0;
+      }
+
+      async function verifyPassword(doc, password) {
+        if (doc.passwordHashV2?.hash && doc.passwordHashV2?.salt) {
+          const result = await securePasswordHash(
+            password,
+            base64ToBytes(doc.passwordHashV2.salt)
+          );
+          return constantTimeEqual(result.hash, doc.passwordHashV2.hash);
+        }
+
+        return doc.passwordHash === fallbackHash(password);
       }
 
       // Login handler
@@ -311,17 +384,26 @@
               }
             }
             if (!doc) throw new Error('User not found');
-            const hash = (window.simpleHash && typeof window.simpleHash === 'function') ? window.simpleHash(password) : fallbackHash(password);
-            if (doc.passwordHash !== hash) throw new Error('Invalid credentials');
+            const validPassword = await verifyPassword(doc, password);
+            if (!validPassword) throw new Error('Invalid credentials');
+
+            if (!doc.passwordHashV2) {
+              doc.passwordHashV2 = await securePasswordHash(password);
+              delete doc.passwordHash;
+              await usersDb.put(doc);
+            }
+
             const user = { username: doc.username, email: doc.email, id: doc._id };
-            localStorage.setItem('finance-tracker:current-user', JSON.stringify(user));
+            sessionStorage.setItem('finance-tracker:current-user', JSON.stringify(user));
             window.__CURRENT_USER__ = user;
           }
 
           // Redirect to home (preserve origin)
           const base = (window.location.pathname || '').replace(/\/[^/]*$/, '/../../').replace(/\/\/+/g, '/');
           // Simpler redirect to root index
-          window.location.href = '../../index.html';
+          const path = window.location.pathname || '/';
+          const appRoot = window.__APP_BASE_PATH__ || (path.includes('/frontend/') ? path.split('/frontend/')[0] + '/' : '/');
+          window.location.href = `${appRoot}index.html`;
         } catch (err) {
           showError('error', err && err.message ? err.message : 'Login failed');
         }
@@ -337,6 +419,10 @@
           showError('regError', 'Please enter username and password.');
           return;
         }
+        if (password.length < 8) {
+          showError('regError', 'Password must be at least 8 characters.');
+          return;
+        }
 
         try {
           if (window.registerUser && typeof window.registerUser === 'function') {
@@ -346,12 +432,12 @@
             const id = 'user:' + username.toLowerCase();
             const existing = await usersDb.get(id).catch(() => null);
             if (existing) throw new Error('User already exists');
-            const passwordHash = (window.simpleHash && typeof window.simpleHash === 'function') ? window.simpleHash(password) : fallbackHash(password);
+            const passwordHashV2 = await securePasswordHash(password);
             await usersDb.put({
               _id: id,
               username,
               email: email || '',
-              passwordHash,
+              passwordHashV2,
               createdAt: new Date().toISOString()
             });
           }
@@ -367,12 +453,13 @@
           showError('regError', err && err.message ? err.message : 'Registration failed');
         }
       });
-
       // If already logged in, redirect to home
       try {
-        const cur = (window.getCurrentUser && typeof window.getCurrentUser === 'function') ? window.getCurrentUser() : JSON.parse(localStorage.getItem('finance-tracker:current-user') || 'null');
+        const cur = (window.getCurrentUser && typeof window.getCurrentUser === 'function') ? window.getCurrentUser() : JSON.parse(sessionStorage.getItem('finance-tracker:current-user') || 'null');
         if (cur) {
-          window.location.href = '../../index.html';
+          const path = window.location.pathname || '/';
+          const appRoot = window.__APP_BASE_PATH__ || (path.includes('/frontend/') ? path.split('/frontend/')[0] + '/' : '/');
+          window.location.href = `${appRoot}index.html`;
         }
       } catch (e) {
         // ignore parse errors

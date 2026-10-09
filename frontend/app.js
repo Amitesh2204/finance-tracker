@@ -267,81 +267,34 @@
     }
   }
 
+  // --- Application URL helpers ---
+  function getAppBasePath() {
+    const configured = window.__APP_BASE_PATH__;
+    if (configured) {
+      return configured.endsWith('/') ? configured : `${configured}/`;
+    }
+
+    const path = window.location.pathname || '/';
+
+    if (path.includes('/frontend/')) {
+      return path.split('/frontend/')[0] + '/';
+    }
+
+    return '/';
+  }
+
+  function appPageUrl(page) {
+    return `${getAppBasePath()}frontend/pages/${page}`;
+  }
   // --- Users DB helper (PouchDB) ---
-  // Returns a PouchDB instance for users and ensures replication/sync to remote if configured.
-  // This implementation parses credentials from __USERS_COUCH__ or __CONFIG__.couchAuth and sets remoteOpts.auth explicitly.
+  // The users DB and CouchDB authentication are managed by frontend/db.js.
+  // CouchDB credentials are supplied at runtime and are never embedded here.
   function getUsersDB() {
     try {
       if (window.financeUsersDB) return window.financeUsersDB;
+
       const usersDb = new PouchDB(USERS_DB_NAME);
       window.financeUsersDB = usersDb;
-
-      // Determine remote users URL and auth
-      let remoteUsersUrl = null;
-      const cfg = window.__CONFIG__ || {};
-      if (typeof window.__USERS_COUCH__ === 'string' && window.__USERS_COUCH__.trim()) {
-        remoteUsersUrl = window.__USERS_COUCH__.trim();
-      } else if (cfg.couchHost) {
-        remoteUsersUrl = `https://${cfg.couchHost}/finance-users`;
-      }
-
-      const remoteOpts = { skip_setup: true };
-
-      // Parse credentials from URL if present and set remoteOpts.auth explicitly
-      try {
-        if (remoteUsersUrl) {
-          try {
-            const parsed = new URL(remoteUsersUrl);
-            if (parsed.username || parsed.password) {
-              remoteOpts.auth = {
-                username: decodeURIComponent(parsed.username || ''),
-                password: decodeURIComponent(parsed.password || '')
-              };
-              // remove credentials from URL to avoid browser quirks
-              parsed.username = '';
-              parsed.password = '';
-              remoteUsersUrl = parsed.toString();
-            }
-          } catch (e) {
-            // ignore parse errors and fall back to cfg.couchAuth
-          }
-        }
-        if (!remoteOpts.auth && cfg.couchAuth && cfg.couchAuth.username && cfg.couchAuth.password) {
-          remoteOpts.auth = { username: cfg.couchAuth.username, password: cfg.couchAuth.password };
-        }
-      } catch (e) {
-        console.warn('getUsersDB credential parsing failed', e);
-      }
-
-      if (remoteUsersUrl) {
-        try {
-          const remote = new PouchDB(remoteUsersUrl, remoteOpts);
-          // start live sync so changes replicate both ways
-          usersDb.sync(remote, { live: true, retry: true })
-            .on('change', info => console.debug('Users DB sync change', info))
-            .on('paused', info => console.debug('Users DB sync paused', info))
-            .on('active', info => console.debug('Users DB sync active', info))
-            .on('denied', info => console.warn('Users DB sync denied', info))
-            .on('error', err => console.error('Users DB sync error', err));
-          console.debug('getUsersDB: usersDb.sync started', { remoteUsersUrl, hasAuth: !!remoteOpts.auth });
-        } catch (e) {
-          console.warn('Users DB live sync setup failed', e);
-        }
-      } else {
-        console.debug('getUsersDB: no remote users URL configured; users will remain local until configured');
-      }
-
-      // Create a Mango index on email to speed up email lookups (safe to call repeatedly)
-      (async () => {
-        try {
-          if (typeof usersDb.createIndex === 'function') {
-            await usersDb.createIndex({ index: { fields: ['email'] } }).catch(() => null);
-          }
-        } catch (e) {
-          console.warn('usersDb.createIndex failed', e);
-        }
-      })();
-
       return usersDb;
     } catch (err) {
       console.warn('getUsersDB failed', err);
@@ -349,217 +302,194 @@
     }
   }
 
-  // Helper: replicate.to with retries and exponential backoff
-  async function replicateToRemoteWithRetries(localDb, remoteUrl, remoteOpts = {}, maxAttempts = 4) {
-    if (!localDb || !remoteUrl) throw new Error('replicateToRemoteWithRetries: missing args');
-    let attempt = 0;
-    let lastErr = null;
-    while (attempt < maxAttempts) {
-      attempt++;
-      try {
-        console.debug(`replicateToRemoteWithRetries: attempt ${attempt} -> ${remoteUrl}`);
-        await localDb.replicate.to(new PouchDB(remoteUrl, Object.assign({ skip_setup: true }, remoteOpts)));
-        console.debug('replicateToRemoteWithRetries: success');
-        return true;
-      } catch (err) {
-        lastErr = err;
-        console.warn(`replicate attempt ${attempt} failed`, err);
-        const waitMs = Math.min(2000 * Math.pow(2, attempt - 1), 15000);
-        await new Promise(res => setTimeout(res, waitMs));
-      }
-    }
-    throw lastErr || new Error('replicateToRemoteWithRetries: failed after retries');
-  }
-
-  // Helper: replicate.from with retries (pull latest docs before login)
-  async function replicateFromRemoteWithRetries(localDb, remoteUrl, remoteOpts = {}, maxAttempts = 3) {
-    if (!localDb || !remoteUrl) throw new Error('replicateFromRemoteWithRetries: missing args');
-    let attempt = 0;
-    let lastErr = null;
-    while (attempt < maxAttempts) {
-      attempt++;
-      try {
-        console.debug(`replicateFromRemoteWithRetries: attempt ${attempt} -> ${remoteUrl}`);
-        await localDb.replicate.from(new PouchDB(remoteUrl, Object.assign({ skip_setup: true }, remoteOpts)));
-        console.debug('replicateFromRemoteWithRetries: success');
-        return true;
-      } catch (err) {
-        lastErr = err;
-        console.warn(`replicate.from attempt ${attempt} failed`, err);
-        const waitMs = Math.min(1000 * Math.pow(2, attempt - 1), 8000);
-        await new Promise(res => setTimeout(res, waitMs));
-      }
-    }
-    throw lastErr || new Error('replicateFromRemoteWithRetries: failed after retries');
-  }
-
-  // --- Authentication helpers ---
+  // Legacy hash retained only for existing accounts created before
+  // PBKDF2-SHA-256 was introduced. Successful legacy logins are upgraded.
   function simpleHash(str) {
     let h = 2166136261 >>> 0;
-    for (let i = 0; i < str.length; i++) {
-      h ^= str.charCodeAt(i);
+    for (let i = 0; i < String(str).length; i++) {
+      h ^= String(str).charCodeAt(i);
       h = Math.imul(h, 16777619);
     }
     return (h >>> 0).toString(16);
   }
 
+  function bytesToBase64(bytes) {
+    let binary = '';
+    bytes.forEach(b => binary += String.fromCharCode(b));
+    return btoa(binary);
+  }
+
+  function base64ToBytes(value) {
+    const binary = atob(value);
+    return Uint8Array.from(binary, c => c.charCodeAt(0));
+  }
+
+  async function securePasswordHash(password, saltBytes) {
+    if (!window.crypto?.subtle) {
+      throw new Error('Secure password hashing is unavailable in this browser.');
+    }
+
+    const salt = saltBytes || crypto.getRandomValues(new Uint8Array(16));
+    const material = await crypto.subtle.importKey(
+      'raw',
+      new TextEncoder().encode(password),
+      'PBKDF2',
+      false,
+      ['deriveBits']
+    );
+
+    const bits = await crypto.subtle.deriveBits(
+      {
+        name: 'PBKDF2',
+        salt,
+        iterations: 150000,
+        hash: 'SHA-256'
+      },
+      material,
+      256
+    );
+
+    return {
+      algorithm: 'PBKDF2-SHA-256',
+      iterations: 150000,
+      salt: bytesToBase64(salt),
+      hash: bytesToBase64(new Uint8Array(bits))
+    };
+  }
+
+  function constantTimeEqual(a, b) {
+    if (a.length !== b.length) return false;
+
+    let diff = 0;
+    for (let i = 0; i < a.length; i++) {
+      diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+    }
+
+    return diff === 0;
+  }
+
+  async function verifyPassword(doc, password) {
+    if (doc.passwordHashV2?.hash && doc.passwordHashV2?.salt) {
+      const result = await securePasswordHash(
+        password,
+        base64ToBytes(doc.passwordHashV2.salt)
+      );
+
+      return constantTimeEqual(result.hash, doc.passwordHashV2.hash);
+    }
+
+    return doc.passwordHash === simpleHash(password);
+  }
+
   async function registerUser({ username, email, password }) {
-    if (!username || !password) throw new Error('username and password required');
+    if (!username || !password) {
+      throw new Error('Username and password are required.');
+    }
+
+    if (password.length < 8) {
+      throw new Error('Password must be at least 8 characters.');
+    }
+
     const usersDb = getUsersDB();
     if (!usersDb) throw new Error('Users DB not available');
 
     const id = `user:${username.toLowerCase()}`;
-    try {
-      const existing = await usersDb.get(id).catch(() => null);
-      if (existing) throw new Error('User already exists');
+    const existing = await usersDb.get(id).catch(() => null);
 
-      const doc = {
-        _id: id,
-        username,
-        email: email || '',
-        passwordHash: simpleHash(password),
-        createdAt: new Date().toISOString()
-      };
-
-      await usersDb.put(doc);
-
-      // Attempt an immediate one-shot push replication to remote users DB (if configured)
-      try {
-        let remoteUsersUrl = null;
-        const cfg = window.__CONFIG__ || {};
-        if (typeof window.__USERS_COUCH__ === 'string' && window.__USERS_COUCH__.trim()) {
-          remoteUsersUrl = window.__USERS_COUCH__.trim();
-        } else if (cfg.couchHost) {
-          remoteUsersUrl = `https://${cfg.couchHost}/finance-users`;
-        }
-
-        if (remoteUsersUrl) {
-          // parse credentials from URL if present
-          const remoteOpts = {};
-          try {
-            const parsed = new URL(remoteUsersUrl);
-            if (parsed.username || parsed.password) {
-              remoteOpts.auth = {
-                username: decodeURIComponent(parsed.username || ''),
-                password: decodeURIComponent(parsed.password || '')
-              };
-              parsed.username = '';
-              parsed.password = '';
-              remoteUsersUrl = parsed.toString();
-            }
-          } catch (e) {
-            // ignore
-          }
-          if (!remoteOpts.auth && cfg.couchAuth && cfg.couchAuth.username && cfg.couchAuth.password) {
-            remoteOpts.auth = { username: cfg.couchAuth.username, password: cfg.couchAuth.password };
-          }
-
-          await replicateToRemoteWithRetries(usersDb, remoteUsersUrl, remoteOpts, 4).catch(e => {
-            console.warn('registerUser replicateToRemoteWithRetries failed', e);
-          });
-        } else {
-          console.debug('registerUser: no remoteUsersUrl configured; skipping replicate.to');
-        }
-      } catch (repErr) {
-        console.warn('User replicate.to failed', repErr);
-      }
-
-      return { ok: true, id: doc._id };
-    } catch (err) {
-      throw err;
+    if (existing) {
+      throw new Error('User already exists');
     }
+
+    const passwordHashV2 = await securePasswordHash(password);
+
+    await usersDb.put({
+      _id: id,
+      username,
+      email: email || '',
+      passwordHashV2,
+      createdAt: new Date().toISOString()
+    });
+
+    return { ok: true, id };
   }
 
   async function loginUser({ usernameOrEmail, password }) {
     const usersDb = getUsersDB();
     if (!usersDb) throw new Error('Users DB not available');
-    const pwHash = simpleHash(password || '');
-    try {
-      // Before attempting local lookup, try to pull latest from remote to ensure mobile has latest user docs
-      try {
-        let remoteUsersUrl = null;
-        const cfg = window.__CONFIG__ || {};
-        if (typeof window.__USERS_COUCH__ === 'string' && window.__USERS_COUCH__.trim()) {
-          remoteUsersUrl = window.__USERS_COUCH__.trim();
-        } else if (cfg.couchHost) {
-          remoteUsersUrl = `https://${cfg.couchHost}/finance-users`;
-        }
 
-        if (remoteUsersUrl) {
-          const remoteOpts = {};
-          try {
-            const parsed = new URL(remoteUsersUrl);
-            if (parsed.username || parsed.password) {
-              remoteOpts.auth = {
-                username: decodeURIComponent(parsed.username || ''),
-                password: decodeURIComponent(parsed.password || '')
-              };
-              parsed.username = '';
-              parsed.password = '';
-              remoteUsersUrl = parsed.toString();
-            }
-          } catch (e) {
-            // ignore
-          }
-          if (!remoteOpts.auth && cfg.couchAuth && cfg.couchAuth.username && cfg.couchAuth.password) {
-            remoteOpts.auth = { username: cfg.couchAuth.username, password: cfg.couchAuth.password };
-          }
+    const lookup = String(usernameOrEmail || '').trim();
+    let doc = null;
 
-          // Attempt a one-shot pull to get latest user docs before lookup
-          try {
-            await replicateFromRemoteWithRetries(usersDb, remoteUsersUrl, remoteOpts, 2).catch(() => null);
-          } catch (e) {
-            // ignore replicate errors; we'll still attempt local lookup
-            console.debug('loginUser: replicateFromRemoteWithRetries failed or skipped', e);
-          }
-        }
-      } catch (e) {
-        console.debug('loginUser: pre-lookup replicate attempt failed', e);
+    if (lookup.includes('@') && typeof usersDb.find === 'function') {
+      const res = await usersDb.find({
+        selector: { email: lookup }
+      }).catch(() => null);
+
+      if (res?.docs?.length) {
+        doc = res.docs[0];
       }
-
-      let doc = null;
-
-      if (usernameOrEmail && usernameOrEmail.includes('@')) {
-        if (typeof usersDb.find === 'function') {
-          try {
-            const res = await usersDb.find({ selector: { email: usernameOrEmail } }).catch(() => null);
-            if (res && res.docs && res.docs.length) doc = res.docs[0];
-          } catch (e) {
-            // ignore and fallback
-          }
-        }
-        if (!doc) {
-          const all = await usersDb.allDocs({ include_docs: true });
-          doc = all.rows.map(r => r.doc).find(d => d.email === usernameOrEmail) || null;
-        }
-      } else {
-        const id = `user:${(usernameOrEmail || '').toLowerCase()}`;
-        doc = await usersDb.get(id).catch(() => null);
-      }
-
-      if (!doc) throw new Error('User not found');
-      if (doc.passwordHash !== pwHash) throw new Error('Invalid credentials');
-
-      const user = { username: doc.username, email: doc.email, id: doc._id };
-      localStorage.setItem(USER_KEY, JSON.stringify(user));
-      window.__CURRENT_USER__ = user;
-      return user;
-    } catch (err) {
-      throw err;
     }
+
+    if (!doc && lookup.includes('@')) {
+      const all = await usersDb.allDocs({ include_docs: true });
+      doc = all.rows
+        .map(r => r.doc)
+        .find(d => d.email === lookup) || null;
+    }
+
+    if (!doc) {
+      doc = await usersDb
+        .get(`user:${lookup.toLowerCase()}`)
+        .catch(() => null);
+    }
+
+    if (!doc) {
+      throw new Error('User not found');
+    }
+
+    const validPassword = await verifyPassword(doc, password || '');
+
+    if (!validPassword) {
+      throw new Error('Invalid credentials');
+    }
+
+    // Upgrade an existing legacy simpleHash account after successful login.
+    if (!doc.passwordHashV2) {
+      doc.passwordHashV2 = await securePasswordHash(password || '');
+      delete doc.passwordHash;
+      await usersDb.put(doc);
+    }
+
+    const user = {
+      username: doc.username,
+      email: doc.email,
+      id: doc._id
+    };
+
+    sessionStorage.setItem(USER_KEY, JSON.stringify(user));
+    window.__CURRENT_USER__ = user;
+
+    return user;
   }
 
   function logoutUser() {
-    localStorage.removeItem(USER_KEY);
+    sessionStorage.removeItem(USER_KEY);
     window.__CURRENT_USER__ = null;
+
+    if (window.financeSync && typeof window.financeSync.clear === 'function') {
+      window.financeSync.clear();
+    }
+
     return true;
   }
 
   function getCurrentUser() {
     if (window.__CURRENT_USER__) return window.__CURRENT_USER__;
+
     try {
-      const raw = localStorage.getItem(USER_KEY);
+      const raw = sessionStorage.getItem(USER_KEY);
       if (!raw) return null;
+
       const parsed = JSON.parse(raw);
       window.__CURRENT_USER__ = parsed;
       return parsed;
@@ -568,7 +498,7 @@
     }
   }
 
-  // Expose auth helpers globally
+  // Expose auth helpers globally.
   window.registerUser = registerUser;
   window.loginUser = loginUser;
   window.logoutUser = logoutUser;
@@ -1300,7 +1230,7 @@
       badge.style.display = 'flex';
       badge.style.alignItems = 'center';
       badge.style.gap = '8px';
-      badge.innerHTML = `<span class="name" style="font-weight:600;color:#ecf0f1">${currentUser.username}</span><a class="logout-link" href="frontend/pages/logout.html" style="color:#e74c3c;text-decoration:none">Logout</a>`;
+      badge.innerHTML = `<span class="name" style="font-weight:600;color:#ecf0f1">${escapeHtml(currentUser.username)}</span><a class="logout-link" href="${appPageUrl('logout.html')}" style="color:#e74c3c;text-decoration:none">Logout</a>`;
       topbarRight.appendChild(badge);
     }
   }
@@ -1312,8 +1242,7 @@
       const currentUser = getCurrentUser();
       if (requireLogin && !currentUser) {
         if (!/login\.html$/i.test(window.location.pathname)) {
-          const base = (window.location.pathname || '').replace(/\/[^/]*$/, '/');
-          window.location.href = base + 'frontend/pages/login.html';
+          window.location.href = appPageUrl('login.html');
           return;
         }
       }
@@ -1339,8 +1268,6 @@
   // Expose for debugging
   window._app_helpers = {
     getUsersDB,
-    replicateToRemoteWithRetries,
-    replicateFromRemoteWithRetries,
     saveLocalEntry,
     fetchEntries,
     addEntry

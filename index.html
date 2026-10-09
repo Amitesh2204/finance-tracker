@@ -107,6 +107,13 @@
         </div>
       </header>
 
+      <section class="sync-status-bar" id="syncStatusBar" aria-live="polite">
+        ● Local-only mode ·
+        <button type="button" id="syncConfigureBtn" class="sync-config-btn">
+          Configure CouchDB sync
+        </button>
+      </section>
+
       <section class="market-ticker" id="marketTicker" aria-label="Live share market data">
         <div class="market-ticker-item" data-market-symbol="^BSESN">
           <strong class="market-ticker-name">SENSEX</strong>
@@ -237,7 +244,7 @@
 
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/sw.js')
+        navigator.serviceWorker.register('./sw.js', { scope: './' })
           .then(reg => console.log('Service worker registered', reg.scope))
           .catch(err => console.warn('Service worker registration failed', err));
       });
@@ -309,5 +316,92 @@
   <script src="frontend/charts.js" defer></script>
   <script type="module" src="frontend/app.js" defer></script>
   <script src="frontend/market-ticker.js?v=20260928-5s" defer></script>
+
+  <dialog id="syncCredentialsDialog" class="sync-dialog">
+    <form method="dialog" id="syncCredentialsForm">
+      <h3>Configure CouchDB sync</h3>
+      <p>Credentials are kept only in this browser session and are never written to <code>config.js</code>.</p>
+      <label>
+        Username
+        <input id="syncUsername" autocomplete="username" required>
+      </label>
+      <label>
+        Password
+        <input id="syncPassword" type="password" autocomplete="current-password" required>
+      </label>
+      <div class="sync-dialog-actions">
+        <button value="cancel" type="button" id="syncCancelBtn">Cancel</button>
+        <button value="default" type="submit">Connect &amp; sync</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script>
+    (function () {
+      const bar = document.getElementById('syncStatusBar');
+      const btn = document.getElementById('syncConfigureBtn');
+      const dlg = document.getElementById('syncCredentialsDialog');
+      const form = document.getElementById('syncCredentialsForm');
+
+      function render(state) {
+        if (!bar) return;
+
+        const s = state || {};
+        const labels = {
+          synced: '● Synced',
+          syncing: '◌ Syncing…',
+          'auth-required': '● Credentials required',
+          error: '● Sync error',
+          'not-configured': '● CouchDB host not configured',
+          'local-only': '● Local-only mode',
+          'signed-out': '● Sync signed out'
+        };
+
+        const text = labels[s.state] || ('● ' + (s.state || 'Ready'));
+        bar.firstChild.textContent = text + ' ';
+
+        if (btn) {
+          btn.textContent =
+            s.state === 'synced'
+              ? 'Sync settings'
+              : 'Configure CouchDB sync';
+        }
+      }
+
+      window.addEventListener('finance-sync-status', event => {
+        render(event.detail);
+      });
+
+      render(window.__FINANCE_SYNC_STATUS__);
+
+      btn?.addEventListener('click', () => {
+        dlg?.showModal();
+      });
+
+      document.getElementById('syncCancelBtn')?.addEventListener('click', () => {
+        dlg?.close();
+      });
+
+      form?.addEventListener('submit', event => {
+        event.preventDefault();
+
+        try {
+          if (!window.financeSync || typeof window.financeSync.configure !== 'function') {
+            throw new Error('CouchDB sync is not available.');
+          }
+
+          const username = document.getElementById('syncUsername').value.trim();
+          const password = document.getElementById('syncPassword').value;
+
+          window.financeSync.configure(username, password);
+
+          document.getElementById('syncPassword').value = '';
+          dlg?.close();
+        } catch (err) {
+          alert(err.message || 'Unable to configure CouchDB sync');
+        }
+      });
+    })();
+  </script>
 </body>
 </html>

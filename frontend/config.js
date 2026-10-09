@@ -1,24 +1,25 @@
-// config.js
-(function () {
+﻿(function () {
+  'use strict';
+
   const hostname = window.location.hostname || '';
   const isLocalDev = ['localhost', '127.0.0.1', '::1'].includes(hostname);
-  window.__API_BASE__ = window.__API_BASE__ || (isLocalDev ? 'http://127.0.0.1:8001' : '');
 
-  // Primary CouchDB host (used by db.js for the main finance DB)
-  // Replace couchHost with your tunnel/host. Provide credentials via couchAuth or set __USERS_COUCH__.
+  window.__APP_BASE_PATH__ = window.__APP_BASE_PATH__ ||
+    (hostname.toLowerCase() === 'amitesh2204.github.io' ? '/finance-tracker/' : '/');
+
+  window.__API_BASE__ = window.__API_BASE__ ||
+    (isLocalDev ? 'http://127.0.0.1:8001' : '');
+
+  // Production CouchDB configuration.
+  // IMPORTANT: No CouchDB credentials belong in this file.
   window.__CONFIG__ = {
-    couchHost: 'cruz-plumbing-amplifier-beef.trycloudflare.com', // replace with your tunnel host
+    couchHost: 'bias-fed-seems-recognized.trycloudflare.com',
     couchDbName: 'finance',
     apiBase: window.__API_BASE__,
-    // Recommended: store credentials here (or set window.__USERS_COUCH__ to a full URL with credentials)
-    couchAuth: {
-      username: 'admin',
-      password: 'Winter_2026'
-    }
+    requireLogin: true,
+    allowRemoteUserSync: false
   };
 
-  // Optional explicit remote users DB URL (preferred if credentials are embedded)
-  // Example: 'https://admin:password@your-tunnel/finance-users'
-  // If empty, code will derive remote users URL from __CONFIG__.couchHost and use couchAuth.
-  window.__USERS_COUCH__ = window.__USERS_COUCH__ || 'https://admin:cruz-plumbing-amplifier-beef.trycloudflare.com/finance-users';
+  // CouchDB credentials are supplied at runtime and kept only
+  // in sessionStorage by the application.
 })();
